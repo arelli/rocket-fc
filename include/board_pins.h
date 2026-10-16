@@ -9,7 +9,7 @@
 //   D4          5   I2C SDA  (MPU9250 0x68, BMP280 0x76/0x77)
 //   D5          6   I2C SCL
 //   D6         43   status LED (100R to LED anode, cathode to GND)
-//   D7         44   reserved: SD card chip select (future, shares SPI with LoRa)
+//   D7         44   GPS module TX -> UART1 RX (optional L76K, receive only)
 //   D8-D10   7-9   SPI to Wio-SX1262 (SCK, MISO, MOSI)
 //   B2B     38-42   Wio-SX1262 control (RF switch, DIO1, BUSY, NSS, RESET)
 //   B2B        21   Wio-SX1262 user button (also the XIAO's yellow LED)
@@ -41,7 +41,8 @@ constexpr int kBuzzer = 3;      // D2 (ESP32-S3 strapping pin: keep the 100k pul
 constexpr int kPyroGate = 4;    // D3
 constexpr int kStatusLed = 43;  // D6 (flickers briefly at boot: ROM log on UART0 TX)
 
-// Reserved for expansion
-constexpr int kSdCs = 44;  // D7
+// Optional GPS (L76K): its TX output into this pin (UART1 RX). An SD card
+// would need another chip-select pin (none left on the header).
+constexpr int kGpsRx = 44;  // D7
 
 }  // namespace pins

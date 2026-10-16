@@ -184,6 +184,28 @@
     <div class="gauges" id="gauges"></div>
   </section>
 
+  <section class="panel c12" id="gps-panel">
+    <h2>GPS and recovery (optional module)</h2>
+    <div class="row" style="align-items:flex-start; gap:24px">
+      <div style="min-width:280px; flex:1">
+        <div id="gps-state" class="state">—</div>
+        <table class="kv" id="gps-readouts"></table>
+        <div class="row" style="margin-top:6px">
+          <button id="btn-gps-copy">Copy position</button>
+          <a id="gps-osm" target="_blank" rel="noopener">OpenStreetMap</a>
+          <a id="gps-gmaps" target="_blank" rel="noopener">Google Maps</a>
+        </div>
+        <div class="note">Needs the GPS module on D7 (docs/HARDWARE.md) and the setting gps_mode = auto or required.
+          The position is never used for flight decisions. The last known position stays shown after the fix or the
+          link is lost. Map links need internet.</div>
+      </div>
+      <div class="plot" style="flex:2; min-width:320px">
+        <div class="p-title"><span>Track relative to the pad [m], north up</span></div>
+        <canvas id="gps-plot" style="height:260px"></canvas>
+      </div>
+    </div>
+  </section>
+
   <section class="panel c12" id="batt-panel">
     <h2>Battery and charging (flight computer)</h2>
     <div class="row" style="align-items:flex-start; gap:24px">
@@ -323,6 +345,10 @@ const TLM_COLUMNS = ['seq', 't_ms', 'state', 'alt_m', 'vel_mps', 'ax_g', 'ay_g',
   'gx_dps', 'gy_dps', 'gz_dps', 'mx_uT', 'my_uT', 'mz_uT', 'p_pa', 'temp_c', 'batt_v', 'flags',
   'qw', 'qx', 'qy', 'qz', 'link', 'up_rssi_dbm', 'beep_s'];
 const EVT_COLUMNS = ['seq', 't_ms', 'state', 'event', 'arg'];
+// GPS frames (optional module): lat/lon in degrees, fix = GGA quality (0 = none).
+const GPS_COLUMNS = ['seq', 't_ms', 'state', 'fix', 'sats', 'hdop', 'lat', 'lon', 'alt_msl_m', 'speed_mps',
+  'course_deg', 'age_ms', 'utc_s'];
+const GPS_QUALITY = ['no fix', 'GPS', 'DGPS', 'PPS', 'RTK', 'RTK float', 'estimated', 'manual', 'simulation'];
 
 // Telemetry flag bits (docs/TELEMETRY.md). cls: colour when set / when clear.
 const FLAGS = [
@@ -344,7 +370,7 @@ const EVENT_ARG = {
   BOOT: a => 'firmware ' + (a >>> 0).toString(16).padStart(8, '0'),
   SELFTEST_OK: a => a ? 'warnings 0x' + a.toString(16) + ' (' + warnNames(a) + ')' : 'no warnings',
   SELFTEST_FAIL: a => 'fault ' + a + ' (' + (['', 'baro missing', 'pressure implausible', 'settings invalid',
-    'IMU missing (required)', 'radio failed (required)', 'battery below minimum'][a] || '?') + ')',
+    'IMU missing (required)', 'radio failed (required)', 'battery below minimum', 'GPS missing (required)'][a] || '?') + ')',
   LAUNCH: cm, BURNOUT: cm, APOGEE: cm, PYRO_FIRE: cm, PYRO_BACKUP_FIRE: cm, LANDED: cm, APOGEE_NO_DEPLOY: cm,
   BATT_LOW: a => (a / 1000).toFixed(2) + ' V', BATT_CRITICAL: a => (a / 1000).toFixed(2) + ' V',
   PYRO_OPEN: a => a + ' ms after fire', RESUMED: a => (a / 1000).toFixed(1) + ' s after launch',
@@ -359,13 +385,14 @@ const EVENT_ARG = {
   CONFIG: a => 'settings crc ' + (a >>> 0).toString(16).toUpperCase().padStart(8, '0'),
   PYRO_SAG: a => { const s = sagValues(a); return `battery ${fmt(s.pre, 3)} V before, min ${fmt(s.min, 3)} V during the pulse (drop ${fmt(s.pre - s.min, 3)} V)`; },
   BENCH_MODE: a => ['flight mode (bench mode off)', 'BENCH MODE ON', 'bench mode off: launch detected'][a] || String(a),
+  GPS: a => ['GPS: no data (lost or not connected)', 'GPS: receiving, no fix', 'GPS: position fix'][a] || String(a),
 };
 // fc::RemoteFireEnd (lib/fc_core/src/fc/remote_fire.h)
 function sagValues(a) { a = a >>> 0; return { pre: (a >>> 16) / 1000, min: (a & 0xFFFF) / 1000 }; }
 const RF_REASONS = ['fired', 'not in bench mode', 'not in PAD state',
   'no igniter continuity (arm link out?)', 'pulse length out of range', 'not armed', 'wrong code (pairing key?)',
   'fire window expired', 'cancelled', 'pyro output busy'];
-const WARN_BITS = ['IMU missing', 'no magnetometer', 'radio failed', 'battery low', 'up axis not ~1 g', 'no backup timer'];
+const WARN_BITS = ['IMU missing', 'no magnetometer', 'radio failed', 'battery low', 'up axis not ~1 g', 'no backup timer', 'no GPS data'];
 function warnNames(a) { return WARN_BITS.filter((_, i) => a & (1 << i)).join(', '); }
 
 // Readouts in the Flight panel: [label, f(frame, track) -> text]
@@ -548,6 +575,7 @@ function leanBearingDeg(f) {  // compass bearing the nose leans toward
 class Track {
   constructor(name) { this.name = name; this.reset(); }
   reset() {
+    this.gps = [];
     this.frames = []; this.events = []; this.lastSeq = null; this.received = 0; this.lost = 0;
     this.maxAlt = NaN; this.lastRx = 0; this.rxTimes = []; this.bad = 0; this.noise = NaN; this.stats = ''; this.uplink = ''; this.sessions = 0; this.utc0 = 0; this.version++;
   }
@@ -574,6 +602,14 @@ class Track {
     this.frames.push(f);
     if (this.frames.length > MAX_FRAMES) this.frames.splice(0, this.frames.length - MAX_FRAMES);
     if (live) { this.lastRx = performance.now(); this.rxTimes.push(this.lastRx); }
+    this.version++;
+  }
+  // GPS frames are kept across restarts: the last position matters for recovery.
+  addGps(g, live) {
+    this.noteSeq(g.seq);
+    this.gps.push(g);
+    if (this.gps.length > 50000) this.gps.splice(0, this.gps.length - 50000);
+    if (live) { this.lastRx = performance.now(); this.rxTimes.push(this.lastRx); g.rxAt = this.lastRx; }
     this.version++;
   }
   addEvent(e) {
@@ -605,6 +641,11 @@ function parseCsvLine(line) {
     f.snr = extra.length >= 2 ? Number(extra[1]) : NaN;
     return { kind: 'T', data: f };
   }
+  if (p[0] === 'G' && p.length >= 1 + GPS_COLUMNS.length) {
+    const g = {};
+    GPS_COLUMNS.forEach((k, i) => { g[k] = k === 'state' ? p[i + 1] : Number(p[i + 1]); });
+    return { kind: 'G', data: g };
+  }
   if (p[0] === 'E' && p.length >= 1 + EVT_COLUMNS.length) {
     const e = {};
     EVT_COLUMNS.forEach((k, i) => { e[k] = (k === 'state' || k === 'event') ? p[i + 1] : Number(p[i + 1]); });
@@ -616,7 +657,9 @@ function parseCsvLine(line) {
 function feed(track, line, live) {
   const r = parseCsvLine(line);
   if (!r) return false;
-  if (r.kind === 'T') track.addFrame(r.data, live); else track.addEvent(r.data);
+  if (r.kind === 'T') track.addFrame(r.data, live);
+  else if (r.kind === 'G') track.addGps(r.data, live);
+  else track.addEvent(r.data);
   return true;
 }
 
@@ -954,6 +997,7 @@ function buildUi() {
     c.btn = b; cmds.append(b);
   });
   BATT_READOUTS.forEach(r => { const tr = el('tr'); tr.append(el('td', '', r[0]), r.valEl = el('td', 'num', '—')); $('batt-readouts').append(tr); });
+  GPS_READOUTS.forEach(r => { const tr = el('tr'); tr.append(el('td', '', r[0]), r.valEl = el('td', 'num', '—')); $('gps-readouts').append(tr); });
   for (const [label, id] of [['Tilt from vertical', 'att-tilt'], ['Nose leans toward', 'att-lean'], ['Roll rate', 'att-roll'], ['Quaternion (w x y z)', 'att-q']]) {
     const tr = el('tr'); tr.append(el('td', '', label), el('td', 'num', '—')); tr.lastChild.id = id; $('att-readouts').append(tr);
   }
@@ -1066,6 +1110,7 @@ function render() {
   $('lk-heard').style.color = f ? (heard ? css('--ok') : css('--warn')) : '';
   renderBattery(t, f);
   renderBench();
+  renderGps(t);
   renderSettings();
   renderRemoteFire(tracks.radio.latest(), tracks.radio.lastRx && performance.now() - tracks.radio.lastRx < 3000);
   $('lk-clock').textContent = !f ? '—' : (f.link & 2) ? 'synced' : 'not synced';
@@ -1102,6 +1147,89 @@ function render() {
       tb.append(tr);
     }
   }
+}
+
+// ===========================================================================
+// GPS and recovery (optional module)
+// ===========================================================================
+
+// Local east/north offset [m] of b from a (equirectangular; fine over a few km).
+function enu(a, b) {
+  const R = 6371000, rad = Math.PI / 180;
+  return { e: (b.lon - a.lon) * rad * R * Math.cos(a.lat * rad), n: (b.lat - a.lat) * rad * R };
+}
+// Pad position: the last fix while the rocket was on the ground before launch.
+function gpsPad(gps) {
+  let pad = null;
+  for (const g of gps) {
+    if (!(g.fix > 0)) continue;
+    if (g.state === 'PAD' || g.state === 'INIT' || g.state === 'FAULT') pad = g;
+    else if (pad) break;
+  }
+  return pad;
+}
+const GPS_READOUTS = [
+  ['Fix', (g, last) => last ? `${GPS_QUALITY[last.fix] || last.fix}, ${last.sats} satellites, HDOP ${fmt(last.hdop, 2)}` : '—'],
+  ['Last known position', g => g ? `${g.lat.toFixed(7)}, ${g.lon.toFixed(7)}` : '—'],
+  ['Altitude (MSL)', g => g ? fmt(g.alt_msl_m, 1) + ' m' : '—'],
+  ['Ground speed / course', g => g ? `${fmt(g.speed_mps, 1)} m/s, ${fmt(g.course_deg, 0)}°` : '—'],
+  ['Fix time', g => g && g.utc_s ? fmtTime(g.utc_s * 1000) : '—'],
+  ['Pad position', (g, last, pad) => pad ? `${pad.lat.toFixed(7)}, ${pad.lon.toFixed(7)}` : '—'],
+  ['From the pad', (g, last, pad) => {
+    if (!g || !pad) return '—';
+    const d = enu(pad, g), dist = Math.hypot(d.e, d.n), brg = (Math.atan2(d.e, d.n) * 180 / Math.PI + 360) % 360;
+    return `${fmt(dist, 0)} m, bearing ${fmt(brg, 0)}°`;
+  }],
+  ['Last GPS frame', (g, last) => !last ? '—' : last.rxAt ? fmt((performance.now() - last.rxAt) / 1000, 1) + ' s ago' : 'from file'],
+];
+function renderGps(t) {
+  const gps = t.gps, last = gps[gps.length - 1];
+  let g = null;
+  for (let i = gps.length - 1; i >= 0; i--) if (gps[i].fix > 0) { g = gps[i]; break; }
+  const pad = gpsPad(gps), f = t.latest();
+  const st = $('gps-state');
+  let label = 'NO GPS', cls = '';
+  if (last && last.fix > 0) { label = `FIX (${last.sats} sats)`; cls = 'ok'; }
+  else if (last) { label = `NO FIX (${last.sats} sats)`; cls = 'warn'; }
+  else if (f && (f.link & 16)) { label = 'GPS DATA, no frames yet'; cls = 'warn'; }
+  if (g && last && !(last.fix > 0)) label += ': last fix shown';
+  st.textContent = label; st.className = 'state ' + cls;
+  GPS_READOUTS.forEach(r => { r.valEl.textContent = r[1](g, last, pad); });
+  const q = g ? `${g.lat.toFixed(7)},${g.lon.toFixed(7)}` : '';
+  for (const [id, url] of [['gps-osm', g ? `https://www.openstreetmap.org/?mlat=${g.lat}&mlon=${g.lon}#map=17/${g.lat}/${g.lon}` : ''],
+    ['gps-gmaps', g ? `https://www.google.com/maps/search/?api=1&query=${q}` : '']]) {
+    const a = $(id); if (url) a.href = url; else a.removeAttribute('href');
+  }
+  $('btn-gps-copy').disabled = !g;
+  $('btn-gps-copy').onclick = () => navigator.clipboard.writeText(q).then(() => setMsg('Position copied: ' + q), () => setMsg(q));
+  drawGpsTrack(gps, pad || g);
+}
+let gpsDrawKey = '';
+function drawGpsTrack(gps, ref) {
+  const c = $('gps-plot');
+  const key = gps.length + ':' + (ref ? ref.t_ms : '') + ':' + c.clientWidth;
+  if (key === gpsDrawKey) return;
+  gpsDrawKey = key;
+  const [ctx, W, H] = fitCanvas(c);
+  ctx.clearRect(0, 0, W, H);
+  ctx.font = '11px ' + css('--mono');
+  const fixes = gps.filter(g => g.fix > 0);
+  if (!ref || !fixes.length) { ctx.fillStyle = css('--muted'); ctx.fillText('no GPS fix yet', 10, 20); return; }
+  const pts = fixes.map(g => enu(ref, g));
+  const span = Math.max(20, ...pts.map(p => Math.max(Math.abs(p.e), Math.abs(p.n)))) * 1.15;
+  const s = (Math.min(W, H) / 2 - 12) / span, cx = W / 2, cy = H / 2;
+  ctx.strokeStyle = css('--line'); ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(0, cy); ctx.lineTo(W, cy); ctx.moveTo(cx, 0); ctx.lineTo(cx, H); ctx.stroke();
+  const ring = niceCeil(span / 2);
+  ctx.beginPath(); ctx.arc(cx, cy, ring * s, 0, 2 * Math.PI); ctx.stroke();
+  ctx.fillStyle = css('--muted'); ctx.fillText(ring + ' m', cx + ring * s * 0.72, cy - ring * s * 0.72); ctx.fillText('N', cx + 4, 12);
+  ctx.strokeStyle = css('--s1'); ctx.lineWidth = 1.5; ctx.beginPath();
+  pts.forEach((p, i) => { const x = cx + p.e * s, y = cy - p.n * s; if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y); });
+  ctx.stroke();
+  ctx.fillStyle = css('--ink'); ctx.beginPath(); ctx.moveTo(cx, cy - 6); ctx.lineTo(cx - 5, cy + 4); ctx.lineTo(cx + 5, cy + 4); ctx.fill();
+  ctx.fillText('pad', cx + 7, cy + 12);
+  const lp = pts[pts.length - 1];
+  ctx.fillStyle = css('--bad'); ctx.beginPath(); ctx.arc(cx + lp.e * s, cy - lp.n * s, 4, 0, 2 * Math.PI); ctx.fill();
 }
 
 // ===========================================================================

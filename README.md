@@ -12,7 +12,8 @@ deployment, live LoRa telemetry and an onboard flight log.
 | IRLB8748 MOSFET ×2 | Pyro (nichrome igniter) and buzzer drivers |
 | Status LED, active buzzer | Continuous state and audible signals |
 | 1S Li-ion cell (18350) | Soldered to the XIAO battery pads, charged over the XIAO's USB-C |
-| SD card (future) | Pin and software interface reserved |
+| L76K GPS (optional) | Recovery position, on D7; works with or without it |
+| SD card (future) | Software interface reserved; needs a free chip-select pin |
 
 > **Safety.** This drives a pyrotechnic charge. Read
 > [docs/FLIGHT_LOGIC.md](docs/FLIGHT_LOGIC.md) and run the whole bench

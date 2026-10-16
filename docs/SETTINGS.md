@@ -7,7 +7,8 @@ launch, apogee and deployment thresholds, deployment delay and backup timer,
 pyro pulse length, self-test checks, estimator and attitude filter tuning,
 IMU and barometer filters, battery thresholds and divider calibration,
 telemetry and log rates, buzzer and LED behaviour, radio (frequency,
-bandwidth, spreading factor, power, receive boost, duty cycle, pairing key).
+bandwidth, spreading factor, power, receive boost, duty cycle, pairing key),
+the optional GPS (off / auto / required, baud rate, radio period, clock).
 
 **One table defines them all:** `FC_SETTINGS` in
 [lib/fc_core/src/fc/settings.h](../lib/fc_core/src/fc/settings.h): name,

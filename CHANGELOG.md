@@ -43,3 +43,7 @@ First version: not yet flown.
 - Battery voltage sag measured during every pyro pulse (PYRO_SAG event).
 - Configurable IMU low-pass, barometer filter/oversampling, SX1262 RX boost,
   LED brightness.
+- Optional GPS (L76K on D7, receive only): NMEA parser, GPS frames on the
+  radio and in the log, link bits, GPS event, self-test warning or fault
+  (gps_mode), clock from GPS time; UI GPS and recovery panel with distance
+  and bearing from the pad and a track plot.

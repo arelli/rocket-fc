@@ -69,6 +69,7 @@ void App::setup() {
   Wire.setTimeOut(5);  // ms: a hung sensor must not stall the loop
   init_sensors();
   init_radio();
+  init_gps();
   init_log();
 
   const uint32_t now = millis();
@@ -77,6 +78,7 @@ void App::setup() {
   airtime_tlm_us_ = fc::lora_airtime_us(m, fc::tlm::kTelemetryLen);
   airtime_evt_us_ = fc::lora_airtime_us(m, fc::tlm::kEventLen);
   airtime_up_ms_ = fc::lora_airtime_us(m, fc::tlm::kUplinkLen) / 1000;
+  airtime_gps_us_ = fc::lora_airtime_us(m, fc::tlm::kGpsLen);
   // The ground station replies 15 ms after our frame; its reply must fit in the window.
   const uint32_t need = 15 + airtime_up_ms_ + 60;
   rx_window_ms_ = set_.uplink_rx_ms > need ? set_.uplink_rx_ms : need;
@@ -216,10 +218,20 @@ void App::init_radio() {
   }
 }
 
+void App::init_gps() {
+  if (set_.gps_mode == 0) {
+    Serial.println("GPS: off (gps_mode)");
+    return;
+  }
+  gps_uart_.begin(pins::kGpsRx, fc::gps_baud(set_));
+  Serial.printf("GPS: listening on D7 at %lu baud (gps_mode %s)\n", static_cast<unsigned long>(fc::gps_baud(set_)),
+                set_.gps_mode == 2 ? "required" : "auto");
+}
+
 void App::init_log() {
   ram_log_.begin();
   add_sink(&ram_log_);
-  // Future: static SdLog sd_log_; if (sd_log_.begin(pins::kSdCs)) add_sink(&sd_log_);
+  // Future: static SdLog sd_log_; if (sd_log_.begin(<free CS pin>)) add_sink(&sd_log_);
   for (size_t i = 0; i < n_sinks_; ++i) {
     Serial.printf("Log: %s %s\n", sinks_[i]->name(), sinks_[i]->ok() ? "ok" : "FAILED");
   }
@@ -263,6 +275,7 @@ void App::loop() {
 
   pyro_.update(now);  // end the pulse on time, whatever else happens
   update_sag(now);
+  poll_gps(now);
 
   if (now - t_tick_ >= cfg::kLoopMs) {
     // Fixed-rate schedule; if we fell far behind, resynchronize instead of bursting.
@@ -419,6 +432,8 @@ void App::run_selftest(uint32_t now) {
     fault_ = fc::FaultCode::RadioFail;
   } else if (set_.st_min_batt_v > 0.0f && have_battery_ && vbat_ < set_.st_min_batt_v) {
     fault_ = fc::FaultCode::BattLow;
+  } else if (set_.gps_mode == 2 && gps_state_ == 0) {
+    fault_ = fc::FaultCode::GpsMissing;
   }
 
   float up = 0;
@@ -437,6 +452,7 @@ void App::run_selftest(uint32_t now) {
   if (!radio_.ok()) warnings_ |= fc::kWarnRadioFail;
   if (have_battery_ && vbat_ < set_.batt_low_v) warnings_ |= fc::kWarnBattLow;
   if (set_.st_warn_backup && set_.backup_deploy_ms == 0) warnings_ |= fc::kWarnNoBackupTimer;
+  if (set_.gps_mode == 1 && gps_state_ == 0) warnings_ |= fc::kWarnGpsMissing;
 
   const bool cal_ok = fc_.finish_init(fault_ == fc::FaultCode::None);
   if (!cal_ok && fault_ == fc::FaultCode::None) fault_ = fc::FaultCode::BaroMissing;
@@ -462,6 +478,8 @@ void App::run_selftest(uint32_t now) {
   if (warnings_ & fc::kWarnBattLow) Serial.println("  warning: battery low");
   if (warnings_ & fc::kWarnNoBackupTimer)
     Serial.println("  note: backup deployment timer disabled (backup_deploy_ms = 0)");
+  if (warnings_ & fc::kWarnGpsMissing)
+    Serial.println("  note: no GPS data on D7 (no module? set gps_mode = off to silence this)");
   t_report_ = now;
 }
 
@@ -509,6 +527,7 @@ void App::on_state_change(FlightState from, FlightState to, uint32_t now) {
 
 void App::slow_tick(uint32_t now) {
   check_remote_fire(now);
+  update_gps(now);
   const bool heard = ground_.connected(now);
   if (heard != ground_was_) {
     ground_was_ = heard;
@@ -686,7 +705,9 @@ fc::tlm::Telemetry App::snapshot(uint32_t now) const {
   t.link = static_cast<uint8_t>((ground_.connected(now) ? fc::tlm::kLinkGroundHeard : 0) |
                                 (clock_.synced() ? fc::tlm::kLinkTimeSynced : 0) |
                                 (static_cast<bool>(Serial) ? fc::tlm::kLinkUsbHost : 0) |
-                                (bench_ ? fc::tlm::kLinkBenchMode : 0));
+                                (bench_ ? fc::tlm::kLinkBenchMode : 0) |
+                                (gps_state_ >= 1 ? fc::tlm::kLinkGpsData : 0) |
+                                (gps_state_ == 2 ? fc::tlm::kLinkGpsFix : 0));
   t.uplink_rssi_dbm = ground_.rssi_dbm(now);
   t.beep_period_s = static_cast<uint8_t>(set_.pad_beeps == 0   ? ground_.pad_beep_period_s(now)
                                          : set_.pad_beeps == 1 ? set_.pad_beep_s
@@ -845,6 +866,74 @@ void App::handle_remote_fire(const fc::tlm::Uplink& u, uint32_t now) {
   }
 }
 
+// --- Optional GPS ------------------------------------------------------------------
+// Bytes are parsed as they arrive (a few per loop); status, time and logging
+// run at 10 Hz. Nothing here affects the flight decisions.
+void App::poll_gps(uint32_t now) {
+  char c;
+  for (int i = 0; i < 64 && gps_uart_.read(&c); ++i) {
+    gps_.feed(c, now);
+    if (c == '\n' && gps_raw_) Serial.printf("[gps] %s\n", gps_.last_line());
+  }
+}
+
+void App::update_gps(uint32_t now) {
+  if (!gps_uart_.started()) return;
+  const uint32_t last = gps_.last_sentence_ms();
+  const bool data = last != 0 && now - last < 3000;
+  const bool fix = data && gps_.fix().valid() && now - gps_.last_gga_ms() < 3000;
+  const uint8_t st = fix ? 2 : data ? 1 : 0;
+  if (st != gps_state_) {
+    static const char* const kNames[] = {"no data (lost)", "receiving, no fix yet", "position fix"};
+    Serial.printf("[%lu] GPS: %s, %u satellites\n", static_cast<unsigned long>(now), kNames[st],
+                  gps_.fix().sats);
+    gps_state_ = st;
+    event(EventCode::GpsStatus, st, now);
+  }
+  if (!data && !gps_none_reported_ && now > 8000) {
+    gps_none_reported_ = true;
+    Serial.printf("GPS: no data on D7 yet (%lu bytes rejected). Module wired? gps_baud right?\n",
+                  static_cast<unsigned long>(gps_.checksum_errors()));
+  }
+  // Real time from the GPS if nothing better came first (TimeSync keeps the first).
+  if (set_.gps_time && fix && gps_.time_valid() && !clock_.synced() && gps_.fix().utc_s) {
+    const uint64_t utc = static_cast<uint64_t>(gps_.fix().utc_s) * 1000u + gps_.fix().utc_ms +
+                         (now - gps_.last_gga_ms());
+    sync_time(utc, now, "GPS");
+  }
+  // Log every new position report (about 1 Hz).
+  if (gps_.gga_count() != gps_logged_ && data) {
+    gps_logged_ = gps_.gga_count();
+    fc::tlm::Gps g = gps_snapshot(now);
+    g.seq = log_seq_++;
+    uint8_t buf[fc::tlm::kMaxFrameLen];
+    write_log(buf, fc::tlm::encode(g, buf, sizeof(buf)));
+  }
+}
+
+fc::tlm::Gps App::gps_snapshot(uint32_t now) const {
+  const fc::GpsFix& f = gps_.fix();
+  fc::tlm::Gps g;
+  g.state = fc_.state();
+  g.t_ms = now;
+  g.quality = gps_state_ == 2 ? f.quality : 0;
+  g.sats = f.sats;
+  g.hdop = f.hdop;
+  g.lat_e7 = f.lat_e7;  // last known position, also after the fix is lost
+  g.lon_e7 = f.lon_e7;
+  g.alt_msl_m = f.alt_msl_m;
+  g.speed_mps = f.speed_mps;
+  g.course_deg = f.course_deg;
+  const uint32_t age = gps_.last_gga_ms() ? now - gps_.last_gga_ms() : 0xFFFFu;
+  g.age_ms = static_cast<uint16_t>(age > 0xFFFFu ? 0xFFFFu : age);
+  g.utc_s = f.utc_s;
+  return g;
+}
+
+uint32_t App::gps_period_ms() const {
+  return fc_.state() == FlightState::Landed ? set_.tlm_landed_ms : set_.gps_tlm_ms;
+}
+
 // Bench mode: test commands allowed. Never saved: every boot starts in flight mode.
 void App::set_bench(bool on, int32_t why, uint32_t now, const char* source) {
   bench_ = on;
@@ -956,6 +1045,18 @@ void App::update_radio(uint32_t now) {
       --evq_count_;
     }
     return;
+  }
+
+  // GPS position (optional module): its own, slower period.
+  if (gps_state_ >= 1 && (t_gps_tx_ == 0 || now - t_gps_tx_ >= gps_period_ms())) {
+    t_gps_tx_ = now;
+    if (duty_.try_consume(now, airtime_gps_us_)) {
+      fc::tlm::Gps g = gps_snapshot(now);
+      g.seq = radio_seq_;
+      const size_t n = fc::tlm::encode(g, buf, sizeof(buf));
+      if (radio_.send(buf, n)) ++radio_seq_;
+      return;
+    }
   }
 
   if (t_tlm_ != 0 && now - t_tlm_ < telemetry_period_ms()) return;

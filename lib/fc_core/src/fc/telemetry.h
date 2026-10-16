@@ -18,8 +18,9 @@ namespace tlm {
 constexpr uint8_t kMagic = 0xA5;
 constexpr uint8_t kVersion = 4;  // 2: attitude; 3: ground link, uplink; 4: UTC in the uplink
 
-// Telemetry and Event: rocket -> ground (and the onboard log). Uplink: ground -> rocket.
-enum class FrameType : uint8_t { Telemetry = 1, Event = 2, Uplink = 3 };
+// Telemetry, Event, Gps: rocket -> ground (and the onboard log). Uplink: ground -> rocket.
+// Gps frames exist only when a GPS module sends data (optional hardware).
+enum class FrameType : uint8_t { Telemetry = 1, Event = 2, Uplink = 3, Gps = 4 };
 
 enum Flags : uint8_t {
   kFlagPyroContinuity = 1 << 0,  // igniter circuit closed (arm link fitted + bridge intact)
@@ -36,6 +37,7 @@ constexpr size_t kHeaderLen = 10;
 constexpr size_t kTelemetryLen = 56;
 constexpr size_t kEventLen = 17;
 constexpr size_t kUplinkLen = 22;
+constexpr size_t kGpsLen = 38;
 constexpr size_t kMaxFrameLen = kTelemetryLen;
 
 // Engineering-unit view of a telemetry frame. Encoding quantizes to the units
@@ -64,6 +66,8 @@ enum LinkBits : uint8_t {
   kLinkTimeSynced = 1 << 1,   // the rocket knows real time (TIME_SYNC event logged)
   kLinkUsbHost = 1 << 2,      // a computer is connected over USB (so it powers and charges)
   kLinkBenchMode = 1 << 3,    // bench mode on: test commands enabled (RAM only, off at boot)
+  kLinkGpsData = 1 << 4,      // a GPS module is sending valid NMEA data
+  kLinkGpsFix = 1 << 5,       // ...and has a position fix
 };
 
 // Ground -> rocket frames (fixed length, header "state" byte is 0). The rocket
@@ -88,6 +92,24 @@ struct Uplink {
   uint16_t pulse_ms = 0;
 };
 
+// GPS position (optional module, see fc/gps.h). t_ms = when the frame was
+// made; the fix itself is age_ms older.
+struct Gps {
+  FlightState state = FlightState::Init;
+  uint16_t seq = 0;
+  uint32_t t_ms = 0;
+  uint8_t quality = 0;     // 0 = no fix (GGA fix quality)
+  uint8_t sats = 0;
+  float hdop = 0;          // (wire: u16 0.01)
+  int32_t lat_e7 = 0;      // 1e-7 deg
+  int32_t lon_e7 = 0;      // 1e-7 deg
+  float alt_msl_m = 0;     // (wire: i32 cm)
+  float speed_mps = 0;     // ground speed (wire: u16 0.1 m/s)
+  float course_deg = 0;    // (wire: u16 0.01 deg)
+  uint16_t age_ms = 0;     // age of the fix when the frame was made (65535 = older)
+  uint32_t utc_s = 0;      // Unix time of the fix, 0 = unknown
+};
+
 struct Event {
   FlightState state = FlightState::Init;
   uint16_t seq = 0;
@@ -100,6 +122,7 @@ struct Event {
 size_t encode(const Telemetry& t, uint8_t* out, size_t cap);
 size_t encode(const Event& e, uint8_t* out, size_t cap);
 size_t encode(const Uplink& u, uint8_t* out, size_t cap);
+size_t encode(const Gps& g, uint8_t* out, size_t cap);
 
 enum class DecodeResult : uint8_t {
   Ok = 0,
@@ -116,6 +139,7 @@ DecodeResult frame_type(const uint8_t* buf, size_t len, FrameType* type);
 DecodeResult decode(const uint8_t* buf, size_t len, Telemetry* out);
 DecodeResult decode(const uint8_t* buf, size_t len, Event* out);
 DecodeResult decode(const uint8_t* buf, size_t len, Uplink* out);
+DecodeResult decode(const uint8_t* buf, size_t len, Gps* out);
 
 const char* to_string(DecodeResult r);
 

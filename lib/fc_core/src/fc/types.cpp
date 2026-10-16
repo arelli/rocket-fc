@@ -41,6 +41,7 @@ const char* to_string(EventCode e) {
     case EventCode::Config: return "CONFIG";
     case EventCode::PyroSag: return "PYRO_SAG";
     case EventCode::BenchMode: return "BENCH_MODE";
+    case EventCode::GpsStatus: return "GPS";
   }
   return "?";
 }

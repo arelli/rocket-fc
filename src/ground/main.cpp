@@ -92,6 +92,7 @@ void print_headers() {
   if (!settings_ok) Serial.printf("# ERROR: radio settings invalid (%s): running on the defaults\n", settings_problem);
   Serial.printf("%s,rssi_dbm,snr_db\n", fc::csv::telemetry_header());
   Serial.printf("%s,rssi_dbm,snr_db\n", fc::csv::event_header());
+  Serial.printf("%s,rssi_dbm,snr_db\n", fc::csv::gps_header());
 }
 
 uint64_t utc_now_ms() {

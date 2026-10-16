@@ -383,6 +383,11 @@ float radio_bw_khz(const Settings& s) {
   return kBw[s.radio_bw < 4 ? s.radio_bw : 2];
 }
 
+uint32_t gps_baud(const Settings& s) {
+  static const uint32_t kBaud[] = {4800, 9600, 19200, 38400, 57600, 115200};
+  return kBaud[s.gps_baud < 6 ? s.gps_baud : 1];
+}
+
 LoraModulation lora_modulation(const Settings& s) {
   LoraModulation m;
   m.sf = static_cast<uint8_t>(s.radio_sf);

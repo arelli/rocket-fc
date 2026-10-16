@@ -22,6 +22,29 @@ const char* telemetry_header() {
 
 const char* event_header() { return "#E,seq,t_ms,state,event,arg"; }
 
+const char* gps_header() {
+  return "#G,seq,t_ms,state,fix,sats,hdop,lat_deg,lon_deg,alt_msl_m,speed_mps,course_deg,age_ms,utc_s";
+}
+
+size_t format(const tlm::Gps& g, char* buf, size_t cap) {
+  // Integer degrees + 7 decimals, exact (no float rounding of the position).
+  auto deg = [](int32_t e7, char* out, size_t n) {
+    const uint32_t a = e7 < 0 ? static_cast<uint32_t>(-static_cast<int64_t>(e7)) : static_cast<uint32_t>(e7);
+    snprintf(out, n, "%s%lu.%07lu", e7 < 0 ? "-" : "", static_cast<unsigned long>(a / 10000000u),
+             static_cast<unsigned long>(a % 10000000u));
+  };
+  char lat[16], lon[16];
+  deg(g.lat_e7, lat, sizeof(lat));
+  deg(g.lon_e7, lon, sizeof(lon));
+  const int n = snprintf(buf, cap, "G,%u,%lu,%s,%u,%u,%.2f,%s,%s,%.2f,%.1f,%.1f,%u,%lu",
+                         static_cast<unsigned>(g.seq), static_cast<unsigned long>(g.t_ms), to_string(g.state),
+                         static_cast<unsigned>(g.quality), static_cast<unsigned>(g.sats),
+                         static_cast<double>(g.hdop), lat, lon, static_cast<double>(g.alt_msl_m),
+                         static_cast<double>(g.speed_mps), static_cast<double>(g.course_deg),
+                         static_cast<unsigned>(g.age_ms), static_cast<unsigned long>(g.utc_s));
+  return finish(n, buf, cap);
+}
+
 size_t format(const tlm::Telemetry& t, char* buf, size_t cap) {
   const int n = snprintf(
       buf, cap,
@@ -53,6 +76,11 @@ size_t format_frame(const uint8_t* frame, size_t len, char* buf, size_t cap) {
   tlm::FrameType type;
   if (tlm::frame_type(frame, len, &type) != tlm::DecodeResult::Ok) return 0;
   if (type == tlm::FrameType::Uplink) return 0;  // not a rocket frame
+  if (type == tlm::FrameType::Gps) {
+    tlm::Gps g;
+    if (tlm::decode(frame, len, &g) != tlm::DecodeResult::Ok) return 0;
+    return format(g, buf, cap);
+  }
   if (type == tlm::FrameType::Telemetry) {
     tlm::Telemetry t;
     if (tlm::decode(frame, len, &t) != tlm::DecodeResult::Ok) return 0;

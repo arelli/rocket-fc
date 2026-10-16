@@ -191,6 +191,14 @@ enum ParamFlags : uint8_t {
     "I accept responsibility for complying with the radio rules where I operate: allows frequencies outside 869.40-869.65 MHz and more than 10 % duty cycle.") \
   X(U32, rf_key,            "radio",    0x6B1D4F37, 0, 4294967295.0, "", kParamShared | kParamHex, "", \
     "Pairing key for remote test fire and bench mode by radio. Same value on both kits. Not a cryptographic secret.") \
+  X(Enum, gps_mode,         "gps",      1, 0, 2, "", 0, "off|auto|required", \
+    "Optional GPS on D7. off: not used. auto: used when a module sends data; none is a self-test warning. required: no GPS data is a self-test FAULT.") \
+  X(Enum, gps_baud,         "gps",      1, 0, 5, "baud", 0, "4800|9600|19200|38400|57600|115200", \
+    "GPS serial speed (L76K default 9600).") \
+  X(U32, gps_tlm_ms,        "gps",      2000, 500, 60000, "ms", 0, "", \
+    "Radio: GPS frame period on the pad and in flight. After landing one is sent with every telemetry frame.") \
+  X(Bool, gps_time,         "gps",      1, 0, 1, "", 0, "", \
+    "Set the clock from GPS time if the ground station or USB has not (accuracy about 0.5 s).") \
   X(U32, uplink_timeout_ms, "uplink",   5000, 1000, 60000, "ms", 0, "", \
     "The ground station counts as lost after this long without a heartbeat.") \
   X(U32, uplink_rx_ms,      "uplink",   150, 50, 3000, "ms", 0, "", \
@@ -272,6 +280,7 @@ FlightComputer::Config flight_computer_config(const Settings& s);
 BatteryMonitor::Params battery_params(const Settings& s);
 Ahrs::Params ahrs_params(const Settings& s);
 float radio_bw_khz(const Settings& s);
+uint32_t gps_baud(const Settings& s);
 LoraModulation lora_modulation(const Settings& s);
 
 }  // namespace fc

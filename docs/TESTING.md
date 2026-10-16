@@ -42,6 +42,9 @@ Flash `pio run -e flight -t upload`, open `pio device monitor` (or the UI).
    adjust the `batt_divider` setting if they differ by more than 0.05 V.
 6. **Radio:** run the ground station (`python tools/ground_station.py <port>`):
    1 packet/s, rssi shown, loss 0 %. Walk away for a range check if you can.
+6b. **GPS (if fitted):** `gps raw on` shows NMEA sentences within a second
+   (none: check D7 wiring and `gps_baud`), `gps raw off`. Outdoors, `gps`
+   and the UI's GPS panel show a fix within a minute or two.
 7. **Simulated flight:** type `sim`. Watch the console: LAUNCH about 10 s
    later, BURNOUT, APOGEE, `[sim] FIRE command`, LANDED, and the final line
    comparing true and detected apogee. The ground station shows the whole
@@ -102,6 +105,7 @@ At the pad (arm link OUT):
 - [ ] Ground station UI shows telemetry and "Rocket hears ground: yes", no bench mode banner
 - [ ] LED 1 flash/s, 1 long beep every 10 s (no continuity yet; beeps need the ground station)
 - [ ] Battery ≥ 3.9 V in telemetry; no unexpected warnings
+- [ ] GPS (if fitted): fix on the pad (UI GPS panel), so the pad position is recorded
 - [ ] Charge and igniter installed; fit the arm link LAST, from the side
 - [ ] LED 2 flashes/s, 3 short beeps every 10 s (continuity)
 

@@ -14,6 +14,7 @@
 #include "fc/ahrs.h"
 #include "fc/battery.h"
 #include "fc/flight_computer.h"
+#include "fc/gps.h"
 #include "fc/indicators.h"
 #include "fc/param_shell.h"
 #include "fc/radio_budget.h"
@@ -24,6 +25,7 @@
 #include "fc/time_sync.h"
 #include "fc/uplink.h"
 #include "hal/bmp280.h"
+#include "hal/gps_uart.h"
 #include "hal/io.h"
 #include "hal/log_sink.h"
 #include "hal/mpu9250.h"
@@ -68,6 +70,11 @@ class App {
   void set_bench(bool on, int32_t why, uint32_t now, const char* source);
   void start_sag();
   void update_sag(uint32_t now);
+  void init_gps();
+  void poll_gps(uint32_t now);
+  void update_gps(uint32_t now);
+  fc::tlm::Gps gps_snapshot(uint32_t now) const;
+  uint32_t gps_period_ms() const;
   void update_log(uint32_t now);
   void pad_report(uint32_t now);
   [[noreturn]] void shutdown(const char* why);
@@ -103,6 +110,7 @@ class App {
   hal::Mpu9250 imu_;
   hal::Bmp280 baro_;
   hal::RadioLink radio_;
+  hal::GpsUart gps_uart_;
 
   // --- settings (fc/settings.h) ----------------------------------------------------
   // set_ is loaded at boot and never changes until the next boot. The console
@@ -129,6 +137,14 @@ class App {
   fc::GroundLink ground_;       // ground station heartbeat (pad beeps only)
   fc::TimeSync clock_;          // real time, from the ground station or USB
   fc::RemoteFire remote_;       // remote test fire by radio (bench mode only)
+  // Optional GPS (gps_mode): position for recovery and the log, never for decisions.
+  fc::NmeaParser gps_;
+  uint8_t gps_state_ = 0;       // 0 no data, 1 data without fix, 2 fix (GPS event on change)
+  uint32_t gps_logged_ = 0;     // GGA count last written to the log
+  uint32_t t_gps_tx_ = 0;
+  uint32_t airtime_gps_us_ = 0;
+  bool gps_raw_ = false;        // echo NMEA to the console ("gps raw on")
+  bool gps_none_reported_ = false;
   uint32_t airtime_up_ms_ = 0;
   bool ground_was_ = false;
   uint32_t t_ahrs_ = 0;

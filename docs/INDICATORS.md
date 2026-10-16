@@ -22,7 +22,7 @@ Patterns: [lib/fc_core/src/fc/indicators.cpp](../lib/fc_core/src/fc/indicators.c
 |---|---|---|
 | Short tick every second | INIT | Countdown |
 | 2 beeps | End of INIT | Self-test passed (check the console or telemetry for warnings) |
-| N long beeps, repeated every 10 s | FAULT | Fault code N: 1 = barometer missing, 2 = pressure implausible, 3 = invalid settings, 4 = IMU missing, 5 = radio failed (4 and 5 only if required by the settings), 6 = battery below `st_min_batt_v` |
+| N long beeps, repeated every 10 s | FAULT | Fault code N: 1 = barometer missing, 2 = pressure implausible, 3 = invalid settings, 4 = IMU missing, 5 = radio failed (4 and 5 only if required by the settings), 6 = battery below `st_min_batt_v`, 7 = no GPS data with `gps_mode` = required |
 | 3 short beeps, every N s | PAD, ground station heard | Igniter continuity OK |
 | 1 long beep, every N s | PAD, ground station heard | No continuity |
 | Silent | PAD, no ground station (or N = 0) | |

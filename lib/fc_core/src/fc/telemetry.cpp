@@ -34,6 +34,7 @@ DecodeResult check_frame(const uint8_t* buf, size_t len, FrameType* type) {
     case FrameType::Telemetry: expected = kTelemetryLen; break;
     case FrameType::Event: expected = kEventLen; break;
     case FrameType::Uplink: expected = kUplinkLen; break;
+    case FrameType::Gps: expected = kGpsLen; break;
     default: return DecodeResult::BadType;
   }
   if (len != expected) return DecodeResult::BadLength;
@@ -177,6 +178,47 @@ DecodeResult decode(const uint8_t* buf, size_t len, Event* out) {
   out->t_ms = rd.u32();
   out->code = static_cast<EventCode>(rd.u8());
   out->arg = rd.i32();
+  return rd.ok() ? DecodeResult::Ok : DecodeResult::BadLength;
+}
+
+size_t encode(const Gps& g, uint8_t* out, size_t cap) {
+  ByteWriter w(out, cap);
+  write_header(w, FrameType::Gps, g.state, g.seq, g.t_ms);
+  w.u8(g.quality);
+  w.u8(g.sats);
+  w.u16(sat_u16(g.hdop * 100.0f));
+  w.i32(g.lat_e7);
+  w.i32(g.lon_e7);
+  w.i32(sat_i32(g.alt_msl_m * 100.0f));
+  w.u16(sat_u16(g.speed_mps * 10.0f));
+  w.u16(sat_u16(g.course_deg * 100.0f));
+  w.u16(g.age_ms);
+  w.u32(g.utc_s);
+  return finish(w, out);
+}
+
+DecodeResult decode(const uint8_t* buf, size_t len, Gps* out) {
+  FrameType type;
+  DecodeResult r = check_frame(buf, len, &type);
+  if (r != DecodeResult::Ok) return r;
+  if (type != FrameType::Gps) return DecodeResult::BadType;
+  ByteReader rd(buf, len);
+  rd.u8();
+  rd.u8();
+  rd.u8();
+  out->state = static_cast<FlightState>(rd.u8());
+  out->seq = rd.u16();
+  out->t_ms = rd.u32();
+  out->quality = rd.u8();
+  out->sats = rd.u8();
+  out->hdop = rd.u16() / 100.0f;
+  out->lat_e7 = rd.i32();
+  out->lon_e7 = rd.i32();
+  out->alt_msl_m = rd.i32() / 100.0f;
+  out->speed_mps = rd.u16() / 10.0f;
+  out->course_deg = rd.u16() / 100.0f;
+  out->age_ms = rd.u16();
+  out->utc_s = rd.u32();
   return rd.ok() ? DecodeResult::Ok : DecodeResult::BadLength;
 }
 

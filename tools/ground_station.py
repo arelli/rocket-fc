@@ -31,6 +31,7 @@ except ImportError:
 TLM_FIELDS = ("seq t_ms state alt_m vel_mps ax_g ay_g az_g gx_dps gy_dps gz_dps "
               "mx_uT my_uT mz_uT p_pa temp_c batt_v flags qw qx qy qz link up_rssi_dbm beep_s").split()
 EVT_FIELDS = "seq t_ms state event arg".split()
+GPS_FIELDS = "seq t_ms state fix sats hdop lat lon alt_msl_m speed_mps course_deg age_ms utc_s".split()
 FLAG_NAMES = ["CONT", "ARMED", "FIRED", "IMU", "MAG", "BARO", "BATT_LOW", "RESUMED"]
 
 
@@ -46,11 +47,14 @@ def log_path(prefix):
 
 
 def parse(line):
-    """Returns ('T'|'E', dict) or (None, None) for comments / unknown lines."""
+    """Returns ('T'|'E'|'G', dict) or (None, None) for comments / unknown lines."""
     parts = line.split(",")
     if parts[0] == "T" and len(parts) >= 1 + len(TLM_FIELDS):
         d = dict(zip(TLM_FIELDS, parts[1:]))
         extra = parts[1 + len(TLM_FIELDS):]
+    elif parts[0] == "G" and len(parts) >= 1 + len(GPS_FIELDS):
+        d = dict(zip(GPS_FIELDS, parts[1:]))
+        extra = parts[1 + len(GPS_FIELDS):]
     elif parts[0] == "E" and len(parts) >= 1 + len(EVT_FIELDS):
         d = dict(zip(EVT_FIELDS, parts[1:]))
         extra = parts[1 + len(EVT_FIELDS):]
@@ -90,6 +94,10 @@ def live(port, baud):
             last_seq = seq
             received += 1
             loss = 100.0 * lost / max(1, received + lost)
+            if kind == "G":
+                fix = f"{d['lat']}, {d['lon']}" if int(d["fix"]) > 0 else "no fix"
+                print(f"\nGPS {fix}  {d['sats']} sats  {float(d['alt_msl_m']):.1f} m MSL")
+                continue
             if kind == "E":
                 print(f"\n*** {d['event']}  arg={d['arg']}  state={d['state']}  "
                       f"t={int(d['t_ms']) / 1000:.2f}s")
@@ -123,7 +131,7 @@ def dump(port, baud):
                     sys.exit("the flight computer refused: it thinks it is in flight")
                 continue
             out.write(f"{line}\n")
-            if line.startswith(("T,", "E,")):
+            if line.startswith(("T,", "E,", "G,")):
                 n += 1
                 if n % 1000 == 0:
                     print(f"\r{n} frames", end="")

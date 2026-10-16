@@ -14,15 +14,39 @@ If you change wiring, change that file and this document in the same commit.
 | D4 | 5 | I²C SDA | MPU-9250 (0x68), BMP280 (0x76/0x77) |
 | D5 | 6 | I²C SCL | |
 | D6 | 43 | Status LED | Flickers briefly at boot (UART0 TX) |
-| D7 | 44 | Reserved: SD card CS | Future |
-| D8 / D9 / D10 | 7 / 8 / 9 | SPI SCK / MISO / MOSI | Wio-SX1262; SD card later shares this bus |
+| D7 | 44 | GPS TX → UART1 RX | Optional L76K, receive only (below) |
+| D8 / D9 / D10 | 7 / 8 / 9 | SPI SCK / MISO / MOSI | Wio-SX1262 (an SD card could share it, but needs a free CS pin) |
 | 3V3 | | Sensor supply | MPU-9250, BMP280 |
 | BAT+ / BAT− pads | | Battery | Underside of the XIAO |
 | B2B connector | 38–42 | Wio-SX1262 control | NSS 41, DIO1 39, RESET 42, BUSY 40, RF switch 38 |
 | B2B connector | 21 | Wio-SX1262 button | Also the XIAO's yellow LED. **Never drive it.** |
 
-All header pins are used. The L76K GPS is not part of this design: it would
-need D6/D7 (taken by the LED and SD CS) and shares the radio's reset line.
+All header pins are used.
+
+## GPS (optional): Seeed L76K GNSS module for XIAO
+
+Not stacked on the XIAO: that board also connects to D0, D2 and D6, which are
+the battery sense, the buzzer gate and the LED here. Wire it with four leads:
+
+| L76K pin | Connect to | Why |
+|---|---|---|
+| 3V3 (VCC) | XIAO 3V3 | ~41 mA while tracking |
+| GND | GND | |
+| TX (GPS data out) | **D7** | Read at 9600 baud (setting `gps_baud`) |
+| RX (GPS data in) | 3V3 | Not used (default NMEA output is enough); held at the idle level |
+| the two control pins at its D0 and D2 positions | 3V3 | Seeed: both must be held high for normal operation |
+| its D6 position | not connected | |
+
+- Settings (group "gps"): `gps_mode` = auto (default: used if present, a
+  self-test warning if not), off (D7 unused), required (self-test FAULT 7 without
+  GPS data); `gps_tlm_ms` radio period; `gps_time` (set the clock from GPS
+  when the ground station has not).
+- Antenna: ceramic patch facing up (nose cone), away from carbon fibre and
+  metal, a few cm from the LoRa antenna. First fix: 30 s or more outdoors:
+  wait for the fix on the pad.
+- The position is for recovery and the log only; the flight logic never uses it.
+- Console: `gps` (status), `gps raw on|off` (echo the NMEA sentences, for wiring checks).
+- With the GPS on D7 there is no pin left for an SD card's chip select.
 
 ## Power
 
@@ -157,8 +181,9 @@ Settings: [docs/TELEMETRY.md](TELEMETRY.md).
 
 ## SD card (future)
 
-An SPI micro-SD module shares SCK/MISO/MOSI (D8–D10) with the radio, with CS on
-D7 (`pins::kSdCs`). In software: implement `hal::LogSink` (see
+An SPI micro-SD module can share SCK/MISO/MOSI (D8–D10) with the radio, but
+needs its own CS pin: D7 is now the optional GPS input, so the GPS and an SD
+card exclude each other unless a pin is freed (e.g. the LED). In software: implement `hal::LogSink` (see
 [lib/fc_hal/src/hal/log_sink.h](../lib/fc_hal/src/hal/log_sink.h)) and register
 it in `App::init_log()`. Until then flights are logged to PSRAM (see
 [TELEMETRY.md](TELEMETRY.md#onboard-log)).

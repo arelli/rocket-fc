@@ -67,6 +67,7 @@ void App::console_exec(char* line, uint32_t now) {
         "  time <unix ms>  set real time for the log (once per boot; the UI sends it)\n"
         "  param ...       settings: param list | get <k> | set <k> <v> | reset <k>|all | revert | save | export\n"
         "  beep            test the buzzer\n"
+        "  gps [raw on|off] GPS status; raw: echo the NMEA sentences\n"
         "  bench on|off    bench mode: enables the test commands below until reboot (not in flight)\n"
         "  reboot          restart (not in flight)\n"
         " bench mode only:\n"
@@ -77,6 +78,18 @@ void App::console_exec(char* line, uint32_t now) {
     print_status(now);
   } else if (!strcmp(cmd, "config")) {
     print_config();
+  } else if (!strcmp(cmd, "gps")) {
+    if (a1 && !strcmp(a1, "raw")) gps_raw_ = a2 && !strcmp(a2, "on");
+    const fc::GpsFix& f = gps_.fix();
+    Serial.printf("gps        mode %s, %s, %lu sentences, %lu rejected%s\n",
+                  set_.gps_mode == 0 ? "off" : set_.gps_mode == 1 ? "auto" : "required",
+                  gps_state_ == 2 ? "FIX" : gps_state_ == 1 ? "data, no fix" : "no data",
+                  static_cast<unsigned long>(gps_.sentences()), static_cast<unsigned long>(gps_.checksum_errors()),
+                  gps_raw_ ? ", raw echo on" : "");
+    if (gps_.sentences())
+      Serial.printf("           quality %u, %u sats, hdop %.2f, %.7f %.7f, %.1f m MSL, %.1f m/s\n", f.quality,
+                    f.sats, static_cast<double>(f.hdop), f.lat_e7 / 1e7, f.lon_e7 / 1e7,
+                    static_cast<double>(f.alt_msl_m), static_cast<double>(f.speed_mps));
   } else if (!strcmp(cmd, "param")) {
     params_.exec(argc - 1, argv + 1, safe_to_interrupt(), serial_line, store_text, &store_);
   } else if (!strcmp(cmd, "csv")) {
@@ -196,6 +209,14 @@ void App::print_status(uint32_t now) {
   } else {
     Serial.println("ground     not heard: pad status beeps off");
   }
+  if (gps_uart_.started()) {
+    const fc::GpsFix& f = gps_.fix();
+    Serial.printf("gps        %s  %u sats  hdop %.2f  %.7f %.7f  %.1f m MSL\n",
+                  gps_state_ == 2 ? "FIX" : gps_state_ == 1 ? "no fix" : "no data", f.sats,
+                  static_cast<double>(f.hdop), f.lat_e7 / 1e7, f.lon_e7 / 1e7, static_cast<double>(f.alt_msl_m));
+  } else {
+    Serial.println("gps        off (gps_mode)");
+  }
   Serial.printf("log        %s  %u / %u frames  overwritten %lu\n", ram_log_.name(),
                 static_cast<unsigned>(ram_log_.ring().count()),
                 static_cast<unsigned>(ram_log_.ring().capacity()),
@@ -273,6 +294,7 @@ void App::dump_log() {
   }
   Serial.println(fc::csv::telemetry_header());
   Serial.println(fc::csv::event_header());
+  Serial.println(fc::csv::gps_header());
   uint8_t frame[fc::FrameRing::kSlot];
   char line[fc::csv::kLineMax];
   for (size_t i = 0; i < r.count(); ++i) {

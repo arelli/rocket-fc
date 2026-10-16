@@ -34,15 +34,15 @@ one per second, 3.1 %).
 When the budget is exhausted, telemetry is skipped (counted as "denied" in
 `status`) and queued events wait.
 
-## Frame format (version 3, little-endian)
+## Frame format (version 4, little-endian)
 
-Header, 10 bytes, common to both frame types:
+Header, 10 bytes, common to all frame types:
 
 | Offset | Type | Field |
 |---|---|---|
 | 0 | u8 | magic = 0xA5 |
 | 1 | u8 | version = 4 (2: attitude quaternion; 3: ground link fields, uplink; 4: real time and remote fire in the uplink) |
-| 2 | u8 | type: 1 = telemetry, 2 = event (rocket → ground); 3 = uplink (ground → rocket) |
+| 2 | u8 | type: 1 = telemetry, 2 = event, 4 = GPS (rocket → ground); 3 = uplink (ground → rocket) |
 | 3 | u8 | flight state (0 INIT, 1 FAULT, 2 PAD, 3 BOOST, 4 COAST, 5 DESCENT, 6 LANDED) |
 | 4 | u16 | sequence number (separate counters for radio and log; gaps on the radio = lost packets) |
 | 6 | u32 | time since boot [ms] |
@@ -68,7 +68,7 @@ Acceleration, rotation rate and magnetic field are in the **rocket frame**:
 | 40 | u16 | battery voltage | mV |
 | 42 | u8 | flags (below) | |
 | 43 | 4 × i16 | attitude quaternion w, x, y, z | 1/32767 |
-| 51 | u8 | link: bit 0 = ground station heartbeat heard within 5 s, bit 1 = real time known, bit 2 = computer on USB (board powered and charging from USB), bit 3 = bench mode on | |
+| 51 | u8 | link: bit 0 = ground station heartbeat heard within 5 s, bit 1 = real time known, bit 2 = computer on USB (board powered and charging from USB), bit 3 = bench mode on, bit 4 = GPS sending data, bit 5 = GPS fix | |
 | 52 | i8 | heartbeat RSSI at the rocket (−128 = none) | dBm |
 | 53 | u8 | pad beep period in use (0 = silent) | s |
 | 54 | u16 | CRC | |
@@ -96,8 +96,8 @@ Flags: bit 0 igniter continuity, 1 pyro armed, 2 pyro fired, 3 IMU ok,
 | Code | Event | Argument |
 |---|---|---|
 | 1 | BOOT | firmware git hash (first 8 hex digits) |
-| 2 | SELFTEST_OK | warning bits: 0 IMU missing, 1 no magnetometer, 2 radio failed, 3 battery low, 4 up axis not ~+1 g, 5 no backup timer |
-| 3 | SELFTEST_FAIL | fault code (1 baro missing, 2 pressure implausible, 3 settings invalid, 4 IMU missing, 5 radio failed, 6 battery below minimum) |
+| 2 | SELFTEST_OK | warning bits: 0 IMU missing, 1 no magnetometer, 2 radio failed, 3 battery low, 4 up axis not ~+1 g, 5 no backup timer, 6 no GPS data (gps_mode auto) |
+| 3 | SELFTEST_FAIL | fault code (1 baro missing, 2 pressure implausible, 3 settings invalid, 4 IMU missing, 5 radio failed, 6 battery below minimum, 7 no GPS data with gps_mode required) |
 | 4 | LAUNCH | altitude [cm] |
 | 5 | BURNOUT | altitude [cm] |
 | 6 | APOGEE | maximum altitude [cm] |
@@ -119,6 +119,29 @@ Flags: bit 0 igniter continuity, 1 pyro armed, 2 pyro fired, 3 IMU ok,
 | 22 | CONFIG | CRC-32 of the settings in use (after BOOT) |
 | 23 | PYRO_SAG | battery during a pyro pulse: `(before_mV << 16) \| min_mV` (unsigned) |
 | 24 | BENCH_MODE | 1 = bench mode on, 0 = off, 2 = off because launch was detected |
+| 25 | GPS | 0 = no GPS data (lost), 1 = data but no fix, 2 = position fix (on change) |
+
+### GPS frame (38 bytes, optional module)
+
+Sent only while a GPS module sends data: every `gps_tlm_ms` (2 s) on the pad
+and in flight, with every telemetry frame after landing (recovery); airtime
+41 ms. Logged onboard at every new position report (about 1 Hz). The
+position is the last known one: after the fix is lost it stays, with
+`fix` = 0.
+
+| Offset | Type | Field | Unit |
+|---|---|---|---|
+| 10 | u8 | fix quality (GGA: 0 none, 1 GPS, 2 DGPS, 6 estimated) | |
+| 11 | u8 | satellites used | |
+| 12 | u16 | HDOP | 0.01 |
+| 14 | i32 | latitude | 1e-7 ° |
+| 18 | i32 | longitude | 1e-7 ° |
+| 22 | i32 | altitude above mean sea level | cm |
+| 26 | u16 | ground speed | 0.1 m/s |
+| 28 | u16 | course over ground | 0.01 ° |
+| 30 | u16 | age of the fix when the frame was made (65535 = older) | ms |
+| 32 | u32 | time of the fix (0 = unknown) | Unix s |
+| 36 | u16 | CRC | |
 
 ### Uplink frames (22 bytes, ground → rocket)
 
@@ -189,6 +212,7 @@ print the same columns ([lib/fc_core/src/fc/csv.h](../lib/fc_core/src/fc/csv.h))
 ```
 T,seq,t_ms,state,alt_m,vel_mps,ax_g,ay_g,az_g,gx_dps,gy_dps,gz_dps,mx_uT,my_uT,mz_uT,p_pa,temp_c,batt_v,flags,qw,qx,qy,qz,link,up_rssi_dbm,beep_s
 E,seq,t_ms,state,event,arg
+G,seq,t_ms,state,fix,sats,hdop,lat_deg,lon_deg,alt_msl_m,speed_mps,course_deg,age_ms,utc_s
 ```
 
 The ground station appends `rssi_dbm,snr_db`. Lines starting with `#` are
@@ -199,7 +223,7 @@ every 2 s) and `# stats: ...` (every 10 s).
 
 Until an SD card is fitted, every frame is also written to a 2 MB ring buffer
 in the XIAO's PSRAM: telemetry at 50 Hz in flight and 1 Hz otherwise, plus all
-events. That holds about 11 minutes of flight-rate data; on the pad and after
+events and (with the optional GPS) one GPS frame per position report. That holds about 11 minutes of flight-rate data; on the pad and after
 landing it lasts many hours before the oldest data is overwritten.
 
 The log is lost when power is removed. After recovery: remove the arm link,
