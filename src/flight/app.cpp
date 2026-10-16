@@ -203,7 +203,6 @@ void App::control_tick(uint32_t now) {
   read_sensors(now);
 
   const FlightState before = fc_.state();
-  const bool was_armed = fc_.sm().pyro_armed();
 
   if (before == FlightState::Init) {
     // Countdown beeps (one per second) and IMU calibration in the final window.
@@ -226,9 +225,12 @@ void App::control_tick(uint32_t now) {
 
   if (before == FlightState::Init && fc_.settle_done(now)) run_selftest(now);
 
-  // The driver only accepts a fire command if the state machine was armed
-  // before this tick (Boost/Coast, launch detected, not yet fired).
-  pyro_.set_armed(was_armed);
+  // Driver-level interlock: a fire command is only accepted once launch has
+  // been detected. (The state machine may detect launch and command the
+  // charge in the same tick, e.g. a baro launch held longer than the lockout,
+  // so this deliberately uses launched() rather than the previous tick's arm
+  // state.) Between commands the driver follows the state machine's arming.
+  pyro_.set_armed(fc_.sm().launched());
   handle_output(out, now);
   pyro_.set_armed(fc_.sm().pyro_armed());
 
@@ -499,6 +501,8 @@ void App::shutdown(const char* why) {
   buzzer_.set(false);
   led_.set(false);
   radio_.sleep();
+  imu_.sleep();
+  baro_.sleep();
   hal::clear_flight_record();
   Serial.flush();
   delay(50);

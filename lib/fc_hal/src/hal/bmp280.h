@@ -17,6 +17,8 @@ class Bmp280 {
   // Probes 0x76 then 0x77.
   bool begin(TwoWire* wire);
   bool read(float* pressure_pa, float* temp_c);
+  // Sleep mode (no measurements, ~0.1 uA). Needs begin() again to wake.
+  void sleep();
 
   uint8_t address() const { return dev_.addr(); }
   uint8_t chip_id() const { return chip_id_; }

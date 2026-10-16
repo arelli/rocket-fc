@@ -84,4 +84,8 @@ bool Bmp280::read(float* pressure_pa, float* temp_c) {
   return true;
 }
 
+void Bmp280::sleep() {
+  if (ok_) dev_.write8(kRegCtrlMeas, 0x00);  // mode bits 00 = sleep
+}
+
 }  // namespace hal

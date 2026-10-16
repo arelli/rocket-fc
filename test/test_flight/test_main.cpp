@@ -86,6 +86,8 @@ static void fly(FlightComputer& fc, SimFlight& sim, const SimParams& sp, const F
     for (size_t i = 0; i < out.n_events; ++i)
       r.events.push_back({s.t_ms, out.events[i].code, out.events[i].arg});
     if (out.fire) {
+      // The firmware's pyro driver refuses commands before launch detection.
+      TEST_ASSERT_TRUE_MESSAGE(fc.sm().launched(), "fire commanded before launch detection");
       ++r.fires;
       r.fire_t = s.t_ms;
       for (size_t i = 0; i < out.n_events; ++i) {

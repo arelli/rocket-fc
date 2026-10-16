@@ -35,6 +35,8 @@ class Mpu9250 {
   bool read(Sample* s);
 
   void set_gyro_bias(const fc::Vec3& b) { gyro_bias_ = b; }
+  // Lowest-power state (before deep sleep). Needs begin() again to wake.
+  void sleep();
 
   Chip chip() const { return chip_; }
   uint8_t who_am_i() const { return who_; }

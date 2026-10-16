@@ -133,4 +133,9 @@ bool Mpu9250::read(Sample* s) {
   return true;
 }
 
+void Mpu9250::sleep() {
+  if (mag_ok_) mag_.write8(kAkCntl1, 0x00);              // AK8963 power-down
+  if (chip_ != Chip::None) dev_.write8(kPwrMgmt1, 0x40);  // SLEEP bit
+}
+
 }  // namespace hal
