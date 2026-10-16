@@ -41,7 +41,7 @@ deployment, live LoRa telemetry and an onboard flight log.
 |---|---|
 | `flight` | Flight firmware |
 | `bench` | Flight firmware plus `sim` (simulated flight with fake sensors) and `fire <ms> CONFIRM` (test-fire the pyro output). **Never fly a bench build.** It announces itself at boot and in `status` (`[BENCH]`). |
-| `ground` | Receive-only ground station |
+| `ground` | Ground station: receives telemetry, answers with heartbeats (pad beep period) |
 | `native` | Unit tests of the flight logic on your PC |
 
 ## Repository layout

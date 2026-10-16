@@ -37,8 +37,8 @@ static void test_airtime_sf12_uses_low_data_rate_optimization() {
 static void test_flight_telemetry_frame_airtime() {
   LoraModulation m;  // project default: SF7, 250 kHz, CR4/5
   const uint32_t us = lora_airtime_us(m, tlm::kTelemetryLen);
-  // 53-byte frame: 8 + 16*5 payload symbols + 12.25 preamble = 100.25 * 0.512 ms.
-  TEST_ASSERT_UINT32_WITHIN(5, 51328, us);
+  // 56-byte frame: 8 + 17*5 payload symbols + 12.25 preamble = 105.25 * 0.512 ms.
+  TEST_ASSERT_UINT32_WITHIN(5, 53888, us);
 }
 
 struct Tx {

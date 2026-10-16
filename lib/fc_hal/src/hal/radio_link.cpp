@@ -60,7 +60,12 @@ void RadioLink::poll() {
     radio_->finishTransmit();  // missed IRQ: abort and carry on
     tx_busy_ = false;
     ++tx_errors_;
+  } else {
+    return;
   }
+  tx_done_ms_ = millis();
+  if (tx_done_ms_ == 0) tx_done_ms_ = 1;
+  if (listen_) start_receive();
 }
 
 bool RadioLink::start_receive() {

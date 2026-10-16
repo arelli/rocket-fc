@@ -154,6 +154,13 @@ void App::print_status(uint32_t now) {
                 static_cast<unsigned long>(tx_denied_),
                 static_cast<double>(duty_.available_us(now)) / 1e6,
                 static_cast<unsigned>(evq_count_), static_cast<unsigned long>(ev_dropped_));
+  if (ground_.connected(now)) {
+    Serial.printf("ground     heard, uplink rssi %d dBm, pad beeps every %u s%s\n",
+                  ground_.rssi_dbm(now), ground_.pad_beep_period_s(now),
+                  ground_.pad_beep_period_s(now) ? "" : " (off)");
+  } else {
+    Serial.println("ground     not heard: pad status beeps off");
+  }
   Serial.printf("log        %s  %u / %u frames  overwritten %lu\n", ram_log_.name(),
                 static_cast<unsigned>(ram_log_.ring().count()),
                 static_cast<unsigned>(ram_log_.ring().capacity()),

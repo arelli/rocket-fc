@@ -56,7 +56,8 @@ Flash `pio run -e bench -t upload`, open `pio device monitor`.
    10 times, press reset 10 times, plug/unplug USB 10 times. The dummy LED
    must never flash. Repeat with a flight build.
 5. **Bare nichrome** (1 cm, no charge, away from anything flammable): `fire 1000 CONFIRM`.
-   Before firing, PAD shows continuity (LED 2 flashes/s, 3 short beeps).
+   Before firing, PAD shows continuity (LED 2 flashes/s; 3 short beeps while
+   the ground station is running).
    The wire must glow; if it burns through, a PYRO_OPEN event follows. Do this
    with the cell at its lowest expected voltage (~3.7 V) too. If the
    processor resets during the pulse, the supply wiring is too thin or the
@@ -73,7 +74,8 @@ At home:
 
 At the pad (arm link OUT):
 - [ ] Main switch on; countdown with the rocket still and vertical; 2 beeps
-- [ ] LED 1 flash/s, 1 long beep every 10 s (no continuity yet), telemetry arriving
+- [ ] Ground station UI shows telemetry and "Rocket hears ground: yes"
+- [ ] LED 1 flash/s, 1 long beep every 10 s (no continuity yet; beeps need the ground station)
 - [ ] Battery ≥ 3.9 V in telemetry; no unexpected warnings
 - [ ] Charge and igniter installed; fit the arm link LAST, from the side
 - [ ] LED 2 flashes/s, 3 short beeps every 10 s (continuity)

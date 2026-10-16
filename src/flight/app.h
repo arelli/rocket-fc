@@ -18,6 +18,7 @@
 #include "fc/radio_budget.h"
 #include "fc/sim.h"
 #include "fc/telemetry.h"
+#include "fc/uplink.h"
 #include "hal/bmp280.h"
 #include "hal/io.h"
 #include "hal/log_sink.h"
@@ -52,6 +53,7 @@ class App {
   void update_continuity(uint32_t now);
   void update_indicators(uint32_t now);
   void update_radio(uint32_t now);
+  void receive_uplink(uint32_t now);
   void update_log(uint32_t now);
   void pad_report(uint32_t now);
   [[noreturn]] void shutdown(const char* why);
@@ -93,6 +95,8 @@ class App {
   fc::DutyCycleLimiter duty_;
   fc::BeepSequencer beeper_;
   fc::Ahrs ahrs_;               // attitude for telemetry/logging only
+  fc::GroundLink ground_;       // ground station heartbeat (pad beeps only)
+  bool ground_was_ = false;
   uint32_t t_ahrs_ = 0;
 
   // Log sinks: every telemetry/event frame goes to each of them.

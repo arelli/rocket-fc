@@ -34,6 +34,7 @@ enum class EventCode : uint8_t {
   Resumed = 14,        // arg: ms since launch restored after a mid-flight reset
   ApogeeNoDeploy = 15, // arg: max altitude AGL [cm] (below min deploy altitude)
   BenchFire = 16,      // arg: pulse length [ms] (bench build only)
+  GroundLink = 17,     // arg: 1 = ground station heard, 0 = lost
 };
 
 // Why the computer refuses to fly (FlightState::Fault). Beeped as N long beeps.

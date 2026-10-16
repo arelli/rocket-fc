@@ -1,5 +1,5 @@
-// SX1262 LoRa link (RadioLib), non-blocking. One class for both ends:
-// the flight computer only transmits, the ground station only receives.
+// SX1262 LoRa link (RadioLib), non-blocking, half duplex. Both ends transmit
+// and receive: telemetry rocket -> ground, heartbeats ground -> rocket.
 #pragma once
 
 #include <Arduino.h>
@@ -46,6 +46,11 @@ class RadioLink {
   // transmits). Returns NAN when not receiving.
   float channel_rssi_dbm();
 
+  // Return to receive mode automatically after every transmission.
+  void set_listen(bool on) { listen_ = on; }
+  // millis() when the last transmission ended (0 = none yet).
+  uint32_t tx_done_ms() const { return tx_done_ms_; }
+
   // Call every loop iteration (finishes transmissions, handles timeouts).
   void poll();
 
@@ -66,6 +71,8 @@ class RadioLink {
   bool ok_ = false;
   bool rx_mode_ = false;
   bool tx_busy_ = false;
+  bool listen_ = false;
+  uint32_t tx_done_ms_ = 0;
   uint32_t tx_start_ms_ = 0;
   uint32_t tx_timeout_ms_ = 0;
   int16_t last_error_ = 0;

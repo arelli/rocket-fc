@@ -44,7 +44,8 @@ fc::Vec3 along(fc::Axis a, float v) {
 App::App()
     : fc_(cfg::flight_computer()),
       batt_(cfg::battery()),
-      duty_(radio_cfg::kDutyFraction, radio_cfg::kDutyBurstMs) {}
+      duty_(radio_cfg::kDutyFraction, radio_cfg::kDutyBurstMs),
+      ground_(cfg::kUplinkTimeoutMs) {}
 
 bool App::simulating() const {
 #ifdef FC_BENCH_BUILD
@@ -124,6 +125,8 @@ void App::init_radio() {
                                  radio_cfg::kSyncWord,        radio_cfg::kTxPowerDbm,
                                  radio_cfg::kPreambleLen,     radio_cfg::kTcxoVolts};
   if (radio_.begin(p, r)) {
+    radio_.set_listen(true);  // hear ground station heartbeats between transmissions
+    radio_.start_receive();
     Serial.printf("Radio: SX1262 %.3f MHz SF%u BW%.0f, %d dBm\n",
                   static_cast<double>(radio_cfg::kFreqMHz), radio_cfg::kSpreadingFactor,
                   static_cast<double>(radio_cfg::kBandwidthKHz), radio_cfg::kTxPowerDbm);
@@ -418,6 +421,11 @@ void App::on_state_change(FlightState from, FlightState to, uint32_t now) {
 // =============================================================================
 
 void App::slow_tick(uint32_t now) {
+  const bool heard = ground_.connected(now);
+  if (heard != ground_was_) {
+    ground_was_ = heard;
+    event(EventCode::GroundLink, heard ? 1 : 0, now);
+  }
   update_battery(now);
   update_continuity(now);
   pad_report(now);
@@ -484,7 +492,15 @@ void App::update_continuity(uint32_t now) {
 }
 
 void App::pad_report(uint32_t now) {
-  if (beeper_.busy() || now - t_report_ < cfg::kPadReportMs) return;
+  if (beeper_.busy()) return;
+  uint32_t period_ms = cfg::kPadReportMs;
+  if (fc_.state() == FlightState::Pad) {
+    // Pad beeps only while the ground station is heard, at the period it asks for.
+    const uint8_t s = ground_.pad_beep_period_s(now);
+    if (s == 0) return;
+    period_ms = s * 1000u;
+  }
+  if (now - t_report_ < period_ms) return;
   switch (fc_.state()) {
     case FlightState::Pad:
       // 3 short = igniter continuity, 1 long = open circuit / arm link out.
@@ -573,6 +589,9 @@ fc::tlm::Telemetry App::snapshot(uint32_t now) const {
   t.gyro_dps = fc::to_rocket_frame(imu_s_.gyro_dps, cfg::kImuUpAxis);
   t.mag_uT = fc::to_rocket_frame(imu_s_.mag_uT, cfg::kImuUpAxis);
   t.q = imu_ok_ ? ahrs_.q() : fc::Quat{};
+  t.link = ground_.connected(now) ? fc::tlm::kLinkGroundHeard : 0;
+  t.uplink_rssi_dbm = ground_.rssi_dbm(now);
+  t.beep_period_s = ground_.pad_beep_period_s(now);
   t.pressure_pa = pressure_pa_;
   t.temp_c = temp_c_;
   t.batt_v = vbat_;
@@ -631,9 +650,28 @@ uint32_t App::telemetry_period_ms() const {
   }
 }
 
+void App::receive_uplink(uint32_t now) {
+  uint8_t buf[32];
+  float rssi = 0, snr = 0;
+  bool crc_error = false;
+  const size_t n = radio_.receive(buf, sizeof(buf), &rssi, &snr, &crc_error);
+  if (n == 0 || crc_error) return;
+  fc::tlm::Uplink u;
+  if (fc::tlm::decode(buf, n, &u) != fc::tlm::DecodeResult::Ok) return;
+  if (in_flight(fc_.state())) return;  // never act on the uplink in flight
+  const float r = rssi < -127.0f ? -127.0f : rssi > 0.0f ? 0.0f : rssi;
+  ground_.heard(now, static_cast<int8_t>(r), u.beep_period_s);
+}
+
 void App::update_radio(uint32_t now) {
   radio_.poll();
   if (!radio_.ok() || radio_.busy()) return;
+  receive_uplink(now);
+  // On the ground, leave a short receive window after each transmission for
+  // the ground station's heartbeat reply. In flight, transmit freely.
+  if (!in_flight(fc_.state()) && radio_.tx_done_ms() != 0 &&
+      now - radio_.tx_done_ms() < cfg::kUplinkRxWindowMs)
+    return;
 
   uint8_t buf[fc::tlm::kMaxFrameLen];
   if (evq_count_ > 0) {

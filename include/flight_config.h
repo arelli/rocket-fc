@@ -88,7 +88,11 @@ constexpr uint32_t kTlmFlightMs = 200;    // ...in flight (5 Hz; duty limiter pe
 constexpr uint32_t kTlmLandedMs = 5000;   // ...after landing (beacon)
 constexpr uint32_t kLogFlightMs = 20;     // onboard log rate in flight (50 Hz)
 constexpr uint32_t kLogPadMs = 1000;      // ...on the pad / after landing
-constexpr uint32_t kPadReportMs = 10000;  // status beeps: pad (continuity), fault code, landed altitude
+constexpr uint32_t kPadReportMs = 10000;  // status beeps: fault code, landed altitude
+// Pad status beeps (continuity) sound only while the ground station is heard;
+// their period comes from its heartbeat (set in the ground station UI).
+constexpr uint32_t kUplinkTimeoutMs = 5000;  // ground counts as lost after this silence
+constexpr uint32_t kUplinkRxWindowMs = 150;  // on the ground: listen this long after each TX
 constexpr uint32_t kWatchdogS = 2;        // reset if the loop stalls this long
 
 }  // namespace cfg

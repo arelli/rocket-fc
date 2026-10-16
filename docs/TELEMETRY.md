@@ -13,30 +13,34 @@ change must increment `kVersion`.
 | Modulation | LoRa SF7, BW 250 kHz, CR 4/5, 8-symbol preamble, explicit header, CRC on | |
 | Sync word | 0x12 (private; not LoRaWAN, not Meshtastic) | |
 | Power | 20 dBm | |
-| Airtime | telemetry frame 51.3 ms, event frame 25.7 ms | `fc::lora_airtime_us` |
+| Airtime | telemetry 53.9 ms, event 25.7 ms, uplink heartbeat 23.2 ms | `fc::lora_airtime_us` |
 
 Both kits must be built from the same `radio_config.h`. Outside the EU change
 the frequency and duty limits to your local rules.
 
-**Rates:** telemetry every 1 s on the pad (5.1 % duty), every 200 ms in flight
-(25.7 %), every 5 s after landing (1.0 %). Events are sent before telemetry.
+**Rates:** telemetry every 1 s on the pad (5.4 % duty), every 200 ms in flight
+(27 %), every 5 s after landing (1.1 %). Events are sent before telemetry.
+On the ground the rocket waits 150 ms after each transmission before the next,
+listening for the ground station's heartbeat.
 
 **Duty cycle:** `fc::DutyCycleLimiter` is a token bucket refilled at 8 % with
 a 72 s burst allowance. Any one-hour window therefore contains at most
 72 s + 8 % × 3600 s = 360 s of transmission, the 10 % limit, while the
-flight itself can use the 5 Hz rate for about 6.8 minutes from a full bucket.
+flight itself can use the 5 Hz rate for about 6 minutes from a full bucket.
+The ground station applies the same limiter to its heartbeats (at most about
+one per second, 2.6 %).
 When the budget is exhausted, telemetry is skipped (counted as "denied" in
 `status`) and queued events wait.
 
-## Frame format (version 2, little-endian)
+## Frame format (version 3, little-endian)
 
 Header, 10 bytes, common to both frame types:
 
 | Offset | Type | Field |
 |---|---|---|
 | 0 | u8 | magic = 0xA5 |
-| 1 | u8 | version = 2 (2 added the attitude quaternion) |
-| 2 | u8 | type: 1 = telemetry, 2 = event |
+| 1 | u8 | version = 3 (2 added the attitude quaternion, 3 the ground link fields and the uplink frame) |
+| 2 | u8 | type: 1 = telemetry, 2 = event (rocket → ground); 3 = uplink (ground → rocket) |
 | 3 | u8 | flight state (0 INIT, 1 FAULT, 2 PAD, 3 BOOST, 4 COAST, 5 DESCENT, 6 LANDED) |
 | 4 | u16 | sequence number (separate counters for radio and log; gaps on the radio = lost packets) |
 | 6 | u32 | time since boot [ms] |
@@ -44,7 +48,7 @@ Header, 10 bytes, common to both frame types:
 Every frame ends with a u16 CRC-16/CCITT-FALSE (poly 0x1021, init 0xFFFF)
 over all preceding bytes.
 
-### Telemetry frame (53 bytes)
+### Telemetry frame (56 bytes)
 
 Acceleration, rotation rate and magnetic field are in the **rocket frame**:
 +Z points to the nose; X and Y follow from the IMU mounting
@@ -62,7 +66,10 @@ Acceleration, rotation rate and magnetic field are in the **rocket frame**:
 | 40 | u16 | battery voltage | mV |
 | 42 | u8 | flags (below) | |
 | 43 | 4 × i16 | attitude quaternion w, x, y, z | 1/32767 |
-| 51 | u16 | CRC | |
+| 51 | u8 | link: bit 0 = ground station heartbeat heard within 5 s | |
+| 52 | i8 | heartbeat RSSI at the rocket (−128 = none) | dBm |
+| 53 | u8 | pad beep period in use (0 = silent) | s |
+| 54 | u16 | CRC | |
 
 The quaternion rotates rocket-frame vectors into the earth frame (x = magnetic
 north, y = west, z = up). It comes from a complementary filter on the flight
@@ -102,6 +109,27 @@ Flags: bit 0 igniter continuity, 1 pyro armed, 2 pyro fired, 3 IMU ok,
 | 14 | RESUMED | ms since launch restored after a reset |
 | 15 | APOGEE_NO_DEPLOY | maximum altitude [cm] (below the minimum deploy altitude) |
 | 16 | BENCH_FIRE | pulse length [ms] (bench build only) |
+| 17 | GROUND_LINK | 1 = rocket hears the ground station, 0 = lost it |
+
+### Uplink frame (14 bytes, ground → rocket)
+
+| Offset | Type | Field |
+|---|---|---|
+| 0–9 | | header; state byte = 0, time = ground station clock |
+| 10 | u8 | kind = 1 (heartbeat) |
+| 11 | u8 | pad beep period [s] (0 = silent) |
+| 12 | u16 | CRC |
+
+The ground station answers a rocket frame with a heartbeat 15 ms after
+receiving it, at most once per 900 ms, and only while the rocket reports
+INIT, FAULT, PAD or LANDED (`fc::UplinkPolicy`). The rocket counts the
+ground station as heard for 5 s after each heartbeat (`fc::GroundLink`).
+The heartbeat only sets the pad beep period: it cannot arm, fire or change
+anything the flight logic uses, and the rocket ignores it in flight. It is not
+authenticated, which is acceptable for that reason.
+
+Ground station USB commands: `beep <0..255>` (seconds), `uplink on|off`, an
+empty line re-prints the CSV headers. It reports `# uplink on beep=10 sent=N`.
 
 ## CSV
 
@@ -109,7 +137,7 @@ The ground station, the `csv on` console stream and the `dump` command all
 print the same columns ([lib/fc_core/src/fc/csv.h](../lib/fc_core/src/fc/csv.h)):
 
 ```
-T,seq,t_ms,state,alt_m,vel_mps,ax_g,ay_g,az_g,gx_dps,gy_dps,gz_dps,mx_uT,my_uT,mz_uT,p_pa,temp_c,batt_v,flags,qw,qx,qy,qz
+T,seq,t_ms,state,alt_m,vel_mps,ax_g,ay_g,az_g,gx_dps,gy_dps,gz_dps,mx_uT,my_uT,mz_uT,p_pa,temp_c,batt_v,flags,qw,qx,qy,qz,link,up_rssi_dbm,beep_s
 E,seq,t_ms,state,event,arg
 ```
 

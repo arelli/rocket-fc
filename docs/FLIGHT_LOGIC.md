@@ -107,6 +107,7 @@ fired, it is never fired again.
 | IMU missing / dies | Launch by barometer (30 m), deployment unaffected; warning / SENSOR_LOST |
 | Magnetometer missing | Warning only (data not used for decisions) |
 | Radio fails | Warning; flight unaffected, onboard log continues |
+| Ground station off / out of range | Pad status beeps stop (GROUND_LINK event); nothing else changes |
 | Battery low | Warning; LED pattern on pad |
 | Processor reset in flight | Resumes from RTC record (above) |
 | Ejection charge does not light | No retry (single shot); PYRO_OPEN event absent tells you the bridge did not burn through |

@@ -33,6 +33,7 @@ const char* to_string(EventCode e) {
     case EventCode::Resumed: return "RESUMED";
     case EventCode::ApogeeNoDeploy: return "APOGEE_NO_DEPLOY";
     case EventCode::BenchFire: return "BENCH_FIRE";
+    case EventCode::GroundLink: return "GROUND_LINK";
   }
   return "?";
 }

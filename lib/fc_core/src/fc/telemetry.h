@@ -1,4 +1,4 @@
-// Telemetry / log frame format, version 2. The authoritative description is
+// Telemetry / log / uplink frame format, version 3. The authoritative description is
 // docs/TELEMETRY.md; keep the two in sync. The same frames are sent over LoRa
 // and (in future) written to the SD card, so one decoder reads both.
 //
@@ -16,9 +16,10 @@ namespace fc {
 namespace tlm {
 
 constexpr uint8_t kMagic = 0xA5;
-constexpr uint8_t kVersion = 2;  // 2: attitude quaternion appended
+constexpr uint8_t kVersion = 3;  // 2: attitude quaternion; 3: ground link fields, uplink frame
 
-enum class FrameType : uint8_t { Telemetry = 1, Event = 2 };
+// Telemetry and Event: rocket -> ground (and the onboard log). Uplink: ground -> rocket.
+enum class FrameType : uint8_t { Telemetry = 1, Event = 2, Uplink = 3 };
 
 enum Flags : uint8_t {
   kFlagPyroContinuity = 1 << 0,  // igniter circuit closed (arm link fitted + bridge intact)
@@ -32,8 +33,9 @@ enum Flags : uint8_t {
 };
 
 constexpr size_t kHeaderLen = 10;
-constexpr size_t kTelemetryLen = 53;
+constexpr size_t kTelemetryLen = 56;
 constexpr size_t kEventLen = 17;
+constexpr size_t kUplinkLen = 14;
 constexpr size_t kMaxFrameLen = kTelemetryLen;
 
 // Engineering-unit view of a telemetry frame. Encoding quantizes to the units
@@ -52,6 +54,21 @@ struct Telemetry {
   float batt_v = 0;       // battery voltage            (wire: u16 mV)
   uint8_t flags = 0;      // Flags bitmask
   Quat q;                 // attitude, rocket -> earth  (wire: i16 /32767 each, w x y z)
+  uint8_t link = 0;       // LinkBits
+  int8_t uplink_rssi_dbm = -128;  // last heartbeat as heard by the rocket (-128 = none)
+  uint8_t beep_period_s = 0;      // pad status beep period in use (0 = silent)
+};
+
+enum LinkBits : uint8_t {
+  kLinkGroundHeard = 1 << 0,  // a ground heartbeat arrived within the timeout
+};
+
+// Ground -> rocket heartbeat. It can only change the pad status beeps; the
+// rocket ignores it in flight. Header "state" byte is 0.
+struct Uplink {
+  uint16_t seq = 0;
+  uint32_t t_ms = 0;            // ground station clock
+  uint8_t beep_period_s = 10;   // pad status beep period (0 = no pad beeps)
 };
 
 struct Event {
@@ -65,6 +82,7 @@ struct Event {
 // Encoders return the frame length, or 0 if `cap` is too small.
 size_t encode(const Telemetry& t, uint8_t* out, size_t cap);
 size_t encode(const Event& e, uint8_t* out, size_t cap);
+size_t encode(const Uplink& u, uint8_t* out, size_t cap);
 
 enum class DecodeResult : uint8_t {
   Ok = 0,
@@ -80,6 +98,7 @@ enum class DecodeResult : uint8_t {
 DecodeResult frame_type(const uint8_t* buf, size_t len, FrameType* type);
 DecodeResult decode(const uint8_t* buf, size_t len, Telemetry* out);
 DecodeResult decode(const uint8_t* buf, size_t len, Event* out);
+DecodeResult decode(const uint8_t* buf, size_t len, Uplink* out);
 
 const char* to_string(DecodeResult r);
 

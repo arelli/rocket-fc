@@ -136,6 +136,16 @@
     <h2>Radio link</h2>
     <div class="gauges" id="link-gauges" style="grid-template-columns: 1fr"></div>
     <table class="kv" id="link-readouts" style="margin-top:8px"></table>
+    <fieldset style="margin-top:10px">
+      <legend>Uplink to the rocket (heartbeat)</legend>
+      <div class="row">
+        <label><input type="checkbox" id="up-on"> Send heartbeats</label>
+        <label>pad beeps every <input type="number" id="up-beep" min="0" max="255" style="width:64px"> s (0 = silent)</label>
+        <button id="btn-up-apply">Apply</button>
+      </div>
+      <div class="note">The rocket gives its pad status beeps only while it hears these heartbeats.
+        Settings are sent to the ground station kit; nothing else is ever transmitted to the rocket.</div>
+    </fieldset>
   </section>
 
   <section class="panel c12">
@@ -189,7 +199,7 @@
 // CSV columns, in order (lib/fc_core/src/fc/csv.h). The ground station appends rssi_dbm,snr_db.
 const TLM_COLUMNS = ['seq', 't_ms', 'state', 'alt_m', 'vel_mps', 'ax_g', 'ay_g', 'az_g',
   'gx_dps', 'gy_dps', 'gz_dps', 'mx_uT', 'my_uT', 'mz_uT', 'p_pa', 'temp_c', 'batt_v', 'flags',
-  'qw', 'qx', 'qy', 'qz'];
+  'qw', 'qx', 'qy', 'qz', 'link', 'up_rssi_dbm', 'beep_s'];
 const EVT_COLUMNS = ['seq', 't_ms', 'state', 'event', 'arg'];
 
 // Telemetry flag bits (docs/TELEMETRY.md). cls: colour when set / when clear.
@@ -217,6 +227,7 @@ const EVENT_ARG = {
   PYRO_OPEN: a => a + ' ms after fire', RESUMED: a => (a / 1000).toFixed(1) + ' s after launch',
   SENSOR_LOST: a => ['IMU', 'MAG', 'BARO', 'RADIO'].filter((_, i) => a & (1 << i)).join(', '),
   BENCH_FIRE: a => a + ' ms pulse',
+  GROUND_LINK: a => a ? 'rocket hears the ground station' : 'rocket lost the ground station',
 };
 const WARN_BITS = ['IMU missing', 'no magnetometer', 'radio failed', 'battery low', 'up axis not ~1 g', 'no backup timer'];
 function warnNames(a) { return WARN_BITS.filter((_, i) => a & (1 << i)).join(', '); }
@@ -256,7 +267,13 @@ const LINK_GAUGES = [
   { label: 'RSSI', unit: 'dBm', min: -130, max: -30, digits: 1, get: s => s.rssi, marks: [{ v: -120, cls: 'bad' }] },
   { label: 'SNR', unit: 'dB', min: -20, max: 15, digits: 1, get: s => s.snr, marks: [{ v: SF7_SNR_LIMIT_DB, cls: 'bad' }] },
   { label: 'Noise floor', unit: 'dBm', min: -130, max: -80, digits: 1, get: s => s.noise },
+  { label: 'Uplink RSSI (at the rocket)', unit: 'dBm', min: -130, max: -30, digits: 0, get: s => s.uprssi,
+    marks: [{ v: -120, cls: 'bad' }] },
 ];
+
+// Uplink (ground -> rocket heartbeat): settings remembered in this browser and
+// sent to the ground station kit whenever it is connected.
+const UPLINK_DEFAULTS = { on: true, beep_s: 10 };
 
 // Plots: each series is { label, get(frame) }.
 const PLOTS = [
@@ -340,7 +357,7 @@ class Track {
   constructor(name) { this.name = name; this.reset(); }
   reset() {
     this.frames = []; this.events = []; this.lastSeq = null; this.received = 0; this.lost = 0;
-    this.maxAlt = NaN; this.lastRx = 0; this.rxTimes = []; this.bad = 0; this.noise = NaN; this.stats = ''; this.version++;
+    this.maxAlt = NaN; this.lastRx = 0; this.rxTimes = []; this.bad = 0; this.noise = NaN; this.stats = ''; this.uplink = ''; this.version++;
   }
   // Telemetry and events share one sequence counter per link: gaps = lost frames.
   noteSeq(seq) {
@@ -465,12 +482,25 @@ function handleGroundLine(track, line, live) {
   if (line.startsWith('# noise')) track.noise = Number(line.split(/\s+/)[2]);
   else if (line.startsWith('# bad frame')) track.bad++;
   else if (line.startsWith('# stats')) track.stats = line.slice(2);
+  else if (line.startsWith('# uplink')) track.uplink = line.slice(2);
   else if (live && line.startsWith('# ERROR')) setMsg('Ground station: ' + line.slice(2));
 }
 const radioLink = new SerialLink('radio', line => {
   radioLines.push(line); radioUnsaved = true;
   handleGroundLine(tracks.radio, line, true);
-}, s => setLinkState('radio', s));
+}, s => { setLinkState('radio', s); if (s === 'connected') setTimeout(sendUplinkSettings, 300); });
+
+function loadUplinkSettings() {
+  try { return Object.assign({}, UPLINK_DEFAULTS, JSON.parse(localStorage.getItem('rocketfc.uplink') || '{}')); }
+  catch (_) { return Object.assign({}, UPLINK_DEFAULTS); }
+}
+function sendUplinkSettings() {
+  const u = { on: $('up-on').checked, beep_s: Math.max(0, Math.min(255, Math.round(Number($('up-beep').value) || 0))) };
+  $('up-beep').value = u.beep_s;
+  try { localStorage.setItem('rocketfc.uplink', JSON.stringify(u)); } catch (_) { /* private window */ }
+  if (!radioLink.open) { setMsg('Uplink settings saved; they are sent when the ground station is connected.'); return; }
+  radioLink.write('uplink ' + (u.on ? 'on' : 'off')).then(() => radioLink.write('beep ' + u.beep_s));
+}
 
 // --- flight computer (USB console) port ---
 let dumpLines = null;
@@ -683,7 +713,7 @@ function buildUi() {
   for (const [label, id] of [['Tilt from vertical', 'att-tilt'], ['Nose leans toward', 'att-lean'], ['Roll rate', 'att-roll'], ['Quaternion (w x y z)', 'att-q']]) {
     const tr = el('tr'); tr.append(el('td', '', label), el('td', 'num', '—')); tr.lastChild.id = id; $('att-readouts').append(tr);
   }
-  for (const [label, id] of [['Packets', 'lk-pkts'], ['Packet rate', 'lk-rate'], ['Lost (sequence gaps)', 'lk-lost'], ['Bad frames', 'lk-bad'], ['SNR margin (SF7)', 'lk-margin'], ['Last packet', 'lk-age'], ['Ground station', 'lk-stats']]) {
+  for (const [label, id] of [['Rocket hears ground', 'lk-heard'], ['Pad beeps (rocket)', 'lk-beep'], ['Packets', 'lk-pkts'], ['Packet rate', 'lk-rate'], ['Lost (sequence gaps)', 'lk-lost'], ['Bad frames', 'lk-bad'], ['SNR margin (SF7)', 'lk-margin'], ['Last packet', 'lk-age'], ['Ground station', 'lk-stats'], ['Ground uplink', 'lk-uplink']]) {
     const tr = el('tr'); tr.append(el('td', '', label), el('td', 'num', '—')); tr.lastChild.id = id; $('link-readouts').append(tr);
   }
 }
@@ -711,7 +741,12 @@ function render() {
   const stale = !(live || t.name === 'file');
   GAUGES.forEach(g => setGauge(g, f ? g.get(f) : NaN, stale));
   // link
-  const s = { rssi: f ? f.rssi : NaN, snr: f ? f.snr : NaN, noise: t.noise };
+  const heard = f && (f.link & 1) !== 0;
+  const s = { rssi: f ? f.rssi : NaN, snr: f ? f.snr : NaN, noise: t.noise,
+    uprssi: heard && f.up_rssi_dbm > -128 ? f.up_rssi_dbm : NaN };
+  $('lk-heard').textContent = f ? (heard ? 'yes' : 'no') : '—';
+  $('lk-heard').style.color = f ? (heard ? css('--ok') : css('--warn')) : '';
+  $('lk-beep').textContent = !f ? '—' : !heard ? 'off (no heartbeat)' : f.beep_s ? 'every ' + f.beep_s + ' s' : 'off (silent)';
   LINK_GAUGES.forEach(g => setGauge(g, g.get(s), stale));
   $('lk-pkts').textContent = t.received;
   $('lk-rate').textContent = t.lastRx ? fmt(t.rateHz(), 1) + ' /s' : '—';
@@ -720,6 +755,7 @@ function render() {
   $('lk-margin').textContent = isFinite(s.snr) ? fmt(s.snr - SF7_SNR_LIMIT_DB, 1) + ' dB' : '—';
   $('lk-age').textContent = t.lastRx ? fmt((performance.now() - t.lastRx) / 1000, 1) + ' s ago' : '—';
   $('lk-stats').textContent = t.stats || '—';
+  $('lk-uplink').textContent = t.uplink || '—';
   // attitude
   drawAttitude(f, live || t.name === 'file');
   const ok = f && imuOk(f);
@@ -772,6 +808,8 @@ $('cmd').addEventListener('keydown', e => {
 });
 $('btn-clear').onclick = () => { consoleLines.length = 0; $('console').textContent = ''; };
 $('fire-safe').onchange = updateCommandButtons;
+$('btn-up-apply').onclick = sendUplinkSettings;
+{ const u = loadUplinkSettings(); $('up-on').checked = u.on; $('up-beep').value = u.beep_s; }
 $('btn-fire').onclick = () => {
   const ms = Math.round(Number($('fire-ms').value));
   if (!(ms >= 1 && ms <= 2000)) { setMsg('Pulse must be 1–2000 ms.'); return; }

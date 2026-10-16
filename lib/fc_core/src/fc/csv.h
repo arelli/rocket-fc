@@ -3,7 +3,7 @@
 // serial "log" stream, so every data file has the same columns.
 //
 //   T,seq,t_ms,state,alt_m,vel_mps,ax_g,ay_g,az_g,gx_dps,gy_dps,gz_dps,
-//     mx_uT,my_uT,mz_uT,p_pa,temp_c,batt_v,flags,qw,qx,qy,qz
+//     mx_uT,my_uT,mz_uT,p_pa,temp_c,batt_v,flags,qw,qx,qy,qz,link,up_rssi_dbm,beep_s
 //   E,seq,t_ms,state,event,arg
 //
 // Header lines start with '#'. The ground station appends ",rssi_dbm,snr_db".

@@ -3,7 +3,8 @@
 //
 // Band: 869.40-869.65 MHz (EU, ERC REC 70-03 band 54): up to 500 mW ERP and
 // 10 % duty cycle per hour; the whole 250 kHz band may be used as one channel.
-// The firmware enforces the duty cycle with fc::DutyCycleLimiter.
+// Both ends enforce the duty cycle with fc::DutyCycleLimiter (the rocket for
+// telemetry, the ground station for its heartbeats).
 // Outside the EU, change frequency/duty limits to your local rules.
 #pragma once
 

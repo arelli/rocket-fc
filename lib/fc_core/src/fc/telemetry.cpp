@@ -33,6 +33,7 @@ DecodeResult check_frame(const uint8_t* buf, size_t len, FrameType* type) {
   switch (static_cast<FrameType>(buf[2])) {
     case FrameType::Telemetry: expected = kTelemetryLen; break;
     case FrameType::Event: expected = kEventLen; break;
+    case FrameType::Uplink: expected = kUplinkLen; break;
     default: return DecodeResult::BadType;
   }
   if (len != expected) return DecodeResult::BadLength;
@@ -66,6 +67,9 @@ size_t encode(const Telemetry& t, uint8_t* out, size_t cap) {
   w.i16(sat_i16(t.q.x * 32767.0f));
   w.i16(sat_i16(t.q.y * 32767.0f));
   w.i16(sat_i16(t.q.z * 32767.0f));
+  w.u8(t.link);
+  w.u8(static_cast<uint8_t>(t.uplink_rssi_dbm));
+  w.u8(t.beep_period_s);
   return finish(w, out);
 }
 
@@ -75,6 +79,31 @@ size_t encode(const Event& e, uint8_t* out, size_t cap) {
   w.u8(static_cast<uint8_t>(e.code));
   w.i32(e.arg);
   return finish(w, out);
+}
+
+size_t encode(const Uplink& u, uint8_t* out, size_t cap) {
+  ByteWriter w(out, cap);
+  write_header(w, FrameType::Uplink, FlightState::Init, u.seq, u.t_ms);
+  w.u8(1);  // kind: heartbeat (room for other kinds later)
+  w.u8(u.beep_period_s);
+  return finish(w, out);
+}
+
+DecodeResult decode(const uint8_t* buf, size_t len, Uplink* out) {
+  FrameType type;
+  DecodeResult r = check_frame(buf, len, &type);
+  if (r != DecodeResult::Ok) return r;
+  if (type != FrameType::Uplink) return DecodeResult::BadType;
+  ByteReader rd(buf, len);
+  rd.u8();
+  rd.u8();
+  rd.u8();
+  rd.u8();  // state (unused)
+  out->seq = rd.u16();
+  out->t_ms = rd.u32();
+  if (rd.u8() != 1) return DecodeResult::BadType;  // unknown kind
+  out->beep_period_s = rd.u8();
+  return rd.ok() ? DecodeResult::Ok : DecodeResult::BadLength;
 }
 
 DecodeResult frame_type(const uint8_t* buf, size_t len, FrameType* type) {
@@ -112,6 +141,9 @@ DecodeResult decode(const uint8_t* buf, size_t len, Telemetry* out) {
   out->q.x = rd.i16() / 32767.0f;
   out->q.y = rd.i16() / 32767.0f;
   out->q.z = rd.i16() / 32767.0f;
+  out->link = rd.u8();
+  out->uplink_rssi_dbm = static_cast<int8_t>(rd.u8());
+  out->beep_period_s = rd.u8();
   return rd.ok() ? DecodeResult::Ok : DecodeResult::BadLength;
 }
 
