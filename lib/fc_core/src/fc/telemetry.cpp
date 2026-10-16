@@ -62,6 +62,10 @@ size_t encode(const Telemetry& t, uint8_t* out, size_t cap) {
   w.i16(sat_i16(t.temp_c * 100.0f));
   w.u16(sat_u16(t.batt_v * 1000.0f));
   w.u8(t.flags);
+  w.i16(sat_i16(t.q.w * 32767.0f));
+  w.i16(sat_i16(t.q.x * 32767.0f));
+  w.i16(sat_i16(t.q.y * 32767.0f));
+  w.i16(sat_i16(t.q.z * 32767.0f));
   return finish(w, out);
 }
 
@@ -104,6 +108,10 @@ DecodeResult decode(const uint8_t* buf, size_t len, Telemetry* out) {
   out->temp_c = rd.i16() / 100.0f;
   out->batt_v = rd.u16() / 1000.0f;
   out->flags = rd.u8();
+  out->q.w = rd.i16() / 32767.0f;
+  out->q.x = rd.i16() / 32767.0f;
+  out->q.y = rd.i16() / 32767.0f;
+  out->q.z = rd.i16() / 32767.0f;
   return rd.ok() ? DecodeResult::Ok : DecodeResult::BadLength;
 }
 

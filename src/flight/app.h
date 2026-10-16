@@ -11,6 +11,7 @@
 #include <Arduino.h>
 #include <Wire.h>
 
+#include "fc/ahrs.h"
 #include "fc/battery.h"
 #include "fc/flight_computer.h"
 #include "fc/indicators.h"
@@ -44,6 +45,7 @@ class App {
   void control_tick(uint32_t now);
   void slow_tick(uint32_t now);
   void read_sensors(uint32_t now);
+  void update_attitude(uint32_t now);
   void handle_output(const fc::SmOutput& out, uint32_t now);
   void on_state_change(fc::FlightState from, fc::FlightState to, uint32_t now);
   void update_battery(uint32_t now);
@@ -90,6 +92,8 @@ class App {
   fc::BatteryMonitor batt_;
   fc::DutyCycleLimiter duty_;
   fc::BeepSequencer beeper_;
+  fc::Ahrs ahrs_;               // attitude for telemetry/logging only
+  uint32_t t_ahrs_ = 0;
 
   // Log sinks: every telemetry/event frame goes to each of them.
   // Onboard RAM log now; an SD card sink can be added next to it.

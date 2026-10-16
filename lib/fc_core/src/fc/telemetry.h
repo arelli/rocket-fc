@@ -1,4 +1,4 @@
-// Telemetry / log frame format, version 1. The authoritative description is
+// Telemetry / log frame format, version 2. The authoritative description is
 // docs/TELEMETRY.md; keep the two in sync. The same frames are sent over LoRa
 // and (in future) written to the SD card, so one decoder reads both.
 //
@@ -16,7 +16,7 @@ namespace fc {
 namespace tlm {
 
 constexpr uint8_t kMagic = 0xA5;
-constexpr uint8_t kVersion = 1;
+constexpr uint8_t kVersion = 2;  // 2: attitude quaternion appended
 
 enum class FrameType : uint8_t { Telemetry = 1, Event = 2 };
 
@@ -32,7 +32,7 @@ enum Flags : uint8_t {
 };
 
 constexpr size_t kHeaderLen = 10;
-constexpr size_t kTelemetryLen = 45;
+constexpr size_t kTelemetryLen = 53;
 constexpr size_t kEventLen = 17;
 constexpr size_t kMaxFrameLen = kTelemetryLen;
 
@@ -44,13 +44,14 @@ struct Telemetry {
   uint32_t t_ms = 0;
   float alt_m = 0;        // filtered altitude AGL      (wire: i32 cm)
   float vel_mps = 0;      // filtered vertical velocity (wire: i16 cm/s)
-  Vec3 accel_g;           // body-frame accel           (wire: i16 mg each)
-  Vec3 gyro_dps;          // body-frame rate            (wire: i16 0.1 deg/s each)
-  Vec3 mag_uT;            // body-frame magnetic field  (wire: i16 0.1 uT each)
+  Vec3 accel_g;           // rocket-frame accel         (wire: i16 mg each)
+  Vec3 gyro_dps;          // rocket-frame rate          (wire: i16 0.1 deg/s each)
+  Vec3 mag_uT;            // rocket-frame field         (wire: i16 0.1 uT each)
   float pressure_pa = 0;  // raw baro pressure          (wire: u32 Pa)
   float temp_c = 0;       // baro temperature           (wire: i16 0.01 degC)
   float batt_v = 0;       // battery voltage            (wire: u16 mV)
   uint8_t flags = 0;      // Flags bitmask
+  Quat q;                 // attitude, rocket -> earth  (wire: i16 /32767 each, w x y z)
 };
 
 struct Event {

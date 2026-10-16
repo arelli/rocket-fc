@@ -37,7 +37,8 @@ static void test_airtime_sf12_uses_low_data_rate_optimization() {
 static void test_flight_telemetry_frame_airtime() {
   LoraModulation m;  // project default: SF7, 250 kHz, CR4/5
   const uint32_t us = lora_airtime_us(m, tlm::kTelemetryLen);
-  TEST_ASSERT_UINT32_WITHIN(5, 46208, us);
+  // 53-byte frame: 8 + 16*5 payload symbols + 12.25 preamble = 100.25 * 0.512 ms.
+  TEST_ASSERT_UINT32_WITHIN(5, 51328, us);
 }
 
 struct Tx {
@@ -88,8 +89,8 @@ static void test_burst_allows_fast_telemetry_during_a_flight() {
   // Pad: 1 Hz for 30 minutes (well under the refill rate).
   uint32_t t = 0;
   for (; t < 30u * 60u * 1000u; t += 1000) TEST_ASSERT_TRUE(lim.try_consume(t, air));
-  // Flight: 10 Hz for 3 minutes must all be allowed.
-  for (uint32_t end = t + 180000; t < end; t += 100) TEST_ASSERT_TRUE(lim.try_consume(t, air));
+  // Flight: the in-flight rate (5 Hz, cfg::kTlmFlightMs) for 5 minutes must all be allowed.
+  for (uint32_t end = t + 300000; t < end; t += 200) TEST_ASSERT_TRUE(lim.try_consume(t, air));
 }
 
 int main(int, char**) {

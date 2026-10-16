@@ -10,7 +10,7 @@ namespace fc {
 
 class FrameRing {
  public:
-  static constexpr size_t kSlot = 48;  // 1 length byte + up to 47 frame bytes
+  static constexpr size_t kSlot = 64;  // 1 length byte + up to 63 frame bytes
 
   void attach(uint8_t* mem, size_t bytes);
   bool ok() const { return slots_ > 0; }

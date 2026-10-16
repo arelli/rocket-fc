@@ -29,7 +29,7 @@ except ImportError:
     sys.exit("pyserial is missing: pip install pyserial")
 
 TLM_FIELDS = ("seq t_ms state alt_m vel_mps ax_g ay_g az_g gx_dps gy_dps gz_dps "
-              "mx_uT my_uT mz_uT p_pa temp_c batt_v flags").split()
+              "mx_uT my_uT mz_uT p_pa temp_c batt_v flags qw qx qy qz").split()
 EVT_FIELDS = "seq t_ms state event arg".split()
 FLAG_NAMES = ["CONT", "ARMED", "FIRED", "IMU", "MAG", "BARO", "BATT_LOW", "RESUMED"]
 

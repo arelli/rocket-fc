@@ -66,6 +66,11 @@ struct Vec3 {
   float x = 0, y = 0, z = 0;
 };
 
+// Unit quaternion (attitude), see fc/ahrs.h for the frames.
+struct Quat {
+  float w = 1, x = 0, y = 0, z = 0;
+};
+
 const char* to_string(FlightState s);
 const char* to_string(EventCode e);
 

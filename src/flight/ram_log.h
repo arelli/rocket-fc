@@ -1,6 +1,6 @@
 // Onboard flight log in PSRAM (until an SD card is fitted).
 //
-// Keeps the most recent frames (about 2 MB = 43,000 frames: 14 minutes at
+// Keeps the most recent frames (2 MB = 32,768 frames: about 11 minutes at
 // the 50 Hz flight rate, or many hours at the 1 Hz pad rate). The contents
 // survive as long as the computer stays powered: after recovery, connect USB
 // WITHOUT switching off and type "dump" in the serial console.

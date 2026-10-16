@@ -13,29 +13,29 @@ change must increment `kVersion`.
 | Modulation | LoRa SF7, BW 250 kHz, CR 4/5, 8-symbol preamble, explicit header, CRC on | |
 | Sync word | 0x12 (private; not LoRaWAN, not Meshtastic) | |
 | Power | 20 dBm | |
-| Airtime | telemetry frame 46.2 ms, event frame 25.7 ms | `fc::lora_airtime_us` |
+| Airtime | telemetry frame 51.3 ms, event frame 25.7 ms | `fc::lora_airtime_us` |
 
 Both kits must be built from the same `radio_config.h`. Outside the EU change
 the frequency and duty limits to your local rules.
 
-**Rates:** telemetry every 1 s on the pad (4.6 % duty), every 200 ms in flight
-(23 %), every 5 s after landing (0.9 %). Events are sent before telemetry.
+**Rates:** telemetry every 1 s on the pad (5.1 % duty), every 200 ms in flight
+(25.7 %), every 5 s after landing (1.0 %). Events are sent before telemetry.
 
 **Duty cycle:** `fc::DutyCycleLimiter` is a token bucket refilled at 8 % with
 a 72 s burst allowance. Any one-hour window therefore contains at most
 72 s + 8 % × 3600 s = 360 s of transmission, the 10 % limit, while the
-flight itself can use the 5 Hz rate for about 8 minutes from a full bucket.
+flight itself can use the 5 Hz rate for about 6.8 minutes from a full bucket.
 When the budget is exhausted, telemetry is skipped (counted as "denied" in
 `status`) and queued events wait.
 
-## Frame format (version 1, little-endian)
+## Frame format (version 2, little-endian)
 
 Header, 10 bytes, common to both frame types:
 
 | Offset | Type | Field |
 |---|---|---|
 | 0 | u8 | magic = 0xA5 |
-| 1 | u8 | version = 1 |
+| 1 | u8 | version = 2 (2 added the attitude quaternion) |
 | 2 | u8 | type: 1 = telemetry, 2 = event |
 | 3 | u8 | flight state (0 INIT, 1 FAULT, 2 PAD, 3 BOOST, 4 COAST, 5 DESCENT, 6 LANDED) |
 | 4 | u16 | sequence number (separate counters for radio and log; gaps on the radio = lost packets) |
@@ -44,20 +44,32 @@ Header, 10 bytes, common to both frame types:
 Every frame ends with a u16 CRC-16/CCITT-FALSE (poly 0x1021, init 0xFFFF)
 over all preceding bytes.
 
-### Telemetry frame (45 bytes)
+### Telemetry frame (53 bytes)
+
+Acceleration, rotation rate and magnetic field are in the **rocket frame**:
++Z points to the nose; X and Y follow from the IMU mounting
+(`fc::to_rocket_frame`, set by `cfg::kImuUpAxis`).
 
 | Offset | Type | Field | Unit |
 |---|---|---|---|
 | 10 | i32 | altitude above pad (filtered) | cm |
 | 14 | i16 | vertical velocity (filtered) | cm/s |
-| 16 | 3 × i16 | acceleration x, y, z (body) | mg |
-| 22 | 3 × i16 | rotation rate x, y, z (body) | 0.1 °/s |
-| 28 | 3 × i16 | magnetic field x, y, z (body) | 0.1 µT |
+| 16 | 3 × i16 | acceleration x, y, z (rocket frame) | mg |
+| 22 | 3 × i16 | rotation rate x, y, z (rocket frame) | 0.1 °/s |
+| 28 | 3 × i16 | magnetic field x, y, z (rocket frame) | 0.1 µT |
 | 34 | u32 | pressure | Pa |
 | 38 | i16 | barometer temperature | 0.01 °C |
 | 40 | u16 | battery voltage | mV |
 | 42 | u8 | flags (below) | |
-| 43 | u16 | CRC | |
+| 43 | 4 × i16 | attitude quaternion w, x, y, z | 1/32767 |
+| 51 | u16 | CRC | |
+
+The quaternion rotates rocket-frame vectors into the earth frame (x = magnetic
+north, y = west, z = up). It comes from a complementary filter on the flight
+computer (`fc/ahrs.h`): gyro integration at 100 Hz, corrected by the
+accelerometer and magnetometer only when the rocket is not accelerating. It is
+for display and analysis; no flight decision uses it. Without an IMU it is
+(1, 0, 0, 0) and the IMU flag is clear.
 
 Values outside the field's range are saturated, not wrapped.
 
@@ -97,18 +109,19 @@ The ground station, the `csv on` console stream and the `dump` command all
 print the same columns ([lib/fc_core/src/fc/csv.h](../lib/fc_core/src/fc/csv.h)):
 
 ```
-T,seq,t_ms,state,alt_m,vel_mps,ax_g,ay_g,az_g,gx_dps,gy_dps,gz_dps,mx_uT,my_uT,mz_uT,p_pa,temp_c,batt_v,flags
+T,seq,t_ms,state,alt_m,vel_mps,ax_g,ay_g,az_g,gx_dps,gy_dps,gz_dps,mx_uT,my_uT,mz_uT,p_pa,temp_c,batt_v,flags,qw,qx,qy,qz
 E,seq,t_ms,state,event,arg
 ```
 
 The ground station appends `rssi_dbm,snr_db`. Lines starting with `#` are
-comments. `tools/ground_station.py` saves every line to `logs/`.
+comments; the ground station also prints `# noise <dBm>` (channel noise floor,
+every 2 s) and `# stats: ...` (every 10 s).
 
 ## Onboard log
 
 Until an SD card is fitted, every frame is also written to a 2 MB ring buffer
 in the XIAO's PSRAM: telemetry at 50 Hz in flight and 1 Hz otherwise, plus all
-events. That holds about 14 minutes of flight-rate data; on the pad and after
+events. That holds about 11 minutes of flight-rate data; on the pad and after
 landing it lasts many hours before the oldest data is overwritten.
 
 The log is lost when power is removed. After recovery: remove the arm link,

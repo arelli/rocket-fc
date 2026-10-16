@@ -17,7 +17,7 @@ size_t finish(int n, char* buf, size_t cap) {
 
 const char* telemetry_header() {
   return "#T,seq,t_ms,state,alt_m,vel_mps,ax_g,ay_g,az_g,gx_dps,gy_dps,gz_dps,"
-         "mx_uT,my_uT,mz_uT,p_pa,temp_c,batt_v,flags";
+         "mx_uT,my_uT,mz_uT,p_pa,temp_c,batt_v,flags,qw,qx,qy,qz";
 }
 
 const char* event_header() { return "#E,seq,t_ms,state,event,arg"; }
@@ -25,7 +25,8 @@ const char* event_header() { return "#E,seq,t_ms,state,event,arg"; }
 size_t format(const tlm::Telemetry& t, char* buf, size_t cap) {
   const int n = snprintf(
       buf, cap,
-      "T,%u,%lu,%s,%.2f,%.2f,%.3f,%.3f,%.3f,%.1f,%.1f,%.1f,%.1f,%.1f,%.1f,%.0f,%.2f,%.3f,0x%02X",
+      "T,%u,%lu,%s,%.2f,%.2f,%.3f,%.3f,%.3f,%.1f,%.1f,%.1f,%.1f,%.1f,%.1f,%.0f,%.2f,%.3f,0x%02X,"
+      "%.4f,%.4f,%.4f,%.4f",
       static_cast<unsigned>(t.seq), static_cast<unsigned long>(t.t_ms), to_string(t.state),
       static_cast<double>(t.alt_m), static_cast<double>(t.vel_mps),
       static_cast<double>(t.accel_g.x), static_cast<double>(t.accel_g.y),
@@ -34,7 +35,8 @@ size_t format(const tlm::Telemetry& t, char* buf, size_t cap) {
       static_cast<double>(t.mag_uT.x), static_cast<double>(t.mag_uT.y),
       static_cast<double>(t.mag_uT.z), static_cast<double>(t.pressure_pa),
       static_cast<double>(t.temp_c), static_cast<double>(t.batt_v),
-      static_cast<unsigned>(t.flags));
+      static_cast<unsigned>(t.flags), static_cast<double>(t.q.w), static_cast<double>(t.q.x),
+      static_cast<double>(t.q.y), static_cast<double>(t.q.z));
   return finish(n, buf, cap);
 }
 

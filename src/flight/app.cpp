@@ -221,6 +221,7 @@ void App::control_tick(uint32_t now) {
     }
   }
 
+  update_attitude(now);
   const fc::SmOutput out = fc_.tick(now, baro_ok_, pressure_pa_, imu_ok_, imu_s_.accel_g);
 
   if (before == FlightState::Init && fc_.settle_done(now)) run_selftest(now);
@@ -243,6 +244,17 @@ void App::control_tick(uint32_t now) {
   if (!simulating()) hal::save_flight_record(fc_.record(now));
 
   update_log(now);
+}
+
+void App::update_attitude(uint32_t now) {
+  const float dt = t_ahrs_ ? (now - t_ahrs_) / 1000.0f : 0.0f;
+  t_ahrs_ = now;
+  if (!imu_ok_) return;
+  // Converge quickly while the rocket stands still during the countdown.
+  ahrs_.set_fast(fc_.state() == FlightState::Init);
+  const fc::Axis up = cfg::kImuUpAxis;
+  ahrs_.update(dt, fc::to_rocket_frame(imu_s_.gyro_dps, up), fc::to_rocket_frame(imu_s_.accel_g, up),
+               fc::to_rocket_frame(imu_s_.mag_uT, up), imu_.has_mag());
 }
 
 void App::read_sensors(uint32_t now) {
@@ -556,9 +568,11 @@ fc::tlm::Telemetry App::snapshot(uint32_t now) const {
   t.t_ms = now;
   t.alt_m = fc_.estimator().alt_m();
   t.vel_mps = fc_.estimator().vel_mps();
-  t.accel_g = imu_s_.accel_g;
-  t.gyro_dps = imu_s_.gyro_dps;
-  t.mag_uT = imu_s_.mag_uT;
+  // Rocket frame (+Z toward the nose), see fc/ahrs.h.
+  t.accel_g = fc::to_rocket_frame(imu_s_.accel_g, cfg::kImuUpAxis);
+  t.gyro_dps = fc::to_rocket_frame(imu_s_.gyro_dps, cfg::kImuUpAxis);
+  t.mag_uT = fc::to_rocket_frame(imu_s_.mag_uT, cfg::kImuUpAxis);
+  t.q = imu_ok_ ? ahrs_.q() : fc::Quat{};
   t.pressure_pa = pressure_pa_;
   t.temp_c = temp_c_;
   t.batt_v = vbat_;

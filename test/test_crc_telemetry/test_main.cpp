@@ -30,6 +30,7 @@ static tlm::Telemetry sample_tlm() {
   t.temp_c = -5.25f;
   t.batt_v = 3.987f;
   t.flags = tlm::kFlagPyroArmed | tlm::kFlagBaroOk | tlm::kFlagImuOk;
+  t.q = Quat{0.5f, -0.5f, 0.5f, -0.5f};
   return t;
 }
 
@@ -58,6 +59,10 @@ static void test_telemetry_roundtrip() {
   TEST_ASSERT_FLOAT_WITHIN(0.006f, in.temp_c, out.temp_c);
   TEST_ASSERT_FLOAT_WITHIN(0.0006f, in.batt_v, out.batt_v);
   TEST_ASSERT_EQUAL_HEX8(in.flags, out.flags);
+  TEST_ASSERT_FLOAT_WITHIN(0.0001f, in.q.w, out.q.w);
+  TEST_ASSERT_FLOAT_WITHIN(0.0001f, in.q.x, out.q.x);
+  TEST_ASSERT_FLOAT_WITHIN(0.0001f, in.q.y, out.q.y);
+  TEST_ASSERT_FLOAT_WITHIN(0.0001f, in.q.z, out.q.z);
 }
 
 static void test_event_roundtrip() {

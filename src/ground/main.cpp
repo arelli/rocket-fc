@@ -3,8 +3,10 @@
 // Receives the flight computer's LoRa frames and prints one CSV line per
 // frame on USB serial (format: lib/fc_core/src/fc/csv.h) with the radio
 // signal quality appended:   ...,rssi_dbm,snr_db
-// Lines starting with '#' are comments/diagnostics. tools/ground_station.py
-// saves everything to a file and shows a live summary.
+// Lines starting with '#' are comments/diagnostics, including
+//   # noise <dBm>      channel noise floor, every 2 s
+//   # stats: ...       packet counters, every 10 s
+// tools/ground_station.html shows all of it; tools/ground_station.py records it.
 //
 // This build only receives: it never transmits.
 #include <Arduino.h>
@@ -18,7 +20,9 @@
 namespace {
 
 hal::RadioLink radio;
-uint32_t n_ok = 0, n_bad = 0, t_stats = 0;
+uint32_t n_ok = 0, n_bad = 0, t_stats = 0, t_noise = 0;
+float noise_sum = 0;
+int noise_n = 0;
 float last_rssi = 0, last_snr = 0;
 
 void print_headers() {
@@ -73,6 +77,20 @@ void loop() {
   }
 
   const uint32_t now = millis();
+  // Noise floor: average of instantaneous channel RSSI samples, every 2 s.
+  if (now - t_noise >= 100) {
+    t_noise = now;
+    const float r = radio.channel_rssi_dbm();
+    if (!isnan(r)) {
+      noise_sum += r;
+      ++noise_n;
+    }
+    if (noise_n >= 20) {
+      Serial.printf("# noise %.1f\n", static_cast<double>(noise_sum / noise_n));
+      noise_sum = 0;
+      noise_n = 0;
+    }
+  }
   if (now - t_stats >= 10000) {
     t_stats = now;
     Serial.printf("# stats: %lu ok, %lu bad, last rssi %.1f dBm snr %.2f dB\n",

@@ -3,7 +3,7 @@
 // serial "log" stream, so every data file has the same columns.
 //
 //   T,seq,t_ms,state,alt_m,vel_mps,ax_g,ay_g,az_g,gx_dps,gy_dps,gz_dps,
-//     mx_uT,my_uT,mz_uT,p_pa,temp_c,batt_v,flags
+//     mx_uT,my_uT,mz_uT,p_pa,temp_c,batt_v,flags,qw,qx,qy,qz
 //   E,seq,t_ms,state,event,arg
 //
 // Header lines start with '#'. The ground station appends ",rssi_dbm,snr_db".
@@ -20,8 +20,8 @@ const char* telemetry_header();
 const char* event_header();
 
 // Return the number of characters written (excluding the terminating NUL),
-// or 0 if the buffer is too small. 160 bytes is always enough.
-constexpr size_t kLineMax = 160;
+// or 0 if the buffer is too small. kLineMax is always enough.
+constexpr size_t kLineMax = 200;
 size_t format(const tlm::Telemetry& t, char* buf, size_t cap);
 size_t format(const tlm::Event& e, char* buf, size_t cap);
 

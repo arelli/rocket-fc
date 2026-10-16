@@ -42,6 +42,9 @@ class RadioLink {
   bool start_receive();
   // If a packet arrived, copies it out and returns its length (0 = none).
   size_t receive(uint8_t* buf, size_t cap, float* rssi_dbm, float* snr_db, bool* crc_error);
+  // Instantaneous channel RSSI while listening (the noise floor when nobody
+  // transmits). Returns NAN when not receiving.
+  float channel_rssi_dbm();
 
   // Call every loop iteration (finishes transmissions, handles timeouts).
   void poll();

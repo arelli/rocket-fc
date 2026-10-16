@@ -86,6 +86,11 @@ size_t RadioLink::receive(uint8_t* buf, size_t cap, float* rssi, float* snr, boo
   return len;
 }
 
+float RadioLink::channel_rssi_dbm() {
+  if (!ok_ || !rx_mode_) return NAN;
+  return radio_->getRSSI(false);
+}
+
 void RadioLink::sleep() {
   if (ok_) radio_->sleep();
 }

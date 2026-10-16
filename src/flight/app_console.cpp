@@ -132,6 +132,8 @@ void App::print_status(uint32_t now) {
                 static_cast<double>(imu_s_.accel_g.y), static_cast<double>(imu_s_.accel_g.z),
                 static_cast<double>(imu_s_.gyro_dps.x), static_cast<double>(imu_s_.gyro_dps.y),
                 static_cast<double>(imu_s_.gyro_dps.z), static_cast<unsigned long>(imu_.errors()));
+  Serial.printf("attitude   tilt %.1f deg from vertical%s\n",
+                static_cast<double>(fc::tilt_deg(ahrs_.q())), imu_ok_ ? "" : " (no IMU)");
   Serial.printf("mag        %s  %.1f %.1f %.1f uT\n", imu_.has_mag() ? "ok" : "--",
                 static_cast<double>(imu_s_.mag_uT.x), static_cast<double>(imu_s_.mag_uT.y),
                 static_cast<double>(imu_s_.mag_uT.z));
