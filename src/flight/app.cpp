@@ -130,6 +130,21 @@ void App::init_sensors() {
   }
 }
 
+// An IMU that was missing at power-up (loose wire, connected later) is looked
+// for again every 2 s while the rocket is on the ground. Never in flight.
+void App::retry_imu(uint32_t now) {
+  if (imu_.chip() != hal::Mpu9250::Chip::None) return;
+  const FlightState s = fc_.state();
+  if (s != FlightState::Pad && s != FlightState::Fault && s != FlightState::Landed) return;
+  if (simulating() || now - t_imu_retry_ < 2000) return;
+  t_imu_retry_ = now;
+  if (imu_.begin(&Wire, 0x68) || imu_.begin(&Wire, 0x69)) {
+    Serial.printf("IMU: found after boot: %s (WHO_AM_I 0x%02X)%s\n", imu_.chip_name(),
+                  imu_.who_am_i(), imu_.has_mag() ? " + AK8963 magnetometer" : ", no magnetometer");
+    Serial.println("     gyro bias was not calibrated: restart with the rocket still for best attitude");
+  }
+}
+
 void App::init_radio() {
   const hal::RadioLink::Pins p{pins::kLoraSck,  pins::kLoraMiso,  pins::kLoraMosi,
                                pins::kLoraNss,  pins::kLoraDio1,  pins::kLoraReset,
@@ -440,6 +455,7 @@ void App::slow_tick(uint32_t now) {
     ground_was_ = heard;
     event(EventCode::GroundLink, heard ? 1 : 0, now);
   }
+  retry_imu(now);
   update_battery(now);
   update_continuity(now);
   pad_report(now);

@@ -104,7 +104,7 @@ fired, it is never fired again.
 |---|---|
 | Barometer missing at boot | FAULT (no flight) |
 | Barometer dies in flight | No apogee deployment; backup timer if set; SENSOR_LOST event |
-| IMU missing / dies | Launch by barometer (30 m), deployment unaffected; warning / SENSOR_LOST |
+| IMU missing / dies | Launch by barometer (30 m), deployment unaffected; warning / SENSOR_LOST. A missing IMU is looked for again every 2 s on the pad |
 | Magnetometer missing | Warning only (data not used for decisions) |
 | Radio fails | Warning; flight unaffected, onboard log continues |
 | Ground station off / out of range | Pad status beeps stop (GROUND_LINK event); nothing else changes |

@@ -36,6 +36,7 @@ class App {
  private:
   // --- setup / init ----------------------------------------------------------
   void init_sensors();
+  void retry_imu(uint32_t now);
   void init_radio();
   void init_log();
   void start_countdown(uint32_t now);
@@ -116,6 +117,7 @@ class App {
   uint8_t lost_reported_ = 0;  // SensorBits already reported lost
   uint32_t baro_good_ = 0;     // successful baro reads since boot
   uint32_t tick_n_ = 0;        // control ticks since boot
+  uint32_t t_imu_retry_ = 0;
 
   // Calibration accumulators (INIT countdown)
   fc::Vec3 gyro_sum_;
