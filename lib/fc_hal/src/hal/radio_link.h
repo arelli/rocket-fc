@@ -22,6 +22,7 @@ class RadioLink {
     int8_t power_dbm;
     uint16_t preamble;
     float tcxo_v;
+    bool rx_boost;  // SX1262 boosted receive gain (more sensitive, more current)
   };
 
   RadioLink() = default;

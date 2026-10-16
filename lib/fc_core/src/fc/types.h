@@ -33,12 +33,15 @@ enum class EventCode : uint8_t {
   SensorLost = 13,     // arg: sensor bitmask (SensorBits) that stopped answering
   Resumed = 14,        // arg: ms since launch restored after a mid-flight reset
   ApogeeNoDeploy = 15, // arg: max altitude AGL [cm] (below min deploy altitude)
-  BenchFire = 16,      // arg: pulse length [ms] (bench build only)
+  BenchFire = 16,      // arg: pulse length [ms] (test fire in bench mode)
   GroundLink = 17,     // arg: 1 = ground station heard, 0 = lost
   TimeSync = 18,       // at this event's t_ms, real time was exactly `arg` (Unix seconds)
-  RemoteArmed = 19,    // arg: one-time nonce for the remote test fire (bench build)
+  RemoteArmed = 19,    // arg: one-time nonce for the remote test fire (bench mode)
   RemoteDisarmed = 20, // arg: RemoteFireEnd reason
   RemoteRefused = 21,  // arg: RemoteFireEnd reason
+  Config = 22,         // arg: CRC-32 of the settings in use (fc/settings.h), at boot
+  PyroSag = 23,        // arg: battery during a pyro pulse: (before_mV << 16) | min_mV
+  BenchMode = 24,      // arg: 1 = bench mode on, 0 = off, 2 = off because launch was detected
 };
 
 // Why the computer refuses to fly (FlightState::Fault). Beeped as N long beeps.
@@ -47,6 +50,9 @@ enum class FaultCode : uint8_t {
   BaroMissing = 1,
   BaroImplausible = 2,
   ConfigInvalid = 3,
+  ImuMissing = 4,   // only if settings require the IMU (st_imu_required)
+  RadioFail = 5,    // only if settings require the radio (st_radio_required)
+  BattLow = 6,      // battery below st_min_batt_v at self-test
 };
 
 // Non-fatal self-test findings. Reported once after self-test and in the

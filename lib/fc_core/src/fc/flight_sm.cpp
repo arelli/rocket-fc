@@ -22,6 +22,7 @@ const char* validate(const FlightConfig& c) {
   if (!(c.min_deploy_alt_m >= 0.0f)) return "min_deploy_alt_m must be >= 0";
   if (c.backup_deploy_ms != 0 && c.backup_deploy_ms <= c.apogee_lockout_ms)
     return "backup_deploy_ms must be 0 (off) or longer than apogee_lockout_ms";
+  if (c.deploy_delay_ms > 5000) return "deploy_delay_ms must be <= 5000 ms";
   if (c.landed_ms < 1000) return "landed_ms must be >= 1000 ms";
   if (!(c.landed_window_m > 0.0f)) return "landed_window_m must be > 0";
   return nullptr;
@@ -33,12 +34,13 @@ void FlightStateMachine::start(bool selftest_ok) {
 }
 
 bool FlightStateMachine::pyro_armed() const {
-  return launched_ && !fired_ && !apogee_passed_ &&
-         (state_ == FlightState::Boost || state_ == FlightState::Coast);
+  if (!launched_ || fired_) return false;
+  if (deploy_pending_) return true;
+  return !apogee_passed_ && (state_ == FlightState::Boost || state_ == FlightState::Coast);
 }
 
 void FlightStateMachine::resume(FlightState s, uint32_t now_ms, uint32_t ms_since_launch,
-                                bool fired, float max_alt_m) {
+                                bool fired, float max_alt_m, bool deploy_pending) {
   state_ = s;
   launched_ = (s == FlightState::Boost || s == FlightState::Coast ||
                s == FlightState::Descent || s == FlightState::Landed);
@@ -46,6 +48,9 @@ void FlightStateMachine::resume(FlightState s, uint32_t now_ms, uint32_t ms_sinc
   apogee_passed_ = fired || s == FlightState::Descent || s == FlightState::Landed;
   t_launch_ = now_ms - ms_since_launch;
   max_alt_ = max_alt_m;
+  // A reset during the deployment delay: fire at the first update.
+  deploy_pending_ = deploy_pending && !fired && launched_;
+  t_deploy_due_ = now_ms;
   peak_vel_ = 0;
   land_ref_valid_ = false;
 }
@@ -68,7 +73,12 @@ void FlightStateMachine::check_deploy(const SmInput& in, SmOutput& out) {
       apogee_passed_ = true;
       out.add(EventCode::Apogee, cm(max_alt_));
       if (max_alt_ >= cfg_.min_deploy_alt_m) {
-        fire(out, EventCode::PyroFire, in.alt_m);
+        if (cfg_.deploy_delay_ms == 0) {
+          fire(out, EventCode::PyroFire, in.alt_m);
+        } else {
+          deploy_pending_ = true;
+          t_deploy_due_ = in.t_ms + cfg_.deploy_delay_ms;
+        }
       } else {
         out.add(EventCode::ApogeeNoDeploy, cm(max_alt_));
       }
@@ -160,6 +170,14 @@ SmOutput FlightStateMachine::update(const SmInput& in) {
       break;
 
     case FlightState::Descent:
+      if (deploy_pending_) {
+        // Delayed deployment: committed at apogee, fires when due (never skipped).
+        if (static_cast<int32_t>(in.t_ms - t_deploy_due_) >= 0) {
+          deploy_pending_ = false;
+          fire(out, EventCode::PyroFire, in.alt_m);
+        }
+        break;
+      }
       if (check_landed(in)) {
         enter(FlightState::Landed);
         out.add(EventCode::Landed, cm(max_alt_));

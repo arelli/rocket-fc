@@ -24,13 +24,15 @@ enum class ResetCause : uint8_t {
   Other,
 };
 
+constexpr uint16_t kRecDeployPending = 1 << 0;  // apogee decided, delayed charge not fired yet
+
 struct FlightRecord {
   static constexpr uint32_t kMagic = 0x464C4931;  // "FLI1"
 
   uint32_t magic = 0;
   uint8_t state = 0;  // FlightState
   uint8_t fired = 0;
-  uint16_t reserved = 0;
+  uint16_t flags = 0;  // kRecDeployPending
   float ground_pa = 0;          // baro reference pressure
   float max_alt_m = 0;
   uint32_t ms_since_launch = 0;

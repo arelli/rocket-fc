@@ -1,7 +1,7 @@
 // InvenSense MPU-9250 / MPU-9255 / MPU-6500 / MPU-6050 driver (I2C).
 //
 // Ranges are fixed for rocketry: accelerometer +-16 g, gyroscope +-2000 deg/s,
-// digital low-pass ~41 Hz. The AK8963 magnetometer inside the MPU-9250/9255 is
+// digital low-pass configurable (default ~41 Hz). The AK8963 magnetometer inside the MPU-9250/9255 is
 // read through I2C bypass mode and rotated into the accelerometer frame.
 //
 // Many boards sold as "MPU9250" actually carry an MPU-6500 (no magnetometer).
@@ -28,8 +28,9 @@ class Mpu9250 {
     bool mag_fresh = false;  // a new magnetometer sample arrived with this read
   };
 
-  // Returns true if an accelerometer/gyro chip answered.
-  bool begin(TwoWire* wire, uint8_t addr = 0x68);
+  // Returns true if an accelerometer/gyro chip answered. dlpf: digital
+  // low-pass setting 0..6 for gyro and accelerometer (3 = ~41 Hz).
+  bool begin(TwoWire* wire, uint8_t addr = 0x68, uint8_t dlpf = 3);
 
   // Reads accel/gyro/temp (and the magnetometer when it has new data).
   bool read(Sample* s);

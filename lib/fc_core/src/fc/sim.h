@@ -1,6 +1,6 @@
 // A deliberately simple 1-D rocket flight simulator that produces the same
 // signals the real sensors do (pressure + axial accelerometer, with noise).
-// Used by the unit tests and by the bench build's on-device "sim" command, so
+// Used by the unit tests and by the on-device (bench mode) "sim" command, so
 // the complete chain sensor -> estimator -> state machine -> pyro can be
 // exercised without flying.
 #pragma once

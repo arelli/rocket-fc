@@ -3,7 +3,7 @@
 ## Layers
 
 ```
- include/          pins, radio and flight configuration (data only)
+ include/          pins and fixed constants (data only)
      │
  src/flight/       App: reads sensors, calls the core, drives outputs        (thin, untested on PC)
  src/ground/       receive and print
@@ -15,7 +15,8 @@
  lib/fc_core/      all decisions and formats: FlightComputer =            (no Arduino; unit-tested)
                    Estimator + FlightStateMachine, telemetry frames, CSV,
                    battery monitor, duty-cycle limiter, LED/beep patterns,
-                   resume logic, log ring buffer, flight simulator
+                   resume logic, log ring buffer, flight simulator,
+                   settings table + "param" command (ParamShell)
 ```
 
 Rule: anything that decides something lives in `fc_core` and has a test.
@@ -62,14 +63,18 @@ there to add a gauge, plot series or button.
 **Add an event:** append a value to `EventCode` (never renumber), add its
 name in `types.cpp` and a row in `docs/TELEMETRY.md`.
 
-**Change a threshold:** edit `include/flight_config.h`, run
-`pio test -e native`, commit. The commit hash in the firmware identifies the
-configuration that flew.
+**Change a threshold:** it is a setting: change it in the UI's Settings panel
+or with `param set` + `param save`, reboot (docs/SETTINGS.md). To change a
+default or add a setting, edit `FC_SETTINGS` in `lib/fc_core/src/fc/settings.h`,
+run `pio test -e native`, commit.
 
 ## Auditing a flight
 
-1. The BOOT event / boot banner gives the firmware commit.
-2. `git checkout <hash>` shows the exact code and `flight_config.h` that flew.
+1. The BOOT event / boot banner gives the firmware commit; the CONFIG event
+   and the boot banner give the settings CRC (the banner also lists every
+   setting that differs from the defaults).
+2. `git checkout <hash>` shows the exact code; your exported settings file
+   with the same CRC shows the settings.
 3. The onboard log (50 Hz) and ground log (5 Hz + RSSI) are CSV with the same
    columns; events (LAUNCH, APOGEE, PYRO_FIRE, PYRO_OPEN, ...) carry
    timestamps for the timeline.

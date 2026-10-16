@@ -1,6 +1,7 @@
 // USB serial console of the flight computer (115200 baud, line based).
 // Commands that block for a while are only accepted when nothing can happen
-// (INIT, PAD, FAULT, LANDED). Bench-only commands exist only in the bench build.
+// (INIT, PAD, FAULT, LANDED). Test commands need bench mode ('bench on', RAM
+// only: every boot starts in flight mode).
 #include <stdlib.h>
 #include <string.h>
 
@@ -15,6 +16,10 @@ using fc::FlightState;
 
 namespace {
 const char* level_name(fc::BatteryMonitor::Level l) { return fc::to_string(l); }
+void serial_line(void*, const char* line) { Serial.println(line); }
+bool store_text(void* ctx, const char* text, size_t len) {
+  return static_cast<hal::SettingsStore*>(ctx)->save(text, len);
+}
 }  // namespace
 
 bool App::safe_to_interrupt() const {
@@ -42,10 +47,12 @@ void App::console_poll(uint32_t now) {
 
 void App::console_exec(char* line, uint32_t now) {
   char* save = nullptr;
-  const char* cmd = strtok_r(line, " \t", &save);
-  const char* a1 = strtok_r(nullptr, " \t", &save);
-  const char* a2 = strtok_r(nullptr, " \t", &save);
-  (void)a2;  // used by bench-only commands
+  const char* argv[6] = {};
+  int argc = 0;
+  for (char* t = strtok_r(line, " \t", &save); t && argc < 6; t = strtok_r(nullptr, " \t", &save)) argv[argc++] = t;
+  const char* cmd = argv[0];
+  const char* a1 = argv[1];
+  const char* a2 = argv[2];
   if (!cmd) return;
 
   if (!strcmp(cmd, "help")) {
@@ -58,19 +65,20 @@ void App::console_exec(char* line, uint32_t now) {
         "  logclear        erase the onboard log (not in flight)\n"
         "  i2c             scan the I2C bus (not in flight)\n"
         "  time <unix ms>  set real time for the log (once per boot; the UI sends it)\n"
-        "  reboot          restart (not in flight)"
-#ifdef FC_BENCH_BUILD
-        "\n bench build only:\n"
+        "  param ...       settings: param list | get <k> | set <k> <v> | reset <k>|all | revert | save | export\n"
+        "  beep            test the buzzer\n"
+        "  bench on|off    bench mode: enables the test commands below until reboot (not in flight)\n"
+        "  reboot          restart (not in flight)\n"
+        " bench mode only:\n"
         "  sim             simulated flight: fake sensors, pyro output NOT driven\n"
         "  sim live        simulated flight that also pulses the pyro output\n"
-        "  fire <ms> CONFIRM   pulse the pyro output now (igniter test, no charge!)\n"
-        "  beep            test the buzzer"
-#endif
-    );
+        "  fire <ms> CONFIRM   pulse the pyro output now (igniter test, no charge!)");
   } else if (!strcmp(cmd, "status")) {
     print_status(now);
   } else if (!strcmp(cmd, "config")) {
     print_config();
+  } else if (!strcmp(cmd, "param")) {
+    params_.exec(argc - 1, argv + 1, safe_to_interrupt(), serial_line, store_text, &store_);
   } else if (!strcmp(cmd, "csv")) {
     csv_stream_ = a1 && !strcmp(a1, "on");
     if (csv_stream_) Serial.println(fc::csv::telemetry_header());
@@ -98,22 +106,35 @@ void App::console_exec(char* line, uint32_t now) {
     Serial.flush();
     hal::clear_flight_record();
     ESP.restart();
-#ifdef FC_BENCH_BUILD
-  } else if (!strcmp(cmd, "sim")) {
-    start_sim(a1 && !strcmp(a1, "live"), now);
   } else if (!strcmp(cmd, "beep")) {
     beeper_.beeps(3);
+  } else if (!strcmp(cmd, "bench")) {
+    if (!a1 || (strcmp(a1, "on") && strcmp(a1, "off"))) {
+      Serial.printf("bench mode is %s (usage: bench on|off)\n", bench_ ? "ON" : "off");
+    } else if (!strcmp(a1, "off") && simulating()) {
+      Serial.println("a simulation is running: reboot to end it");
+    } else {
+      set_bench(!strcmp(a1, "on"), !strcmp(a1, "on") ? 1 : 0, now, "USB");
+    }
+  } else if ((!strcmp(cmd, "sim") || !strcmp(cmd, "fire")) && !bench_) {
+    Serial.printf("refused: '%s' needs bench mode ('bench on')\n", cmd);
+  } else if (!strcmp(cmd, "sim")) {
+    start_sim(a1 && !strcmp(a1, "live"), now);
   } else if (!strcmp(cmd, "fire")) {
     const long ms = a1 ? strtol(a1, nullptr, 10) : 0;
     if (ms <= 0 || ms > static_cast<long>(hal::PyroChannel::kMaxPulseMs) || !a2 ||
         strcmp(a2, "CONFIRM") != 0) {
       Serial.printf("usage: fire <1..%lu ms> CONFIRM\n",
                     static_cast<unsigned long>(hal::PyroChannel::kMaxPulseMs));
-    } else if (pyro_.bench_fire(now, static_cast<uint32_t>(ms))) {
-      event(fc::EventCode::BenchFire, ms, now);
-      watch_open_ = continuity_;
+    } else {
+      start_sag();
+      if (pyro_.bench_fire(now, static_cast<uint32_t>(ms))) {
+        event(fc::EventCode::BenchFire, ms, now);
+        watch_open_ = continuity_;
+      } else {
+        sag_active_ = false;
+      }
     }
-#endif
   } else {
     Serial.printf("unknown command '%s' (type 'help')\n", cmd);
   }
@@ -121,13 +142,11 @@ void App::console_exec(char* line, uint32_t now) {
 
 void App::print_status(uint32_t now) {
   const fc::Estimator& est = fc_.estimator();
-  Serial.printf("firmware   %s%s, reset: %s%s\n", FC_GIT_REV,
-#ifdef FC_BENCH_BUILD
-                " [BENCH]",
-#else
-                "",
-#endif
-                hal::reset_reason_name(), resumed_ ? " (flight RESUMED)" : "");
+  Serial.printf("firmware   %s, reset: %s%s\n", FC_GIT_REV, hal::reset_reason_name(),
+                resumed_ ? " (flight RESUMED)" : "");
+  Serial.printf("mode       %s\n", bench_ ? "BENCH (test commands enabled; not for flight)" : "flight");
+  Serial.printf("settings   crc %08lX%s\n", static_cast<unsigned long>(set_crc_),
+                config_ok_ ? "" : "  INVALID (running on defaults, will not fly): see 'param'");
   {
     char utc[40];
     format_utc(now, utc, sizeof(utc));
@@ -184,48 +203,38 @@ void App::print_status(uint32_t now) {
   Serial.printf("timing     longest control tick %lu us (budget %lu us)\n",
                 static_cast<unsigned long>(loop_max_us_),
                 static_cast<unsigned long>(cfg::kLoopMs * 1000));
+  if (sag_n_ > 0)
+    Serial.printf("last pulse battery %.3f V before, min %.3f V\n", static_cast<double>(sag_pre_v_),
+                  static_cast<double>(sag_min_v_));
 }
 
+// Human-readable list of the settings in use (since boot). The "param"
+// command shows the edited / saved values as well.
 void App::print_config() {
-  const fc::FlightComputer::Config c = cfg::flight_computer();
-  const fc::FlightConfig& f = c.flight;
-  Serial.printf("imu up axis        %s\n", fc::to_string(cfg::kImuUpAxis));
-  Serial.printf("settle / calib     %lu / %lu ms\n", static_cast<unsigned long>(c.settle_ms),
-                static_cast<unsigned long>(c.calib_ms));
-  Serial.printf("launch             >= %.1f g for %lu ms, or >= %.0f m for %lu ms\n",
-                static_cast<double>(f.launch_accel_g), static_cast<unsigned long>(f.launch_accel_ms),
-                static_cast<double>(f.launch_alt_m), static_cast<unsigned long>(f.launch_alt_ms));
-  Serial.printf("burnout            < %.1f g for %lu ms\n", static_cast<double>(f.burnout_accel_g),
-                static_cast<unsigned long>(f.burnout_ms));
-  Serial.printf("apogee             lockout %lu ms, drop %.1f m held %lu ms, min alt %.0f m\n",
-                static_cast<unsigned long>(f.apogee_lockout_ms),
-                static_cast<double>(f.apogee_drop_m), static_cast<unsigned long>(f.apogee_confirm_ms),
-                static_cast<double>(f.min_deploy_alt_m));
-  if (f.backup_deploy_ms) {
-    Serial.printf("backup timer       %lu ms after launch\n",
-                  static_cast<unsigned long>(f.backup_deploy_ms));
-  } else {
-    Serial.println("backup timer       disabled");
+  const fc::Settings defaults;
+  const char* group = "";
+  for (size_t i = 0; i < fc::param_count(); ++i) {
+    const fc::ParamDef& d = fc::param_def(i);
+    if (strcmp(group, d.group) != 0) {
+      group = d.group;
+      Serial.printf("[%s]\n", group);
+    }
+    char v[32];
+    fc::format_param(set_, d, v, sizeof(v));
+    const bool changed = !fc::param_equal(set_, defaults, d);
+    char dv[32] = "";
+    if (changed) fc::format_param(defaults, d, dv, sizeof(dv));
+    Serial.printf("  %-18s %s %s%s%s%s\n", d.key, v, d.unit, changed ? "   (default " : "", dv,
+                  changed ? ")" : "");
+    if ((i & 15) == 0) hal::watchdog_feed();
   }
-  Serial.printf("landed             within %.1f m for %lu ms\n",
-                static_cast<double>(f.landed_window_m), static_cast<unsigned long>(f.landed_ms));
-  Serial.printf("pyro pulse         %lu ms\n", static_cast<unsigned long>(cfg::kPyroPulseMs));
-  Serial.printf("radio              %.3f MHz BW %.0f kHz SF%u CR4/%u sync 0x%02X %d dBm\n",
-                static_cast<double>(radio_cfg::kFreqMHz),
-                static_cast<double>(radio_cfg::kBandwidthKHz), radio_cfg::kSpreadingFactor,
-                radio_cfg::kCodingRateDenom, radio_cfg::kSyncWord, radio_cfg::kTxPowerDbm);
-  Serial.printf("airtime            telemetry %lu us, event %lu us (RadioLib: %lu us)\n",
-                static_cast<unsigned long>(airtime_tlm_us_),
-                static_cast<unsigned long>(airtime_evt_us_),
-                static_cast<unsigned long>(radio_.time_on_air_us(fc::tlm::kTelemetryLen)));
-  Serial.printf("telemetry period   pad %lu ms, flight %lu ms, landed %lu ms\n",
-                static_cast<unsigned long>(cfg::kTlmPadMs),
-                static_cast<unsigned long>(cfg::kTlmFlightMs),
-                static_cast<unsigned long>(cfg::kTlmLandedMs));
-  Serial.printf("battery            low %.2f V, critical %.2f V (sleep after %lu s)\n",
-                static_cast<double>(cfg::battery().low_v),
-                static_cast<double>(cfg::battery().critical_v),
-                static_cast<unsigned long>(cfg::kBattShutdownMs / 1000));
+  Serial.printf("settings crc %08lX%s\n", static_cast<unsigned long>(set_crc_),
+                config_ok_ ? "" : "  INVALID: running on defaults");
+  Serial.printf("airtime            telemetry %lu us, event %lu us (RadioLib: %lu us), uplink %lu ms; "
+                "listen window %lu ms\n",
+                static_cast<unsigned long>(airtime_tlm_us_), static_cast<unsigned long>(airtime_evt_us_),
+                static_cast<unsigned long>(radio_.time_on_air_us(fc::tlm::kTelemetryLen)),
+                static_cast<unsigned long>(airtime_up_ms_), static_cast<unsigned long>(rx_window_ms_));
 }
 
 void App::print_csv_line(uint32_t now) {
@@ -252,9 +261,9 @@ void App::i2c_scan() {
 
 void App::dump_log() {
   const fc::FrameRing& r = ram_log_.ring();
-  Serial.printf("# onboard log: %u frames, %lu overwritten, firmware %s\n",
-                static_cast<unsigned>(r.count()), static_cast<unsigned long>(r.overwritten()),
-                FC_GIT_REV);
+  Serial.printf("# onboard log: %u frames, %lu overwritten, firmware %s, settings crc %08lX\n",
+                static_cast<unsigned>(r.count()), static_cast<unsigned long>(r.overwritten()), FC_GIT_REV,
+                static_cast<unsigned long>(set_crc_));
   // Real time of t_ms = 0 (also in the TIME_SYNC event, which an old log may
   // have overwritten): utc_ms = utc0 + t_ms.
   if (clock_.synced()) {
@@ -277,14 +286,13 @@ void App::dump_log() {
   Serial.println("# end of log");
 }
 
-#ifdef FC_BENCH_BUILD
 void App::start_sim(bool live, uint32_t now) {
   if (sim_) {
     Serial.println("a simulation already ran: 'reboot' first");
     return;
   }
   fc::SimParams p;
-  p.ignition_ms = cfg::kSettleMs + 5000;
+  p.ignition_ms = set_.settle_ms + 5000;
   p.seed = now | 1u;
   sim_ = new fc::SimFlight(p);
   sim_last_ms_ = now;
@@ -293,7 +301,7 @@ void App::start_sim(bool live, uint32_t now) {
 
   // Fresh flight computer and a fresh (bench-only) pyro shot.
   hal::clear_flight_record();
-  fc_ = fc::FlightComputer(cfg::flight_computer());
+  fc_ = fc::FlightComputer(fc::flight_computer_config(set_));
   pyro_.begin(pins::kPyroGate);
   resumed_ = false;
   lost_reported_ = 0;
@@ -305,4 +313,3 @@ void App::start_sim(bool live, uint32_t now) {
                 live ? "LIVE: pyro output WILL pulse" : "pyro output not driven",
                 static_cast<unsigned long>(p.ignition_ms / 1000));
 }
-#endif

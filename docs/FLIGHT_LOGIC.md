@@ -6,7 +6,8 @@ fed by the estimator in
 [estimator.cpp](../lib/fc_core/src/fc/estimator.cpp). Both are hardware
 independent and exercised by simulated flights in
 [test/test_flight](../test/test_flight/test_main.cpp). All numbers below are
-the defaults in [include/flight_config.h](../include/flight_config.h).
+the defaults of the settings in [lib/fc_core/src/fc/settings.h](../lib/fc_core/src/fc/settings.h)
+(setting names in `code`; change them from the UI, see docs/SETTINGS.md).
 
 ## States
 
@@ -19,7 +20,7 @@ the defaults in [include/flight_config.h](../include/flight_config.h).
 | State | Meaning | Pyro |
 |---|---|---|
 | INIT | 5 s countdown after power-on. Keep the rocket still: the last 2 s average the ground pressure, gyro bias and the "up" axis. | Disarmed |
-| FAULT | Self-test failed (no barometer, implausible pressure, invalid config). Reboot to retry. | Disarmed |
+| FAULT | Self-test failed (no barometer, implausible pressure, invalid settings; optionally IMU missing, radio failed, battery below minimum). Reboot to retry. | Disarmed |
 | PAD | Waiting for launch. Ground pressure slowly follows the weather (60 s time constant, only while the rocket is still). | Disarmed |
 | BOOST | Launch detected, motor burning. | **Armed** |
 | COAST | Burnout detected, waiting for apogee. | **Armed** |
@@ -58,7 +59,13 @@ A knock, a dropped rocket or a wind gust does not satisfy either (tested).
 
 Typical timing in simulation: 0.3–0.5 s after true apogee.
 
-**Backup timer** (optional, off by default): fires `kBackupDeployMs` after
+**Deployment delay** (`deploy_delay_ms`, 0 by default, at most 5 s): the
+charge fires this long after the apogee decision instead of at once. Once
+decided it always fires, even if the rocket lands meanwhile; after a reset
+during the delay it fires at once (the RTC record stores the pending charge).
+APOGEE is logged at the decision, PYRO_FIRE when it fires.
+
+**Backup timer** (optional, off by default): fires `backup_deploy_ms` after
 launch if apogee was not detected (e.g. barometer failed). Set it from your
 simulation (OpenRocket apogee time + 1–2 s). Firing too early means
 deployment at speed; 0 disables it. Self-test notes when it is off.
@@ -76,13 +83,14 @@ Also from COAST if the rocket came down without an apogee decision.
 | 4 | Software arming only in BOOST/COAST after launch detection; FAULT never arms | `FlightStateMachine::pyro_armed` |
 | 5 | Driver refuses any fire command before launch detection | `App::control_tick`, `PyroChannel::fire` |
 | 6 | One shot per flight, also across processor resets | State machine + RTC record |
-| 7 | Pulse length 1000 ms, hard cap 2000 ms in the driver | `PyroChannel` |
+| 7 | Pulse length 1000 ms (`pyro_pulse_ms`), hard cap 2000 ms in the driver | `PyroChannel` |
 | 8 | Apogee lockout, confirmation time, minimum altitude | State machine |
 
-The `bench` build adds test firing: over USB (`fire <ms> CONFIRM`) and by
-radio from the ground station UI (two-step arm/fire with a one-time code,
-only in PAD with continuity; see docs/TELEMETRY.md). The `flight` build does
-not contain that code at all: it refuses remote fire requests.
+**Bench mode** adds test firing: over USB (`fire <ms> CONFIRM`) and by radio
+from the ground station UI (two-step arm/fire with a one-time code, only in
+PAD with continuity; see docs/TELEMETRY.md). Bench mode is kept in RAM only:
+every boot starts in flight mode, and a detected launch ends it. In flight
+mode test pulses and remote fire requests are refused (docs/SETTINGS.md).
 
 ## Reset in flight
 

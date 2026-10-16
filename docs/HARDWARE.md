@@ -48,9 +48,11 @@ need D6/D7 (taken by the LED and SD CS) and shares the radio's reset line.
   can bounce open for a millisecond under boost and reset the processor.
 - **1000 µF capacitor** across BAT+/GND, close to the XIAO: rides through the
   voltage dip during the pyro pulse and radio transmissions. Observe its polarity.
-- **Battery sense divider** (2 × 100k): ratio 2.0, set in
-  `cfg::kBattDividerRatio`. It draws about 20 µA. Calibrate with a multimeter
-  against the `status` reading.
+- **Battery sense divider** (2 × 100k): ratio 2.0, setting `batt_divider`.
+  It draws about 20 µA. Calibrate with a multimeter against the `status`
+  reading. During every pyro pulse the battery is sampled about every 0.5 ms;
+  the PYRO_SAG event reports the voltage before and the minimum during the
+  pulse (a large drop means a weak cell, thin wiring or a missing capacitor).
 
 ### Charging and battery management
 
@@ -72,7 +74,7 @@ need D6/D7 (taken by the LED and SD CS) and shares the radio's reset line.
   - Deep sleep reduces the drain about 100-fold but does not stop it.
     **Switch off promptly after recovery** and recharge before storage.
 - Voltage is reported in every telemetry frame, `status`, and the onboard log.
-- Thresholds: `cfg::battery()` and `cfg::kBattShutdownMs` in `flight_config.h`.
+- Thresholds: settings `batt_low_v`, `batt_crit_v`, `batt_sleep_s` (battery group).
 - Alternative: a protected cell, or the TP4056 module's protection (1.6 g) between the cell and the XIAO.
 
 ## Pyro channel (low-side MOSFET Q1)
@@ -140,7 +142,7 @@ Use any visible 3 mm/5 mm LED.
   carry an MPU-6500 (no magnetometer); the boot message and `status` say which
   you have. Everything works without the magnetometer.
 - **IMU orientation:** mount it with one axis along the rocket's long axis and
-  set `cfg::kImuUpAxis` (e.g. `PosX` if the +X arrow points to the nose).
+  set the `imu_up_axis` setting (e.g. `+X` if the +X arrow points to the nose).
   Check on the bench: stand the rocket nose-up and `status` must show
   `accel_up` ≈ +1.00 g. Self-test warns if it does not.
 - **Barometer:** needs a vented bay (3–4 holes of ~2 mm round the airframe),

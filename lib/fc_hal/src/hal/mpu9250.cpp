@@ -43,7 +43,8 @@ const char* Mpu9250::chip_name() const {
   return "?";
 }
 
-bool Mpu9250::begin(TwoWire* wire, uint8_t addr) {
+bool Mpu9250::begin(TwoWire* wire, uint8_t addr, uint8_t dlpf) {
+  if (dlpf > 6) dlpf = 3;
   dev_ = I2cDevice(wire, addr);
   mag_ = I2cDevice(wire, kAkAddr);
   chip_ = Chip::None;
@@ -64,11 +65,11 @@ bool Mpu9250::begin(TwoWire* wire, uint8_t addr) {
   }
 
   bool ok = true;
-  ok &= dev_.write8(kConfig, 0x03);       // gyro DLPF ~41 Hz, 1 kHz internal rate
+  ok &= dev_.write8(kConfig, dlpf);       // gyro DLPF (0..6 = 250..5 Hz), 1 kHz internal rate
   ok &= dev_.write8(kSmplrtDiv, 0x00);    // 1 kHz output rate
   ok &= dev_.write8(kGyroConfig, 0x18);   // +-2000 deg/s
   ok &= dev_.write8(kAccelConfig, 0x18);  // +-16 g
-  if (chip_ != Chip::Mpu6050) ok &= dev_.write8(kAccelConfig2, 0x03);  // accel DLPF ~41 Hz
+  if (chip_ != Chip::Mpu6050) ok &= dev_.write8(kAccelConfig2, dlpf);  // accel DLPF, same index
   ok &= dev_.write8(kUserCtrl, 0x00);     // internal I2C master off
   ok &= dev_.write8(kIntPinCfg, 0x02);    // I2C bypass: expose the AK8963 on the bus
   if (!ok) {

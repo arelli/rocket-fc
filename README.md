@@ -23,8 +23,9 @@ deployment, live LoRa telemetry and an onboard flight log.
 
 1. Install [VS Code](https://code.visualstudio.com/) and the **PlatformIO IDE** extension.
 2. Open this folder in VS Code.
-3. Flight computer: connect it by USB, then run `pio run -e bench -t upload`
-   (bench build, for testing) or `pio run -e flight -t upload` (for flight).
+3. Flight computer: connect it by USB, then run `pio run -e flight -t upload`
+   (one firmware for bench tests and flight; test commands need bench mode,
+   see [docs/SETTINGS.md](docs/SETTINGS.md)).
 4. Ground station: connect the second kit, `pio run -e ground -t upload`.
 5. Serial console: `pio device monitor` (115200 baud), type `help`.
 6. Ground station window: open `tools/ground_station.html` in Chrome or Edge
@@ -39,19 +40,19 @@ deployment, live LoRa telemetry and an onboard flight log.
 
 | Env | What |
 |---|---|
-| `flight` | Flight firmware |
-| `bench` | Flight firmware plus `sim` (simulated flight with fake sensors) and test firing of the pyro output over USB (`fire <ms> CONFIRM`) or by radio from the UI (ejection charge ground tests). **Never fly a bench build.** It announces itself at boot and in `status` (`[BENCH]`). |
+| `flight` | Flight computer firmware. Test commands (`sim`, `fire`, remote test fire) work only in **bench mode**, switched on at run time from the UI or console and off at every boot and at launch. |
 | `ground` | Ground station: receives telemetry, answers with heartbeats (pad beep period) |
 | `native` | Unit tests of the flight logic on your PC |
 
 ## Repository layout
 
 ```
-include/            board_pins.h, flight_config.h, radio_config.h   <- the only place for pins and tunables
+include/            board_pins.h (pins), flight_config.h, radio_config.h (fixed constants)
 lib/fc_core/        hardware-independent logic (tested on the PC)
   fc/flight_sm      state machine: launch, apogee, deployment, landing
   fc/estimator      Kalman filter: altitude + velocity from baro + accel
   fc/telemetry      binary frame format (radio and log), CRC-16
+  fc/settings       every tunable value: one table -> flash storage, "param" command, UI form
   fc/...            battery, radio duty cycle, LED/beep patterns, reset recovery, simulator
 lib/fc_hal/         drivers: MPU-9250, BMP280, SX1262, pyro channel, ADC, system
 src/flight/         flight firmware (app.cpp = wiring of the above)
@@ -67,6 +68,7 @@ docs/               hardware, flight logic, telemetry, indicators, testing
 - [docs/FLIGHT_LOGIC.md](docs/FLIGHT_LOGIC.md): states, deployment rules, failure handling
 - [docs/INDICATORS.md](docs/INDICATORS.md): LED patterns and beep codes
 - [docs/TELEMETRY.md](docs/TELEMETRY.md): radio settings, frame format, CSV columns
+- [docs/SETTINGS.md](docs/SETTINGS.md): changing settings (UI / `param`), radio rules, bench mode
 - [docs/TESTING.md](docs/TESTING.md): unit tests, bench tests, pre-flight checklist
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): code structure, how to extend
 - [CHANGELOG.md](CHANGELOG.md)
@@ -75,5 +77,7 @@ docs/               hardware, flight logic, telemetry, indicators, testing
 
 Every build is stamped with its git commit (`FC_GIT_REV`, `-dirty` if there
 were uncommitted changes). It is printed at boot and in `status`, and is the
-argument of the first telemetry event (BOOT). Fly only clean builds: a log
-then identifies exactly which code and configuration flew.
+argument of the first telemetry event (BOOT). The settings in use are
+identified by their CRC-32 (boot message, `status`, CONFIG event). Fly only
+clean builds and keep an exported settings file: a log then identifies exactly
+which code and configuration flew.

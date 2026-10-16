@@ -24,6 +24,8 @@ bool RadioLink::begin(const Pins& p, const Params& r) {
 
   last_error_ = radio_->setCRC(2);  // 16-bit LoRa CRC
   if (last_error_ != RADIOLIB_ERR_NONE) return ok_ = false;
+  last_error_ = radio_->setRxBoostedGainMode(r.rx_boost);
+  if (last_error_ != RADIOLIB_ERR_NONE) return ok_ = false;
 
   radio_->setDio1Action(on_dio1);
   s_irq_ = false;

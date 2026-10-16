@@ -5,7 +5,7 @@ namespace fc {
 const char* to_string(RemoteFireEnd r) {
   switch (r) {
     case RemoteFireEnd::Fired: return "fired";
-    case RemoteFireEnd::NotBenchBuild: return "flight build: remote fire disabled";
+    case RemoteFireEnd::NotBenchMode: return "not in bench mode";
     case RemoteFireEnd::NotOnPad: return "not in PAD state";
     case RemoteFireEnd::NoContinuity: return "no igniter continuity (arm link out?)";
     case RemoteFireEnd::BadPulse: return "pulse length out of range";

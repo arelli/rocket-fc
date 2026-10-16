@@ -1,12 +1,12 @@
 // Onboard log ring buffer, CSV formatting, and the firmware's real
-// configuration (include/flight_config.h) passing validation.
+// configuration (default settings, fc/settings.h) passing validation.
 #include <string.h>
 #include <unity.h>
 
 #include "fc/csv.h"
 #include "fc/frame_ring.h"
 #include "fc/telemetry.h"
-#include "flight_config.h"
+#include "fc/settings.h"
 
 using namespace fc;
 
@@ -92,14 +92,17 @@ static void test_csv_extremes_fit() {
 }
 
 static void test_firmware_config_valid() {
-  const FlightComputer::Config c = cfg::flight_computer();
+  // The default settings (fc/settings.h) must pass every check.
+  const Settings st;
+  char why[160];
+  TEST_ASSERT_TRUE_MESSAGE(validate(st, why, sizeof(why)), why);
+  const FlightComputer::Config c = flight_computer_config(st);
   TEST_ASSERT_NULL(validate(c.flight));
   TEST_ASSERT_TRUE(c.calib_ms < c.settle_ms);
-  TEST_ASSERT_TRUE(cfg::kPyroPulseMs > 0 && cfg::kPyroPulseMs <= 2000);
-  const BatteryMonitor::Params b = cfg::battery();
+  TEST_ASSERT_TRUE(st.pyro_pulse_ms > 0 && st.pyro_pulse_ms <= 2000);
+  const BatteryMonitor::Params b = battery_params(st);
   TEST_ASSERT_TRUE(b.critical_v < b.low_v);
-  // Telemetry period in flight must not be shorter than one packet's airtime.
-  TEST_ASSERT_TRUE(cfg::kTlmFlightMs >= 100);
+  TEST_ASSERT_TRUE(st.tlm_flight_ms >= 100);
 }
 
 int main() {

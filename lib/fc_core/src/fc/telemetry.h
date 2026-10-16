@@ -63,15 +63,17 @@ enum LinkBits : uint8_t {
   kLinkGroundHeard = 1 << 0,  // a ground heartbeat arrived within the timeout
   kLinkTimeSynced = 1 << 1,   // the rocket knows real time (TIME_SYNC event logged)
   kLinkUsbHost = 1 << 2,      // a computer is connected over USB (so it powers and charges)
+  kLinkBenchMode = 1 << 3,    // bench mode on: test commands enabled (RAM only, off at boot)
 };
 
 // Ground -> rocket frames (fixed length, header "state" byte is 0). The rocket
 // ignores all of them in flight.
 enum class UplinkKind : uint8_t {
   Heartbeat = 1,   // pad beep period + real time
-  FireArm = 2,     // remote test fire, step 1 (bench build only): pulse_ms
+  FireArm = 2,     // remote test fire, step 1 (bench mode only): pulse_ms
   Fire = 3,        // step 2: code = fc::remote_fire_code(nonce, key), pulse_ms
   FireDisarm = 4,  // cancel an armed remote test fire
+  BenchMode = 5,   // pulse_ms = 1 on / 0 off, code = fc::bench_mode_code(on, key)
 };
 
 struct Uplink {
@@ -81,7 +83,7 @@ struct Uplink {
   // Heartbeat
   uint8_t beep_period_s = 10;   // pad status beep period (0 = no pad beeps)
   uint64_t utc_ms = 0;          // real time (Unix ms) when transmitted, 0 = unknown
-  // FireArm / Fire
+  // FireArm / Fire / BenchMode
   uint32_t code = 0;
   uint16_t pulse_ms = 0;
 };

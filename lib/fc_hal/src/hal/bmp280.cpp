@@ -10,16 +10,18 @@ constexpr uint8_t kRegCtrlMeas = 0xF4;
 constexpr uint8_t kRegConfig = 0xF5;
 constexpr uint8_t kRegPressMsb = 0xF7;  // press[3], temp[3]
 
-// ctrl_meas: osrs_t=x1 (001), osrs_p=x4 (011), mode=normal (11)
-constexpr uint8_t kCtrlMeas = (0b001 << 5) | (0b011 << 2) | 0b11;
-// config: t_sb=0.5 ms (000), filter=x4 (010), spi3w off
-constexpr uint8_t kConfig = (0b000 << 5) | (0b010 << 2);
+// ctrl_meas: osrs_t=x1 (001), osrs_p = osr + 1 (x1..x16), mode=normal (11)
+uint8_t ctrl_meas(uint8_t osr) { return static_cast<uint8_t>((0b001 << 5) | ((osr + 1) << 2) | 0b11); }
+// config: t_sb=0.5 ms (000), filter = iir (off, 2, 4, 8, 16), spi3w off
+uint8_t config_reg(uint8_t iir) { return static_cast<uint8_t>((0b000 << 5) | (iir << 2)); }
 
 uint16_t u16le(const uint8_t* p) { return static_cast<uint16_t>(p[0] | (p[1] << 8)); }
 int16_t s16le(const uint8_t* p) { return static_cast<int16_t>(u16le(p)); }
 }  // namespace
 
-bool Bmp280::begin(TwoWire* wire) {
+bool Bmp280::begin(TwoWire* wire, uint8_t iir, uint8_t osr) {
+  iir_ = iir > 4 ? 2 : iir;
+  osr_ = osr > 4 ? 2 : osr;
   ok_ = try_addr(wire, 0x76) || try_addr(wire, 0x77);
   return ok_;
 }
@@ -48,9 +50,9 @@ bool Bmp280::try_addr(TwoWire* wire, uint8_t addr) {
   p9_ = s16le(&c[22]);
   if (t1_ == 0 || p1_ == 0) return false;  // calibration not readable
 
-  if (!dev_.write8(kRegConfig, kConfig)) return false;  // config before mode
-  if (!dev_.write8(kRegCtrlMeas, kCtrlMeas)) return false;
-  delay(20);  // first conversion
+  if (!dev_.write8(kRegConfig, config_reg(iir_))) return false;  // config before mode
+  if (!dev_.write8(kRegCtrlMeas, ctrl_meas(osr_))) return false;
+  delay(osr_ >= 3 ? 50 : 20);  // first conversion
   return true;
 }
 

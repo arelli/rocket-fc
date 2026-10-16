@@ -30,3 +30,16 @@ First version: not yet flown.
 - UI: warning when heartbeats are off (remote ARM needs them); battery panel
   with charging indicator (USB-host flag in telemetry + voltage trend) and
   voltage graph.
+- Settings: every tunable value (thresholds, deploy delay, backup timer, pulse
+  length, self-test checks, filters, battery, telemetry rates, buzzer, LED,
+  radio) is a setting stored in flash, edited from the UI's Settings panel or
+  with `param`, applied at boot, identified by a CRC (CONFIG event). Radio
+  settings are kept equal on both kits; leaving the EU band needs
+  `radio_unlock`. Optional self-test faults 4-6.
+- Deployment delay after apogee (`deploy_delay_ms`), committed and resumed
+  across resets.
+- One firmware: the bench build is replaced by bench mode (RAM only, off at
+  every boot and at launch), switched over USB or by radio; UI banner.
+- Battery voltage sag measured during every pyro pulse (PYRO_SAG event).
+- Configurable IMU low-pass, barometer filter/oversampling, SX1262 RX boost,
+  LED brightness.

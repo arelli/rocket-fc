@@ -15,7 +15,7 @@ uint16_t record_crc(const FlightRecord& r) {
   w.u32(r.magic);
   w.u8(r.state);
   w.u8(r.fired);
-  w.u16(r.reserved);
+  w.u16(r.flags);
   uint32_t u;
   memcpy(&u, &r.ground_pa, 4);
   w.u32(u);

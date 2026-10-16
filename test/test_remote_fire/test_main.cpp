@@ -1,4 +1,4 @@
-// Remote test fire (bench build): arming, one-time code, window, refusals,
+// Remote test fire (bench mode): arming, one-time code, window, refusals,
 // and the uplink frames that carry it.
 #include <unity.h>
 
@@ -60,7 +60,7 @@ static void test_window_expires() {
 
 static void test_conditions_and_pulse() {
   RemoteFire rf(kKey);
-  TEST_ASSERT_EQUAL(RemoteFireEnd::NotBenchBuild, rf.arm(0, 500, 1, RemoteFireEnd::NotBenchBuild));
+  TEST_ASSERT_EQUAL(RemoteFireEnd::NotBenchMode, rf.arm(0, 500, 1, RemoteFireEnd::NotBenchMode));
   TEST_ASSERT_EQUAL(RemoteFireEnd::NotOnPad, rf.arm(0, 500, 1, RemoteFireEnd::NotOnPad));
   TEST_ASSERT_EQUAL(RemoteFireEnd::NoContinuity, rf.arm(0, 500, 1, RemoteFireEnd::NoContinuity));
   TEST_ASSERT_FALSE(rf.armed());

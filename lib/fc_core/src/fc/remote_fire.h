@@ -1,9 +1,9 @@
 // Remote test fire of the pyro output over the radio (ejection charge ground
-// test), for the BENCH BUILD ONLY. The flight build refuses every request.
+// test), only in BENCH MODE (off at every boot; see docs/FLIGHT_LOGIC.md).
 //
 // Protocol (docs/TELEMETRY.md, "Remote test fire"):
 //   1. ground -> FireArm(pulse_ms)
-//   2. rocket checks it may arm (bench build, PAD, igniter continuity), picks a
+//   2. rocket checks it may arm (bench mode, PAD, igniter continuity), picks a
 //      random nonce, reports REMOTE_ARMED(nonce) and sounds a warning beep
 //   3. ground -> Fire(code = remote_fire_code(nonce, key), pulse_ms) within
 //      kWindowMs; the rocket fires once and forgets the nonce
@@ -20,7 +20,7 @@ namespace fc {
 // Why a remote fire request was refused or an arming ended (event argument).
 enum class RemoteFireEnd : uint8_t {
   Fired = 0,
-  NotBenchBuild = 1,
+  NotBenchMode = 1,  // value 1 was "flight build" before bench mode replaced the bench build
   NotOnPad = 2,
   NoContinuity = 3,
   BadPulse = 4,
@@ -35,6 +35,10 @@ const char* to_string(RemoteFireEnd r);
 
 // Keyed mixing of the nonce (splitmix-style). Same function on both ends.
 uint32_t remote_fire_code(uint32_t nonce, uint32_t key);
+// Code of a bench mode on/off request by radio (fixed per key and direction).
+inline uint32_t bench_mode_code(bool on, uint32_t key) {
+  return remote_fire_code(0xBE4C4D00u | (on ? 1u : 0u), key);
+}
 
 class RemoteFire {
  public:
@@ -45,7 +49,7 @@ class RemoteFire {
 
   // Step 1. `nonce` must be random. Returns Fired (= OK) when armed, otherwise
   // the refusal reason. `may_arm` is the caller's verdict on the conditions
-  // (bench build, PAD, continuity, output idle): Fired = all fine.
+  // (bench mode, PAD, continuity, output idle): Fired = all fine.
   RemoteFireEnd arm(uint32_t now_ms, uint16_t pulse_ms, uint32_t nonce, RemoteFireEnd may_arm);
 
   // Step 2. `may_fire`: the same conditions, checked again now. Returns Fired

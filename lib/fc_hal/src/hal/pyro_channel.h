@@ -27,10 +27,10 @@ class PyroChannel {
   // Starts the pulse if armed and not fired before. Returns true if started.
   bool fire(uint32_t now_ms, uint32_t pulse_ms);
 
-#ifdef FC_BENCH_BUILD
-  // Bench builds only: pulse without flight arming (nichrome/LED tests).
+  // Test pulse without flight arming (nichrome/LED/ejection tests). The
+  // caller allows it only in bench mode on the ground. Does not use up the
+  // flight shot.
   bool bench_fire(uint32_t now_ms, uint32_t pulse_ms);
-#endif
 
   // Ends the pulse when its time is up. Call every loop iteration.
   void update(uint32_t now_ms);

@@ -36,6 +36,10 @@ struct FlightConfig {
   uint32_t apogee_confirm_ms = 100;   // conditions held continuously for this long
   float apogee_drop_m = 0.5f;         // altitude below the recorded maximum
   float min_deploy_alt_m = 10.0f;     // never deploy if max altitude is below this
+  // Fire this long after the apogee decision (0 = at once). The charge stays
+  // committed: it fires even if the rocket lands meanwhile, and after a reset
+  // during the delay it fires at once.
+  uint32_t deploy_delay_ms = 0;
 
   // --- Backup deployment timer --------------------------------------------
   // Fires the charge this long after launch if apogee was not detected.
@@ -86,11 +90,13 @@ class FlightStateMachine {
 
   // Restore a flight in progress after an unexpected reset (see resume.h).
   void resume(FlightState s, uint32_t now_ms, uint32_t ms_since_launch, bool fired,
-              float max_alt_m);
+              float max_alt_m, bool deploy_pending = false);
 
   FlightState state() const { return state_; }
   bool pyro_armed() const;
   bool fired() const { return fired_; }
+  // Apogee decided, charge waiting for deploy_delay_ms.
+  bool deploy_pending() const { return deploy_pending_; }
   float max_alt_m() const { return max_alt_; }
   bool launched() const { return launched_; }
   uint32_t ms_since_launch(uint32_t now_ms) const {
@@ -125,6 +131,8 @@ class FlightStateMachine {
   bool launched_ = false;
   bool fired_ = false;
   bool apogee_passed_ = false;
+  bool deploy_pending_ = false;
+  uint32_t t_deploy_due_ = 0;
   uint32_t t_launch_ = 0;
   float max_alt_ = 0;
   float peak_vel_ = 0;

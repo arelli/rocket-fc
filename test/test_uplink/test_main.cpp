@@ -3,6 +3,7 @@
 
 #include "fc/csv.h"
 #include "fc/radio_budget.h"
+#include "fc/remote_fire.h"
 #include "fc/telemetry.h"
 #include "fc/time_sync.h"
 #include "fc/uplink.h"
@@ -42,9 +43,26 @@ static void test_uplink_roundtrip() {
   TEST_ASSERT_EQUAL(tlm::DecodeResult::BadCrc, tlm::decode(buf, n, &out));
 }
 
+static void test_bench_mode_uplink() {
+  tlm::Uplink u;
+  u.kind = tlm::UplinkKind::BenchMode;
+  u.pulse_ms = 1;
+  u.code = bench_mode_code(true, 0x6B1D4F37u);
+  uint8_t buf[32];
+  const size_t n = tlm::encode(u, buf, sizeof(buf));
+  tlm::Uplink out;
+  TEST_ASSERT_EQUAL(tlm::DecodeResult::Ok, tlm::decode(buf, n, &out));
+  TEST_ASSERT_EQUAL(tlm::UplinkKind::BenchMode, out.kind);
+  TEST_ASSERT_EQUAL_UINT16(1, out.pulse_ms);
+  TEST_ASSERT_EQUAL_HEX32(bench_mode_code(true, 0x6B1D4F37u), out.code);
+  // Codes differ by direction and by pairing key.
+  TEST_ASSERT_TRUE(bench_mode_code(true, 1) != bench_mode_code(false, 1));
+  TEST_ASSERT_TRUE(bench_mode_code(true, 1) != bench_mode_code(true, 2));
+}
+
 static void test_telemetry_link_fields_roundtrip() {
   tlm::Telemetry t;
-  t.link = tlm::kLinkGroundHeard;
+  t.link = tlm::kLinkGroundHeard | tlm::kLinkBenchMode;
   t.uplink_rssi_dbm = -97;
   t.beep_period_s = 15;
   uint8_t buf[64];
@@ -52,7 +70,7 @@ static void test_telemetry_link_fields_roundtrip() {
   TEST_ASSERT_EQUAL_UINT(tlm::kTelemetryLen, n);
   tlm::Telemetry out;
   TEST_ASSERT_EQUAL(tlm::DecodeResult::Ok, tlm::decode(buf, n, &out));
-  TEST_ASSERT_EQUAL_UINT8(tlm::kLinkGroundHeard, out.link);
+  TEST_ASSERT_EQUAL_UINT8(tlm::kLinkGroundHeard | tlm::kLinkBenchMode, out.link);
   TEST_ASSERT_EQUAL_INT8(-97, out.uplink_rssi_dbm);
   TEST_ASSERT_EQUAL_UINT8(15, out.beep_period_s);
 }
@@ -124,6 +142,7 @@ static void test_time_sync() {
 int main() {
   UNITY_BEGIN();
   RUN_TEST(test_uplink_roundtrip);
+  RUN_TEST(test_bench_mode_uplink);
   RUN_TEST(test_telemetry_link_fields_roundtrip);
   RUN_TEST(test_ground_link_timeout);
   RUN_TEST(test_uplink_policy_rate_and_flight);

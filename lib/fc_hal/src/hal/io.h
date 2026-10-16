@@ -31,6 +31,36 @@ class DigitalOut {
   bool initialized_ = false;
 };
 
+// An on/off output with adjustable brightness (LEDC PWM), for the status LED.
+class PwmOut {
+ public:
+  void begin(int pin, uint8_t channel, uint8_t percent) {
+    pin_ = pin;
+    ch_ = channel;
+    if (percent > 100) percent = 100;
+    duty_ = static_cast<uint32_t>(percent) * 255u / 100u;
+    if (duty_ == 0) duty_ = 1;
+    ledcSetup(ch_, 5000, 8);
+    ledcAttachPin(pin_, ch_);
+    ledcWrite(ch_, 0);
+  }
+  void set(bool on) {
+    if (pin_ < 0) return;
+    if (on == state_ && initialized_) return;
+    state_ = on;
+    initialized_ = true;
+    ledcWrite(ch_, on ? duty_ : 0);
+  }
+  bool get() const { return state_; }
+
+ private:
+  int pin_ = -1;
+  uint8_t ch_ = 0;
+  uint32_t duty_ = 255;
+  bool state_ = false;
+  bool initialized_ = false;
+};
+
 // Averaged, factory-calibrated ADC reading in volts (ESP32 analogReadMilliVolts),
 // scaled by an external divider ratio.
 class AnalogIn {

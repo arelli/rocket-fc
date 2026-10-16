@@ -15,8 +15,10 @@
 #include "fc/battery.h"
 #include "fc/flight_computer.h"
 #include "fc/indicators.h"
+#include "fc/param_shell.h"
 #include "fc/radio_budget.h"
 #include "fc/remote_fire.h"
+#include "fc/settings.h"
 #include "fc/sim.h"
 #include "fc/telemetry.h"
 #include "fc/time_sync.h"
@@ -27,6 +29,7 @@
 #include "hal/mpu9250.h"
 #include "hal/pyro_channel.h"
 #include "hal/radio_link.h"
+#include "hal/settings_store.h"
 #include "ram_log.h"
 
 class App {
@@ -37,6 +40,8 @@ class App {
 
  private:
   // --- setup / init ----------------------------------------------------------
+  void load_settings();
+  void apply_settings();
   void init_sensors();
   void retry_imu(uint32_t now);
   void init_radio();
@@ -60,6 +65,9 @@ class App {
   void handle_remote_fire(const fc::tlm::Uplink& u, uint32_t now);
   fc::RemoteFireEnd remote_conditions() const;
   void check_remote_fire(uint32_t now);
+  void set_bench(bool on, int32_t why, uint32_t now, const char* source);
+  void start_sag();
+  void update_sag(uint32_t now);
   void update_log(uint32_t now);
   void pad_report(uint32_t now);
   [[noreturn]] void shutdown(const char* why);
@@ -84,19 +92,33 @@ class App {
   void i2c_scan();
   void dump_log();
   bool safe_to_interrupt() const;
-#ifdef FC_BENCH_BUILD
   void start_sim(bool live, uint32_t now);
-#endif
 
   // --- hardware ----------------------------------------------------------------
   hal::PyroChannel pyro_;
-  hal::DigitalOut led_;
+  hal::PwmOut led_;
   hal::DigitalOut buzzer_;
   hal::AnalogIn batt_adc_;
   hal::AnalogIn pyro_adc_;
   hal::Mpu9250 imu_;
   hal::Bmp280 baro_;
   hal::RadioLink radio_;
+
+  // --- settings (fc/settings.h) ----------------------------------------------------
+  // set_ is loaded at boot and never changes until the next boot. The console
+  // "param" command edits and saves a separate copy (params_).
+  fc::Settings set_;
+  fc::ParamShell params_{false};
+  hal::SettingsStore store_;
+  uint32_t set_crc_ = 0;
+  bool config_ok_ = true;           // stored settings loaded and valid
+  char config_problem_[160] = {0};  // why not (self-test FAULT 3)
+  fc::Axis up_ = fc::Axis::PosX;
+  uint32_t rx_window_ms_ = 150;     // listen after each TX on the ground
+
+  // Bench mode: test commands (sim, test fire, remote fire). RAM only: off at
+  // every boot, switched on/off over USB or by radio, off at launch detection.
+  bool bench_ = false;
 
   // --- logic -------------------------------------------------------------------
   fc::FlightComputer fc_;
@@ -106,7 +128,7 @@ class App {
   fc::Ahrs ahrs_;               // attitude for telemetry/logging only
   fc::GroundLink ground_;       // ground station heartbeat (pad beeps only)
   fc::TimeSync clock_;          // real time, from the ground station or USB
-  fc::RemoteFire remote_;       // remote test fire by radio (bench build only)
+  fc::RemoteFire remote_;       // remote test fire by radio (bench mode only)
   uint32_t airtime_up_ms_ = 0;
   bool ground_was_ = false;
   uint32_t t_ahrs_ = 0;
@@ -144,6 +166,10 @@ class App {
   bool watch_open_ = false;  // after a pulse: report when the bridge burns through
   uint32_t critical_since_ = 0;
   bool critical_timing_ = false;
+  // Battery voltage during a pyro pulse (sag), sampled as fast as the loop runs.
+  bool sag_active_ = false;
+  float sag_pre_v_ = 0, sag_min_v_ = 0, sag_sum_ = 0;
+  uint32_t sag_n_ = 0, sag_last_us_ = 0;
 
   // --- status --------------------------------------------------------------------
   fc::FlightState prev_state_ = fc::FlightState::Init;
@@ -167,16 +193,14 @@ class App {
   uint32_t tx_denied_ = 0;
 
   // --- console ------------------------------------------------------------------
-  char cmd_[64];
+  char cmd_[112];
   size_t cmd_len_ = 0;
   bool csv_stream_ = false;
 
-#ifdef FC_BENCH_BUILD
-  // Simulated flight (bench build only): replaces the sensor readings.
+  // Simulated flight (bench mode): replaces the sensor readings until reboot.
   fc::SimFlight* sim_ = nullptr;
   bool sim_live_ = false;  // also pulse the real pyro output
   uint32_t sim_last_ms_ = 0;
   bool sim_reported_ = false;
-#endif
   bool simulating() const;
 };

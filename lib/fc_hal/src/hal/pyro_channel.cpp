@@ -25,14 +25,12 @@ bool PyroChannel::fire(uint32_t now_ms, uint32_t pulse_ms) {
   return true;
 }
 
-#ifdef FC_BENCH_BUILD
 bool PyroChannel::bench_fire(uint32_t now_ms, uint32_t pulse_ms) {
   if (pin_ < 0 || firing_) return false;
   start(now_ms, pulse_ms);
   fired_ = false;  // bench pulses do not consume the flight shot
   return true;
 }
-#endif
 
 void PyroChannel::update(uint32_t now_ms) {
   if (pin_ < 0) return;

@@ -17,24 +17,29 @@ pio test -e native
 | `test_radio_budget` | LoRa airtime against reference values, 10 % per hour duty cycle |
 | `test_battery_indicators` | Battery thresholds and debounce, LED patterns, beep sequences |
 | `test_resume` | Flight record checksum and when to resume after a reset |
-| `test_log` | Onboard log ring buffer, CSV format, the firmware's real configuration |
+| `test_log` | Onboard log ring buffer, CSV format, the default settings pass validation |
+| `test_settings` | Settings table, ranges, text storage format, cross-checks, radio band rules, defaults = tested flight logic values |
+| `test_param_shell` | The `param` command: listing, editing, refusal in flight, saving |
+| `test_uplink` / `test_remote_fire` | Heartbeat, bench mode and remote fire frames, one-time codes |
 
-They must all pass before you flash a flight build.
+They must all pass before you flash the firmware for a flight.
 
-## 2. Bench: electronics (bench build, no igniter)
+## 2. Bench: electronics (no igniter)
 
-Flash `pio run -e bench -t upload`, open `pio device monitor`.
+Flash `pio run -e flight -t upload`, open `pio device monitor` (or the UI).
 
-1. **Boot:** the banner shows the git hash and `[BENCH BUILD]`; IMU, barometer,
-   radio and log report ok. `i2c` lists 0x68 and 0x76/0x77.
+1. **Boot:** the banner shows the git hash, the settings CRC (and any settings
+   that differ from the defaults) and `mode: FLIGHT`; IMU, barometer, radio
+   and log report ok. `i2c` lists 0x68 and 0x76/0x77. Type `bench on`: the
+   test commands below need bench mode (UI: banner at the top).
 2. **Countdown:** fast LED blink, one tick per second, then 2 beeps (self-test ok).
    Read the warnings printed.
 3. **Orientation:** stand the board as it will sit in the rocket, nose up.
-   `status`: `accel_up` ≈ +1.00 g. If not, fix `cfg::kImuUpAxis`.
+   `status`: `accel_up` ≈ +1.00 g. If not, set `imu_up_axis` (Settings panel), save, reboot.
 4. **Barometer:** `status` altitude ≈ 0. Lift the board 1–2 m: altitude
    follows within about ±0.5 m.
 5. **Battery:** compare the `status` voltage with a multimeter on the cell;
-   adjust `cfg::kBattDividerRatio` if they differ by more than 0.05 V.
+   adjust the `batt_divider` setting if they differ by more than 0.05 V.
 6. **Radio:** run the ground station (`python tools/ground_station.py <port>`):
    1 packet/s, rssi shown, loss 0 %. Walk away for a range check if you can.
 7. **Simulated flight:** type `sim`. Watch the console: LAUNCH about 10 s
@@ -54,23 +59,25 @@ Flash `pio run -e bench -t upload`, open `pio device monitor`.
 3. `sim live`: the dummy LED lights at the simulated apogee, once.
 4. **Power-cycle test:** with the dummy fitted and the link in, switch off/on
    10 times, press reset 10 times, plug/unplug USB 10 times. The dummy LED
-   must never flash. Repeat with a flight build.
+   must never flash. Repeat in flight mode (after a reboot).
 5. **Bare nichrome** (1 cm, no charge, away from anything flammable): `fire 1000 CONFIRM`.
    Before firing, PAD shows continuity (LED 2 flashes/s; 3 short beeps while
    the ground station is running).
    The wire must glow; if it burns through, a PYRO_OPEN event follows. Do this
-   with the cell at its lowest expected voltage (~3.7 V) too. If the
-   processor resets during the pulse, the supply wiring is too thin or the
-   1000 µF capacitor is missing.
+   with the cell at its lowest expected voltage (~3.7 V) too. The PYRO_SAG
+   event (UI: Battery panel, "Last pyro pulse") shows the battery before and
+   its minimum during the pulse; below about 3.3 V the processor may reset.
+   If it resets, the supply wiring is too thin or the 1000 µF capacitor is missing.
 6. `sim live` with bare nichrome: burns at simulated apogee.
 
-## 3b. Ejection charge ground test (remote, bench build)
+## 3b. Ejection charge ground test (remote, bench mode)
 
 Proves the charge size separates the rocket and deploys the parachute.
 
-1. Bench build on the flight computer, ground station kit connected to the
-   UI, rocket assembled with parachute and charge, restrained horizontally,
-   nose pointing away from people.
+1. Ground station kit connected to the UI, rocket assembled with parachute
+   and charge, restrained horizontally, nose pointing away from people.
+   Switch the rocket to bench mode (USB, or "Bench mode on (by radio)" in the
+   Remote test fire panel).
 2. Fit the arm link last; check "Continuity: yes" and "Rocket hears ground:
    yes" in the UI's red **Remote test fire** panel. Everyone moves to a safe
    distance.
@@ -78,20 +85,21 @@ Proves the charge size separates the rocket and deploys the parachute.
    confirm.
 4. After a misfire wait at least 60 s, then remove the arm link before
    touching anything.
-5. Reflash the flight build before flying (the boot banner must not say
-   `[BENCH BUILD]`).
+5. Switch back to flight mode or reboot the rocket (every boot starts in
+   flight mode); the UI's bench mode banner must be gone.
 
 ## 4. Before every flight
 
 At home:
-- [ ] Unit tests pass; flight build flashed from a clean commit (boot banner shows no `-dirty`, no `[BENCH BUILD]`)
-- [ ] `config` shows the intended values (backup timer for this motor?)
+- [ ] Unit tests pass; firmware flashed from a clean commit (boot banner shows no `-dirty`)
+- [ ] Settings: intended values (backup timer, deploy delay for this motor?), saved, rebooted; export the settings file and note its CRC
+- [ ] After changing any flight-safety setting: a simulated flight in bench mode (`bench on`, `sim`), then reboot
 - [ ] Cell fully charged (≥ 4.1 V at rest)
 - [ ] Ground station kit and laptop charged; `ground_station.py` tested
 
 At the pad (arm link OUT):
 - [ ] Main switch on; countdown with the rocket still and vertical; 2 beeps
-- [ ] Ground station UI shows telemetry and "Rocket hears ground: yes"
+- [ ] Ground station UI shows telemetry and "Rocket hears ground: yes", no bench mode banner
 - [ ] LED 1 flash/s, 1 long beep every 10 s (no continuity yet; beeps need the ground station)
 - [ ] Battery ≥ 3.9 V in telemetry; no unexpected warnings
 - [ ] Charge and igniter installed; fit the arm link LAST, from the side

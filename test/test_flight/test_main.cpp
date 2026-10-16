@@ -379,6 +379,64 @@ static void test_reset_after_deploy_never_fires_again() {
   TEST_ASSERT_EQUAL_INT(0, fires);
 }
 
+
+static void test_deploy_delay_fires_once_after_delay() {
+  const SimParams sp = nominal_sim();
+  FlightComputer::Config cfg = default_config();
+  cfg.flight.deploy_delay_ms = 1000;
+  FlightComputer fc(cfg);
+  SimFlight sim(sp);
+  Result r;
+  fly(fc, sim, sp, Faults{}, 200000, r);
+  TEST_ASSERT_FALSE(r.armed_on_pad);
+  TEST_ASSERT_EQUAL_INT(1, r.fires);
+  TEST_ASSERT_EQUAL(EventCode::PyroFire, r.fire_code);
+  const TimedEvent* apogee = r.find(EventCode::Apogee);
+  TEST_ASSERT_NOT_NULL(apogee);
+  TEST_ASSERT_TRUE(r.fire_t >= apogee->t + 1000);
+  TEST_ASSERT_TRUE(r.fire_t <= apogee->t + 1000 + 2 * kDt);
+  TEST_ASSERT_EQUAL(FlightState::Landed, r.final_state);
+}
+
+static void test_reset_during_deploy_delay_fires_at_once() {
+  SimParams sp = nominal_sim();
+  FlightComputer::Config cfg = default_config();
+  cfg.flight.deploy_delay_ms = 3000;
+  FlightComputer fc(cfg);
+  SimFlight sim(sp);
+  fc.begin(0);
+  bool pending = false;
+  while (!pending && sim.t_ms() < 60000) {
+    const SimSample s = sim.step(kDt);
+    if (fc.settle_done(s.t_ms)) fc.finish_init(true);
+    const SmOutput out = fc.tick(s.t_ms, true, s.pressure_pa, true, s.accel_g);
+    TEST_ASSERT_FALSE(out.fire);
+    pending = fc.sm().deploy_pending();
+  }
+  TEST_ASSERT_TRUE(pending);
+  TEST_ASSERT_TRUE(fc.sm().pyro_armed());
+  const FlightRecord rec = fc.record(sim.t_ms());
+  TEST_ASSERT_EQUAL_UINT16(kRecDeployPending, rec.flags & kRecDeployPending);
+
+  sim.step(300);
+  TEST_ASSERT_TRUE(should_resume(rec, ResetCause::Watchdog));
+  FlightComputer fc2(cfg);
+  const uint32_t offset = sim.t_ms();
+  fc2.resume(rec, 0);
+  int fires = 0;
+  uint32_t first_fire = 0;
+  while (sim.t_ms() < 200000 && !sim.landed()) {
+    const SimSample s = sim.step(kDt);
+    if (fc2.tick(s.t_ms - offset, true, s.pressure_pa, true, s.accel_g).fire) {
+      if (!fires) first_fire = s.t_ms - offset;
+      ++fires;
+      sim.deploy();
+    }
+  }
+  TEST_ASSERT_EQUAL_INT(1, fires);
+  TEST_ASSERT_TRUE(first_fire <= 2 * kDt);
+}
+
 static void test_config_validation() {
   FlightConfig c;
   TEST_ASSERT_NULL(validate(c));
@@ -389,6 +447,9 @@ static void test_config_validation() {
   TEST_ASSERT_NOT_NULL(validate(c));
   c = FlightConfig{};
   c.apogee_lockout_ms = 100;
+  TEST_ASSERT_NOT_NULL(validate(c));
+  c = FlightConfig{};
+  c.deploy_delay_ms = 6000;
   TEST_ASSERT_NOT_NULL(validate(c));
 }
 
@@ -422,6 +483,8 @@ int main(int, char**) {
   RUN_TEST(test_short_fast_flight_respects_apogee_lockout);
   RUN_TEST(test_reset_during_coast_resumes_and_deploys_once);
   RUN_TEST(test_reset_after_deploy_never_fires_again);
+  RUN_TEST(test_deploy_delay_fires_once_after_delay);
+  RUN_TEST(test_reset_during_deploy_delay_fires_at_once);
   RUN_TEST(test_config_validation);
   RUN_TEST(test_no_estimate_during_init);
   return UNITY_END();

@@ -22,7 +22,7 @@ bool FlightComputer::finish_init(bool selftest_ok) {
 void FlightComputer::resume(const FlightRecord& rec, uint32_t now_ms) {
   est_.set_ground(rec.ground_pa, 0.0f);
   sm_.resume(static_cast<FlightState>(rec.state), now_ms, rec.ms_since_launch, rec.fired != 0,
-             rec.max_alt_m);
+             rec.max_alt_m, (rec.flags & kRecDeployPending) != 0);
   // Altitude will converge from the first barometer readings.
   have_last_ = false;
 }
@@ -69,6 +69,7 @@ FlightRecord FlightComputer::record(uint32_t now_ms) const {
   FlightRecord r;
   r.state = static_cast<uint8_t>(sm_.state());
   r.fired = sm_.fired() ? 1 : 0;
+  r.flags = sm_.deploy_pending() ? kRecDeployPending : 0;
   r.ground_pa = est_.ground_pa();
   r.max_alt_m = sm_.max_alt_m();
   r.ms_since_launch = sm_.ms_since_launch(now_ms);

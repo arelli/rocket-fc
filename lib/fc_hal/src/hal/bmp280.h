@@ -14,8 +14,9 @@ namespace hal {
 
 class Bmp280 {
  public:
-  // Probes 0x76 then 0x77.
-  bool begin(TwoWire* wire);
+  // Probes 0x76 then 0x77. iir: filter 0..4 (off, 2, 4, 8, 16);
+  // osr: pressure oversampling 0..4 (x1, x2, x4, x8, x16).
+  bool begin(TwoWire* wire, uint8_t iir = 2, uint8_t osr = 2);
   bool read(float* pressure_pa, float* temp_c);
   // Sleep mode (no measurements, ~0.1 uA). Needs begin() again to wake.
   void sleep();
@@ -29,6 +30,7 @@ class Bmp280 {
   bool try_addr(TwoWire* wire, uint8_t addr);
 
   I2cDevice dev_;
+  uint8_t iir_ = 2, osr_ = 2;
   uint8_t chip_id_ = 0;
   bool ok_ = false;
   uint16_t t1_ = 0;

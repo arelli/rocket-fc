@@ -106,6 +106,22 @@
     border: 1px solid var(--line); border-radius: 4px; font: 12px/1.35 var(--mono); white-space: pre-wrap; }
   .cmds { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; margin-bottom: 8px; }
   fieldset { border: 1px solid var(--line); border-radius: 4px; margin: 0 0 8px; padding: 6px 10px; }
+  .bench-banner { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; padding: 8px 16px;
+    background: var(--warn); color: var(--panel); font-weight: 600; position: sticky; top: 0; z-index: 5; }
+  .bench-banner[hidden] { display: none; }
+  .bench-banner button { background: var(--panel); color: var(--ink); }
+  .set-group { margin: 14px 0 4px; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted);
+    display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  table.params { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table.params td { border-bottom: 1px solid var(--line); padding: 4px 6px; vertical-align: top; }
+  table.params td.p-name { width: 38%; }
+  table.params .p-key { font: 600 13px var(--mono); }
+  table.params .p-help { color: var(--muted); font-size: 12px; }
+  table.params .p-err { color: var(--bad); font-size: 12px; }
+  table.params .p-meta { color: var(--muted); font: 12px var(--mono); }
+  table.params input[type=text] { width: 140px; font-family: var(--mono); }
+  table.params select { min-width: 140px; }
+  table.params tr.mismatch td { background: color-mix(in srgb, var(--bad) 8%, transparent); }
   legend { color: var(--muted); font-size: 12px; padding: 0 4px; }
 </style>
 </head>
@@ -125,6 +141,11 @@
     <span id="st-msg" class="note"></span>
   </div>
 </header>
+<div id="bench-banner" class="bench-banner" hidden>
+  <span>BENCH MODE: the flight computer accepts test commands (simulated flight, test fire, remote test fire).
+    Not for flight: switch to flight mode or reboot before launch.</span>
+  <button id="btn-bench-banner-off">Switch to flight mode</button>
+</div>
 
 <main>
   <section class="panel c3">
@@ -192,16 +213,21 @@
   <section class="panel c12 danger-panel" id="rf-panel">
     <h2>Remote test fire by radio (ejection charge ground test)</h2>
     <div class="warnbox">
-      <b>This fires the real ejection charge from a distance.</b> It works only when the flight computer runs
-      the <b>bench build</b>, is in PAD with igniter continuity (arm link fitted), and hears the ground station.
+      <b>This fires the real ejection charge from a distance.</b> It works only when the flight computer is in
+      <b>bench mode</b>, in PAD with igniter continuity (arm link fitted), and hears the ground station.
       Arm, then fire within 10 s. While armed the rocket beeps continuously and its LED blinks fast.
-      The flight build always refuses. Follow your club's or national rules for ejection tests.
+      In flight mode the rocket always refuses. Follow your club's or national rules for ejection tests.
     </div>
     <div class="checklist">
       <label><input type="checkbox" class="rf-check"> The rocket is held so the nose cone and parachute can eject freely, pointing away from people, buildings and dry grass.</label>
       <label><input type="checkbox" class="rf-check"> Everyone is at a safe distance, has been told a test is about to happen, and wears eye protection.</label>
       <label><input type="checkbox" class="rf-check"> A fire extinguisher or water is at hand.</label>
       <label><input type="checkbox" class="rf-check"> I will not approach the rocket after a misfire for at least 60 s, and will remove the arm link first.</label>
+    </div>
+    <div class="row">
+      <span>Rocket mode: <b id="rf-mode">—</b></span>
+      <button id="btn-bench-on-radio" class="danger">Bench mode on (by radio)</button>
+      <button id="btn-bench-off-radio">Flight mode (by radio)</button>
     </div>
     <div class="row">
       <span>Rocket: <b id="rf-state">—</b></span>
@@ -225,8 +251,19 @@
 
   <section class="panel c7">
     <h2>Flight computer (USB)</h2>
+    <fieldset id="mode-box">
+      <legend>Mode</legend>
+      <div class="row">
+        <span>Mode: <b id="mode-state">—</b></span>
+        <button id="btn-bench-on-usb" class="danger">Bench mode on</button>
+        <button id="btn-bench-off-usb">Flight mode</button>
+      </div>
+      <div class="note">Bench mode enables the test commands (simulated flight, test fire, remote test fire). It is kept
+        in memory only: every boot starts in flight mode, and a detected launch ends it. Switch it here (USB) or by
+        radio in the Remote test fire panel.</div>
+    </fieldset>
     <fieldset id="fire-box">
-      <legend>Test fire the pyro output (over USB, bench build only)</legend>
+      <legend>Test fire the pyro output (over USB, bench mode only)</legend>
       <div class="row">
         <span>Igniter continuity: <b id="fire-cont">—</b></span>
       </div>
@@ -237,8 +274,8 @@
         <label>pulse <input type="number" id="fire-ms" min="1" max="2000" value="500" style="width:80px"> ms</label>
         <button id="btn-fire" class="danger" disabled>Fire pyro output</button>
       </div>
-      <div class="note">Needs the flight computer on USB running the bench build, in INIT, PAD, FAULT or LANDED.
-        The flight build has no test-fire command.</div>
+      <div class="note">Needs the flight computer on USB in bench mode, in INIT, PAD, FAULT or LANDED. The battery
+        voltage during the pulse is measured and reported (PYRO_SAG event, Battery panel).</div>
     </fieldset>
     <div class="cmds" id="cmds"></div>
     <pre id="console"></pre>
@@ -247,6 +284,30 @@
       <button id="btn-send">Send</button>
       <button id="btn-clear">Clear</button>
     </div>
+  </section>
+
+  <section class="panel c12" id="set-panel">
+    <h2>Settings (stored in flash)</h2>
+    <div class="row">
+      <button id="btn-set-read">Read settings</button>
+      <button id="btn-set-save" class="danger">Save to flash</button>
+      <button id="btn-set-reboot">Reboot flight computer to apply</button>
+      <button id="btn-set-reboot-gs">Reboot ground station to apply</button>
+      <button id="btn-set-revert">Discard unsaved changes</button>
+      <button id="btn-set-defaults" class="danger">All to defaults…</button>
+      <button id="btn-set-export">Export file…</button>
+      <button id="btn-set-import">Import file…</button><input id="set-file" type="file" accept=".txt,.cfg,.ini" hidden>
+      <input type="text" id="set-filter" placeholder="filter (name or text)" style="width:180px">
+      <label class="note"><input type="checkbox" id="set-changed"> only changed from default</label>
+    </div>
+    <div id="set-status" class="note"></div>
+    <div id="set-warn" class="warnbox" hidden></div>
+    <div class="note">Changes are checked by the flight computer as you make them; <b>Save to flash</b> stores them and
+      they take effect after a reboot (the configuration in use never changes mid-session; its CRC is logged in the
+      CONFIG event). Radio settings must be identical on both kits: they are sent to every connected kit.
+      Settings marked <span class="pill bad">flight safety</span> decide when the charge fires: re-run the bench
+      tests after changing them. Changes are refused in flight.</div>
+    <div id="set-body"></div>
   </section>
 </main>
 
@@ -282,7 +343,8 @@ const cm = a => (a / 100).toFixed(1) + ' m';
 const EVENT_ARG = {
   BOOT: a => 'firmware ' + (a >>> 0).toString(16).padStart(8, '0'),
   SELFTEST_OK: a => a ? 'warnings 0x' + a.toString(16) + ' (' + warnNames(a) + ')' : 'no warnings',
-  SELFTEST_FAIL: a => 'fault ' + a + ' (' + (['', 'baro missing', 'pressure implausible', 'config invalid'][a] || '?') + ')',
+  SELFTEST_FAIL: a => 'fault ' + a + ' (' + (['', 'baro missing', 'pressure implausible', 'settings invalid',
+    'IMU missing (required)', 'radio failed (required)', 'battery below minimum'][a] || '?') + ')',
   LAUNCH: cm, BURNOUT: cm, APOGEE: cm, PYRO_FIRE: cm, PYRO_BACKUP_FIRE: cm, LANDED: cm, APOGEE_NO_DEPLOY: cm,
   BATT_LOW: a => (a / 1000).toFixed(2) + ' V', BATT_CRITICAL: a => (a / 1000).toFixed(2) + ' V',
   PYRO_OPEN: a => a + ' ms after fire', RESUMED: a => (a / 1000).toFixed(1) + ' s after launch',
@@ -294,9 +356,13 @@ const EVENT_ARG = {
   REMOTE_DISARMED: a => 'remote test fire disarmed: ' + (RF_REASONS[a] || a),
   REMOTE_REFUSED: a => 'remote test fire refused: ' + (RF_REASONS[a] || a),
   RESTART: () => 'flight computer restarted: plots start over (all data stays in the saved log)',
+  CONFIG: a => 'settings crc ' + (a >>> 0).toString(16).toUpperCase().padStart(8, '0'),
+  PYRO_SAG: a => { const s = sagValues(a); return `battery ${fmt(s.pre, 3)} V before, min ${fmt(s.min, 3)} V during the pulse (drop ${fmt(s.pre - s.min, 3)} V)`; },
+  BENCH_MODE: a => ['flight mode (bench mode off)', 'BENCH MODE ON', 'bench mode off: launch detected'][a] || String(a),
 };
 // fc::RemoteFireEnd (lib/fc_core/src/fc/remote_fire.h)
-const RF_REASONS = ['fired', 'flight build: remote fire disabled', 'not in PAD state',
+function sagValues(a) { a = a >>> 0; return { pre: (a >>> 16) / 1000, min: (a & 0xFFFF) / 1000 }; }
+const RF_REASONS = ['fired', 'not in bench mode', 'not in PAD state',
   'no igniter continuity (arm link out?)', 'pulse length out of range', 'not armed', 'wrong code (pairing key?)',
   'fire window expired', 'cancelled', 'pyro output busy'];
 const WARN_BITS = ['IMU missing', 'no magnetometer', 'radio failed', 'battery low', 'up axis not ~1 g', 'no backup timer'];
@@ -358,7 +424,7 @@ const PLOTS = [
   { title: 'Radio [dBm / dB]', series: [{ label: 'RSSI', get: f => f.rssi }, { label: 'SNR', get: f => f.snr }] },
 ];
 
-// Console buttons. bench: only exists in the bench build. confirm: asked before sending.
+// Console buttons. bench: needs bench mode. confirm: asked before sending.
 const COMMANDS = [
   { label: 'Status', cmd: 'status' },
   { label: 'Config', cmd: 'config' },
@@ -368,7 +434,7 @@ const COMMANDS = [
   { label: 'Download onboard log', cmd: 'dump' },
   { label: 'Clear onboard log', cmd: 'logclear', confirm: 'Erase the onboard flight log?' },
   { label: 'Reboot', cmd: 'reboot', confirm: 'Restart the flight computer? (It recalibrates on the pad.)' },
-  { label: 'Beep (bench)', cmd: 'beep', bench: true },
+  { label: 'Beep', cmd: 'beep' },
   { label: 'Simulated flight (bench)', cmd: 'sim', bench: true },
   { label: 'Sim + live pyro (bench)', cmd: 'sim live', bench: true,
     confirm: 'The pyro output WILL pulse at simulated apogee.\nOnly with a dummy load or bare nichrome, never a charge. Continue?' },
@@ -381,8 +447,12 @@ const BATT_READOUTS = [
   ['Trend (last 10 min)', (f, t, c) => isFinite(c.slope) ? (c.slope >= 0 ? '+' : '') + fmt(c.slope, 3) + ' V/h' : 'collecting…'],
   ['Time to full (rough)', (f, t, c) => c.toFull],
   ['USB (computer)', f => (f.link & 4) ? 'connected' : 'not connected'],
-  ['Low / critical', () => '3.60 V / 3.40 V'],
+  ['Low / critical', () => fmt(battLimit('batt_low_v', 3.6), 2) + ' V / ' + fmt(battLimit('batt_crit_v', 3.4), 2) + ' V'],
+  ['Last pyro pulse', (f, t) => { const e = t.events.filter(x => x.event === 'PYRO_SAG').pop();
+    if (!e) return '—'; const s = sagValues(e.arg); return `${fmt(s.pre, 2)} → min ${fmt(s.min, 2)} V (−${fmt(s.pre - s.min, 2)} V)`; }],
 ];
+// Battery thresholds from the flight computer's settings when known.
+function battLimit(key, dflt) { const d = params.fc.defs.get(key); const v = d ? Number(d.running) : NaN; return isFinite(v) ? v : dflt; }
 const FULL_V = 4.17;
 
 // Voltage trend [V/h] by least squares over the last `window_s` of frames.
@@ -414,8 +484,8 @@ function chargeState(t) {
     return Object.assign(c, { label: 'CHARGING (USB)', cls: 'info' });
   }
   if (slope > 0.05) return Object.assign(c, { label: 'CHARGING? (voltage rising)', cls: 'info' });
-  if (v < 3.4) return Object.assign(c, { label: 'ON BATTERY: CRITICAL', cls: 'bad' });
-  if (v < 3.6) return Object.assign(c, { label: 'ON BATTERY: LOW', cls: 'warn' });
+  if (v < battLimit('batt_crit_v', 3.4)) return Object.assign(c, { label: 'ON BATTERY: CRITICAL', cls: 'bad' });
+  if (v < battLimit('batt_low_v', 3.6)) return Object.assign(c, { label: 'ON BATTERY: LOW', cls: 'warn' });
   return Object.assign(c, { label: 'ON BATTERY', cls: '' });
 }
 
@@ -557,9 +627,9 @@ function feed(track, line, live) {
 class SerialLink {
   constructor(name, onLine, onState) { this.name = name; this.onLine = onLine; this.onState = onState; this.port = null; }
   get open() { return this.port !== null; }
-  async connect() {
+  async connect(knownPort) {
     if (!('serial' in navigator)) { alert('This browser has no Web Serial support. Use Chrome or Edge.'); return; }
-    const port = await navigator.serial.requestPort();
+    const port = knownPort || await navigator.serial.requestPort();
     await port.open({ baudRate: BAUD });
     // Keep RTS low: on the ESP32-S3 USB serial, RTS high with DTR low resets the chip.
     try { await port.setSignals({ dataTerminalReady: false, requestToSend: false }); } catch (_) { /* not supported */ }
@@ -643,8 +713,13 @@ function handleGroundLine(track, line, live) {
 }
 const radioLink = new SerialLink('radio', line => {
   radioLines.push(line); radioUnsaved = true;
+  if (paramLine('gs', line)) return;
   handleGroundLine(tracks.radio, line, true);
-}, s => { setLinkState('radio', s); if (s === 'connected') setTimeout(sendUplinkSettings, 300); });
+}, s => {
+  setLinkState('radio', s);
+  if (s === 'connected') setTimeout(() => { sendUplinkSettings(); setTimeout(() => radioLink.write('param list'), 500); }, 300);
+  else clearParams('gs');
+});
 
 function loadUplinkSettings() {
   try { return Object.assign({}, UPLINK_DEFAULTS, JSON.parse(localStorage.getItem('rocketfc.uplink') || '{}')); }
@@ -670,12 +745,18 @@ const usbLink = new SerialLink('usb', line => {
     return;
   }
   if (line.startsWith('# onboard log')) { dumpLines = [line]; setMsg('Downloading onboard log…'); return; }
+  if (paramLine('fc', line)) return;                // settings listing (Settings panel)
   if (feed(tracks.usb, line, true)) return;         // "csv on" stream
+  benchFromConsole(line);
   consoleAppend(line);
 }, s => {
   setLinkState('usb', s);
-  // Give the flight computer real time directly (ignored if it already has it).
-  if (s === 'connected') setTimeout(() => usbLink.write('time ' + Date.now()), 300);
+  // Give the flight computer real time directly (ignored if it already has it),
+  // ask for its mode and read its settings.
+  if (s === 'connected') {
+    setTimeout(() => usbLink.write('time ' + Date.now()).then(() => usbLink.write('bench'))
+      .then(() => usbLink.write('param list')), 300);
+  } else { clearParams('fc'); usbBench = null; }
 });
 
 function setLinkState(which, s) {
@@ -868,7 +949,7 @@ function buildUi() {
   const cmds = $('cmds');
   COMMANDS.forEach(c => {
     const b = el('button', c.confirm ? 'danger' : '', c.label);
-    b.title = c.cmd + (c.bench ? '  (bench build only)' : '');
+    b.title = c.cmd + (c.bench ? '  (bench mode only)' : '');
     b.onclick = () => { if (!c.confirm || confirm(c.confirm)) sendCommand(c.cmd); };
     c.btn = b; cmds.append(b);
   });
@@ -907,6 +988,7 @@ function armBlockers(f, live, checks) {
   else if (!f || !live) why.push('no recent data from the rocket');
   if (radioLink.open && !heartbeatsOn()) why.push('heartbeats are off: tick "Send heartbeats" in the Radio link panel and click Apply');
   else if (f && live && !(f.link & 1)) why.push('the rocket does not hear the ground station');
+  if (f && live && !(f.link & 8)) why.push('rocket is not in bench mode (button above)');
   if (f && live && f.state !== 'PAD') why.push('rocket is in ' + f.state + ', must be PAD');
   if (f && live && !(f.flags & 1)) why.push('no igniter continuity (arm link fitted?)');
   if (!checks) why.push('tick every item of the checklist');
@@ -928,7 +1010,11 @@ function renderRemoteFire(f, live) {
   $('rf-cont').textContent = !f ? '—' : (f.flags & 1) ? 'yes' : 'NO';
   $('rf-heard').textContent = !f ? '—' : (f.link & 1) ? 'yes' : 'NO';
   const checks = [...document.querySelectorAll('.rf-check')].every(c => c.checked);
-  const ready = ok && checks && f.state === 'PAD' && (f.flags & 1) && (f.link & 1);
+  const ready = ok && checks && f.state === 'PAD' && (f.flags & 1) && (f.link & 1) && (f.link & 8);
+  $('rf-mode').textContent = !f ? '—' : (f.link & 8) ? 'BENCH' : 'flight';
+  $('rf-mode').style.color = f && (f.link & 8) ? css('--warn') : '';
+  $('btn-bench-on-radio').disabled = !(ok && !(f.link & 8) && !['BOOST', 'COAST', 'DESCENT'].includes(f.state));
+  $('btn-bench-off-radio').disabled = !(radioLink.open && f && (f.link & 8));
   let left = 0;
   if ((rf.state === 'arming' || rf.state === 'firing') && performance.now() - rf.since > 8000)
     rfSet('idle', 'No answer from the rocket (out of range, or not in PAD?). Check the events list.');
@@ -979,6 +1065,8 @@ function render() {
   $('lk-heard').textContent = f ? (heard ? 'yes' : 'no') : '—';
   $('lk-heard').style.color = f ? (heard ? css('--ok') : css('--warn')) : '';
   renderBattery(t, f);
+  renderBench();
+  renderSettings();
   renderRemoteFire(tracks.radio.latest(), tracks.radio.lastRx && performance.now() - tracks.radio.lastRx < 3000);
   $('lk-clock').textContent = !f ? '—' : (f.link & 2) ? 'synced' : 'not synced';
   $('fire-cont').textContent = !f ? '—' : (f.flags & 1) ? 'yes (circuit closed)' : 'no (open or arm link out)';
@@ -1016,6 +1104,324 @@ function render() {
   }
 }
 
+// ===========================================================================
+// Bench mode (RAM-only test mode of the flight computer)
+// ===========================================================================
+
+let usbBench = null;   // from the USB console: true / false / null = unknown
+function benchFromConsole(line) {
+  if (/BENCH MODE ON/.test(line) || /^bench mode is ON/.test(line) || /^mode\s+BENCH/.test(line)) usbBench = true;
+  else if (/BENCH MODE OFF/.test(line) || /^bench mode is off/.test(line) || /^mode: FLIGHT/.test(line) || /^mode\s+flight/.test(line)) usbBench = false;
+}
+// true / false / null (unknown). The USB console is authoritative while connected.
+function benchNow() {
+  if (usbLink.open && usbBench !== null) return usbBench;
+  const now = performance.now();
+  for (const k of ['usb', 'radio']) {
+    const t = tracks[k], f = t.latest();
+    if (f && t.lastRx && now - t.lastRx < 5000) return (f.link & 8) !== 0;
+  }
+  return null;
+}
+function renderBench() {
+  const b = benchNow();
+  $('bench-banner').hidden = b !== true;
+  $('mode-state').textContent = b === null ? 'unknown' : b ? 'BENCH (test commands enabled, not for flight)' : 'flight';
+  $('mode-state').style.color = b ? css('--warn') : '';
+  $('btn-bench-on-usb').disabled = !usbLink.open || b === true;
+  $('btn-bench-off-usb').disabled = !usbLink.open || b === false;
+  $('btn-bench-banner-off').disabled = !(usbLink.open || radioLink.open);
+}
+async function benchSet(on, via) {
+  if (on && !confirm('Switch the flight computer to BENCH MODE?\n\nIt then accepts test commands: simulated flight, ' +
+    'test fire over USB and remote test fire by radio. It stays in bench mode until you switch it off, reboot it, ' +
+    'or a launch is detected. Never fly in bench mode.')) return;
+  if (via === 'usb') await sendCommand('bench ' + (on ? 'on' : 'off'));
+  else { await radioLink.write('bench ' + (on ? 'on' : 'off')); setMsg('Bench mode ' + (on ? 'on' : 'off') + ' request queued for the next rocket frame…'); }
+}
+
+// ===========================================================================
+// Settings panel: driven by the firmware's "param list" (fc/param_shell.h).
+// Nothing here knows individual settings except the radio presets below.
+// ===========================================================================
+
+const RADIO_PRESETS = [
+  { name: 'EU 869.525 MHz, 250 kHz (default)', set: [['radio_freq_mhz', '869.525'], ['radio_bw', '250'], ['radio_duty_pct', '8'], ['radio_burst_s', '72']] },
+  { name: 'US/Canada 915 MHz, 500 kHz (check local rules)', unlock: true,
+    set: [['radio_freq_mhz', '915'], ['radio_bw', '500'], ['radio_duty_pct', '100'], ['radio_burst_s', '72']] },
+];
+const UNLOCK_TEXT = 'Allow radio settings outside the EU 869.40–869.65 MHz band and its 10 % duty-cycle limit?\n\n' +
+  'You are responsible for using a frequency, power and duty cycle that are legal where you operate, with a suitable ' +
+  'antenna. The setting is stored, printed at every boot and part of the logged settings CRC.';
+
+function newParamSet(name) { return { name, defs: new Map(), pe: null, errors: {}, msg: '', version: 0 }; }
+const params = { fc: newParamSet('Flight computer'), gs: newParamSet('Ground station') };
+function linkOf(w) { return w === 'fc' ? usbLink : radioLink; }
+function clearParams(w) { const name = params[w].name; params[w] = newParamSet(name); params[w].version = Date.now(); }
+
+// One line from a kit. Returns true if it was a settings line to hide from the console.
+function paramLine(w, line) {
+  const ps = params[w];
+  if (line.startsWith('P,')) {
+    const p = line.split(',');
+    if (p.length < 13) return true;
+    const d = { key: p[1], group: p[2], type: p[3], value: p[4], running: p[5], def: p[6], min: Number(p[7]),
+      max: Number(p[8]), unit: p[9], flags: p[10], options: p[11] ? p[11].split('|') : [], help: p.slice(12).join(',') };
+    ps.defs.set(d.key, d); delete ps.errors[d.key]; ps.version++;
+    return true;
+  }
+  if (line.startsWith('PE,')) {
+    const p = line.split(',');
+    ps.pe = { count: Number(p[1]), edit: p[2], running: p[3], saved: p[4], status: p.slice(5).join(',') };
+    ps.version++;
+    return true;
+  }
+  if (line.startsWith('PERR,')) {
+    const p = line.split(','), why = p.slice(2).join(',');
+    if (p[1] === '*') ps.msg = why; else ps.errors[p[1]] = why;
+    ps.version++;
+    return w === 'gs';   // flight computer: also shown in its console
+  }
+  if (line.startsWith('PSAVED,')) {
+    ps.msg = 'saved (crc ' + line.split(',')[1] + '): reboot to apply';
+    ps.version++;
+    return w === 'gs';
+  }
+  return false;
+}
+
+async function paramSend(w, cmd) {
+  const l = linkOf(w);
+  if (!l.open) return false;
+  if (w === 'fc' && !cmd.startsWith('param list')) consoleAppend('> ' + cmd);
+  await l.write(cmd);
+  return true;
+}
+
+// Send one value to every connected kit that has this setting.
+async function setParam(key, value) {
+  const a = params.fc.defs.get(key), b = params.gs.defs.get(key), d = a || b;
+  if (!d) return;
+  if (key === 'radio_unlock' && value === '1' && d.value !== '1' && !confirm(UNLOCK_TEXT)) { settingsKey = ''; return; }
+  params.fc.msg = params.gs.msg = '';
+  if (a && usbLink.open) await paramSend('fc', `param set ${key} ${value}`);
+  if (b && radioLink.open) await paramSend('gs', `param set ${key} ${value}`);
+}
+
+function fmtLimit(d, v) { return d.flags.includes('H') ? '0x' + (v >>> 0).toString(16).toUpperCase() : String(v); }
+
+function paramEditor(d, enabled) {
+  let e;
+  if (d.type === 'bool') {
+    e = el('input'); e.type = 'checkbox'; e.checked = d.value === '1';
+    e.onchange = () => setParam(d.key, e.checked ? '1' : '0');
+  } else if (d.type === 'enum') {
+    e = el('select');
+    d.options.forEach(o => { const op = el('option', '', o + (d.unit ? ' ' + d.unit : '')); op.value = o; e.append(op); });
+    e.value = d.value;
+    e.onchange = () => setParam(d.key, e.value);
+  } else {
+    e = el('input'); e.type = 'text'; e.value = d.value; e.spellcheck = false;
+    e.onchange = () => setParam(d.key, e.value.trim());
+    e.onkeydown = ev => { if (ev.key === 'Enter') e.blur(); if (ev.key === 'Escape') { e.value = d.value; e.blur(); } };
+  }
+  e.disabled = !enabled;
+  return e;
+}
+
+function paramRow(k, a, b) {
+  const d = a || b, tr = el('tr');
+  const name = el('td', 'p-name');
+  name.append(el('div', 'p-key', k));
+  const tags = el('div', 'flags');
+  if (d.flags.includes('S')) tags.append(el('span', 'pill bad', 'flight safety'));
+  if (d.flags.includes('R')) tags.append(el('span', 'pill info', 'both kits'));
+  if (tags.childNodes.length) name.append(tags);
+  name.append(el('div', 'p-help', d.help));
+
+  const val = el('td');
+  val.append(paramEditor(d, a ? usbLink.open : radioLink.open));
+  if (d.unit && d.type !== 'enum') val.append(' ' + d.unit);
+  if (a && b && a.value !== b.value) {
+    tr.className = 'mismatch';
+    val.append(el('div', 'p-err', `ground station has ${b.value} (flight computer ${a.value})`));
+  } else if (!a && b) {
+    val.append(el('div', 'p-help', 'ground station value (flight computer not connected)'));
+  } else if (a && !b && d.flags.includes('R')) {
+    val.append(el('div', 'p-help', 'ground station not connected: set the same value there'));
+  }
+  for (const [w, x] of [['fc', a], ['gs', b]]) {
+    const err = x && params[w].errors[k];
+    if (err) val.append(el('div', 'p-err', params[w].name + ' refused: ' + err));
+  }
+
+  const meta = el('td', 'p-meta');
+  const range = d.type === 'bool' || d.type === 'enum' ? '' : `   range ${fmtLimit(d, d.min)} … ${fmtLimit(d, d.max)}`;
+  meta.append(el('div', '', 'default ' + d.def + range));
+  const st = el('div', 'flags');
+  if ((a && a.value !== a.running) || (b && b.value !== b.running)) st.append(el('span', 'pill warn', 'applies after reboot'));
+  if (d.value !== d.def) st.append(el('span', 'pill', 'changed from default'));
+  if (st.childNodes.length) meta.append(st);
+  tr.append(name, val, meta);
+  return tr;
+}
+
+function radioPresetSelect() {
+  const sel = el('select');
+  sel.append(el('option', '', 'radio preset…'));
+  RADIO_PRESETS.forEach((p, i) => { const o = el('option', '', p.name); o.value = String(i); sel.append(o); });
+  sel.onchange = async () => {
+    const p = RADIO_PRESETS[Number(sel.value)];
+    sel.selectedIndex = 0;
+    if (!p) return;
+    const unlock = (params.fc.defs.get('radio_unlock') || params.gs.defs.get('radio_unlock') || {}).value === '1';
+    if (p.unlock && !unlock) { alert('This preset is outside the EU band: tick radio_unlock first (you accept responsibility for local rules).'); return; }
+    for (const [k, v] of p.set) await setParam(k, v);
+  };
+  return sel;
+}
+
+let settingsKey = '';
+function renderSettings() {
+  const fc = params.fc, gs = params.gs;
+  // status lines
+  const status = (ps, link) => {
+    if (!link.open) return ps.name + ': not connected.';
+    if (!ps.pe) return ps.name + ': no settings received yet (older firmware?).';
+    const pe = ps.pe;
+    let t = `${ps.name}: ${pe.count} settings, in use crc ${pe.running}`;
+    if (pe.edit !== pe.saved) t += `; UNSAVED changes (crc ${pe.edit})`;
+    else if (pe.saved !== pe.running) t += `; saved crc ${pe.saved}: reboot to apply`;
+    else t += '; saved = in use';
+    if (pe.status !== 'ok') t += '; ' + pe.status.toUpperCase();
+    if (ps.msg) t += '; ' + ps.msg;
+    return t;
+  };
+  const stEl = $('set-status');
+  const stText = status(fc, usbLink) + '\n' + status(gs, radioLink);
+  if (stEl.textContent !== stText) { stEl.textContent = stText; stEl.style.whiteSpace = 'pre-line'; }
+
+  // warnings
+  const warn = [];
+  const shared = [...fc.defs.values()].filter(d => d.flags.includes('R') && gs.defs.has(d.key));
+  const diffEdit = shared.filter(d => d.value !== gs.defs.get(d.key).value).map(d => d.key);
+  const diffRun = shared.filter(d => d.running !== gs.defs.get(d.key).running).map(d => d.key);
+  if (diffRun.length) warn.push('The two kits RUN different radio settings (' + diffRun.join(', ') + '): no radio link until both are saved with the same values and rebooted.');
+  else if (diffEdit.length) warn.push('Radio settings differ between the kits (' + diffEdit.join(', ') + '): make them equal before saving and rebooting, or the link breaks.');
+  const fcRadioPending = [...fc.defs.values()].some(d => d.flags.includes('R') && d.value !== d.running);
+  if (fc.defs.size && !gs.defs.size && fcRadioPending)
+    warn.push('Radio settings of the flight computer change at its next boot, and the ground station is not connected: connect it and give it the same values (sent automatically when both are connected), or the link breaks.');
+  for (const ps of [fc, gs]) if (ps.pe && ps.pe.status !== 'ok') warn.push(ps.name + ': ' + ps.pe.status + ' (cannot be saved like this).');
+  const unlockOn = [fc, gs].some(ps => (ps.defs.get('radio_unlock') || {}).value === '1');
+  if (unlockOn) warn.push('radio_unlock is on: radio rules outside the EU band are your responsibility.');
+  const w = $('set-warn'), wt = warn.join('\n');
+  w.hidden = !warn.length;
+  if (w.textContent !== wt) { w.textContent = wt; w.style.whiteSpace = 'pre-line'; }
+
+  // buttons
+  const unsaved = ps => ps.pe && ps.pe.edit !== ps.pe.saved;
+  $('btn-set-read').disabled = !(usbLink.open || radioLink.open);
+  $('btn-set-save').disabled = !((usbLink.open && unsaved(fc)) || (radioLink.open && unsaved(gs)));
+  $('btn-set-reboot').disabled = !usbLink.open;
+  $('btn-set-reboot').className = fc.pe && fc.pe.saved !== fc.pe.running ? 'danger' : '';
+  $('btn-set-reboot-gs').disabled = !radioLink.open;
+  $('btn-set-reboot-gs').className = gs.pe && gs.pe.saved !== gs.pe.running ? 'danger' : '';
+  $('btn-set-revert').disabled = !((usbLink.open && unsaved(fc)) || (radioLink.open && unsaved(gs)));
+  $('btn-set-defaults').disabled = !(usbLink.open || radioLink.open);
+  $('btn-set-export').disabled = !(fc.defs.size || gs.defs.size);
+  $('btn-set-import').disabled = !(fc.defs.size || gs.defs.size);
+
+  // table: rebuilt only when something changed, never while the user edits a field
+  const key = [fc.version, gs.version, usbLink.open, radioLink.open, $('set-filter').value, $('set-changed').checked].join('|');
+  if (key === settingsKey) return;
+  const body = $('set-body'), act = document.activeElement;
+  if (body.contains(act) && act.tagName === 'INPUT' && act.type === 'text') return;
+  settingsKey = key;
+  body.textContent = '';
+  const keys = [...new Set([...fc.defs.keys(), ...gs.defs.keys()])];
+  if (!keys.length) {
+    body.append(el('div', 'note', usbLink.open || radioLink.open
+      ? 'Waiting for the settings… (click Read settings; firmware older than this UI has none).'
+      : 'Connect the flight computer (USB) and/or the ground station to see and change their settings.'));
+    return;
+  }
+  const filter = $('set-filter').value.trim().toLowerCase(), onlyChanged = $('set-changed').checked;
+  let group = null, table = null;
+  for (const k of keys) {
+    const a = fc.defs.get(k), b = gs.defs.get(k), d = a || b;
+    if (filter && !(k.includes(filter) || d.group.includes(filter) || d.help.toLowerCase().includes(filter))) continue;
+    if (onlyChanged && !((a && a.value !== a.def) || (b && b.value !== b.def))) continue;
+    if (d.group !== group) {
+      group = d.group;
+      const h = el('div', 'set-group', group);
+      if (group === 'radio') h.append(radioPresetSelect());
+      body.append(h);
+      table = el('table', 'params');
+      body.append(table);
+    }
+    table.append(paramRow(k, a, b));
+  }
+}
+
+async function saveSettings() {
+  const ws = ['fc', 'gs'].filter(w => linkOf(w).open && params[w].pe && params[w].pe.edit !== params[w].pe.saved);
+  if (!ws.length) { setMsg('Nothing to save.'); return; }
+  const safety = [...params.fc.defs.values()].filter(d => d.flags.includes('S') && d.value !== d.running);
+  if (safety.length && !confirm('These FLIGHT SAFETY settings change:\n\n' +
+      safety.map(d => `  ${d.key}: ${d.running} → ${d.value} ${d.unit}`).join('\n') +
+      '\n\nSave them? After rebooting, run a simulated flight (bench mode) before flying.')) return;
+  for (const w of ws) { params[w].msg = ''; await paramSend(w, 'param save'); }
+}
+
+function rebootKit(w) {
+  const what = w === 'fc' ? 'the flight computer (it recalibrates: keep it still)' : 'the ground station';
+  if (!confirm(`Reboot ${what}?\nThe USB connection drops and reconnects by itself within a few seconds.`)) return;
+  linkOf(w).reconnectUntil = performance.now() + 20000;
+  if (w === 'fc') sendCommand('reboot'); else radioLink.write('reboot');
+}
+
+function exportSettings() {
+  const ps = params.fc.defs.size ? params.fc : params.gs;
+  const lines = [`# rocket-fc settings, exported ${new Date().toISOString()} from the ${ps.name.toLowerCase()}`,
+    `# values as edited (crc ${ps.pe ? ps.pe.edit : '?'}); import with the UI's Import file, then Save to flash`];
+  for (const d of ps.defs.values()) lines.push(`${d.key}=${d.value}`);
+  const name = 'rocketfc_settings_' + stamp() + '.txt';
+  download(name, lines.join('\n') + '\n');
+  setMsg('Settings exported as ' + name + '.');
+}
+
+async function importSettings(text) {
+  let changed = 0, bad = 0;
+  const unknown = [];
+  for (const raw of text.split(/\r?\n/)) {
+    const l = raw.trim();
+    if (!l || l.startsWith('#')) continue;
+    const i = l.indexOf('=');
+    if (i < 1) { bad++; continue; }
+    const k = l.slice(0, i).trim(), v = l.slice(i + 1).trim();
+    const d = params.fc.defs.get(k) || params.gs.defs.get(k);
+    if (!d) { unknown.push(k); continue; }
+    if (d.value === v) continue;
+    await setParam(k, v);
+    changed++;
+  }
+  setMsg(`Import: ${changed} value(s) sent` + (unknown.length ? `, ${unknown.length} unknown ignored (${unknown.slice(0, 5).join(', ')})` : '') +
+    (bad ? `, ${bad} bad line(s)` : '') + '. Check for refusals in the Settings panel, then Save to flash.');
+}
+
+// Reconnect a kit that was rebooted from this page (same USB port reappears).
+if ('serial' in navigator) {
+  navigator.serial.addEventListener('connect', e => {
+    for (const l of [usbLink, radioLink]) {
+      if (!l.open && l.reconnectUntil && performance.now() < l.reconnectUntil) {
+        l.reconnectUntil = 0;
+        setTimeout(() => l.connect(e.target).catch(err => setMsg('Reconnect failed: ' + err.message + ' (click Connect).')), 500);
+        break;
+      }
+    }
+  });
+}
+
 // --- console ---
 const consoleLines = [];
 function consoleAppend(line) {
@@ -1028,6 +1434,7 @@ function consoleAppend(line) {
 const cmdHistory = []; let histPos = 0;
 async function sendCommand(cmd) {
   if (!usbLink.open) return;
+  if (cmd === 'reboot') usbLink.reconnectUntil = performance.now() + 20000;
   consoleAppend('> ' + cmd);
   cmdHistory.push(cmd); histPos = cmdHistory.length;
   await usbLink.write(cmd);
@@ -1059,6 +1466,25 @@ $('btn-rf-fire').onclick = () => {
   document.querySelectorAll('.rf-check').forEach(c => { c.checked = false; });  // re-confirm next time
 };
 $('btn-rf-disarm').onclick = () => { radioLink.write('rf disarm'); rfSet('idle', 'Disarm sent.'); };
+$('btn-bench-on-usb').onclick = () => benchSet(true, 'usb');
+$('btn-bench-off-usb').onclick = () => benchSet(false, 'usb');
+$('btn-bench-on-radio').onclick = () => benchSet(true, 'radio');
+$('btn-bench-off-radio').onclick = () => benchSet(false, 'radio');
+$('btn-bench-banner-off').onclick = () => benchSet(false, usbLink.open ? 'usb' : 'radio');
+$('btn-set-read').onclick = () => { for (const w of ['fc', 'gs']) { params[w].msg = ''; paramSend(w, 'param list'); } };
+$('btn-set-save').onclick = saveSettings;
+$('btn-set-reboot').onclick = () => rebootKit('fc');
+$('btn-set-reboot-gs').onclick = () => rebootKit('gs');
+$('btn-set-revert').onclick = async () => { for (const w of ['fc', 'gs']) if (await paramSend(w, 'param revert')) await paramSend(w, 'param list'); };
+$('btn-set-defaults').onclick = async () => {
+  if (!confirm('Set ALL settings of the connected kit(s) back to the firmware defaults?\nNothing is stored until you click Save to flash.')) return;
+  for (const w of ['fc', 'gs']) if (await paramSend(w, 'param reset all')) await paramSend(w, 'param list');
+};
+$('btn-set-export').onclick = exportSettings;
+$('btn-set-import').onclick = () => $('set-file').click();
+$('set-file').onchange = async () => { const f = $('set-file').files[0]; if (f) await importSettings(await f.text()); $('set-file').value = ''; };
+$('set-filter').oninput = () => renderSettings();
+$('set-changed').onchange = () => renderSettings();
 { const u = loadUplinkSettings(); $('up-on').checked = u.on; $('up-beep').value = u.beep_s; }
 $('btn-fire').onclick = () => {
   const ms = Math.round(Number($('fire-ms').value));

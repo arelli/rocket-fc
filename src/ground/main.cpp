@@ -19,6 +19,10 @@
 //   rf arm <ms>     remote test fire, step 1 (rocket must run the BENCH build)
 //   rf fire         step 2, after the rocket reported REMOTE_ARMED
 //   rf disarm       cancel
+//   bench on|off    switch the rocket's bench mode by radio (it answers BENCH_MODE)
+//   param ...       radio settings of this kit (same as the flight computer's
+//                   "param", radio group only); they apply after "reboot"
+//   reboot          restart this kit
 //   (empty line)    re-print the CSV headers
 //
 // tools/ground_station.html shows and controls all of this.
@@ -28,11 +32,14 @@
 
 #include "board_pins.h"
 #include "fc/csv.h"
+#include "fc/param_shell.h"
 #include "fc/radio_budget.h"
 #include "fc/remote_fire.h"
+#include "fc/settings.h"
 #include "fc/telemetry.h"
 #include "fc/uplink.h"
 #include "hal/radio_link.h"
+#include "hal/settings_store.h"
 #include "radio_config.h"
 
 namespace {
@@ -43,7 +50,13 @@ constexpr uint32_t kReplyDelayMs = 15;
 
 hal::RadioLink radio;
 fc::UplinkPolicy policy;
-fc::DutyCycleLimiter duty(radio_cfg::kDutyFraction, radio_cfg::kDutyBurstMs);
+// Radio settings (fc/settings.h, kParamShared): loaded at boot from flash.
+fc::Settings set;
+fc::ParamShell params(true);
+hal::SettingsStore store;
+bool settings_ok = true;
+char settings_problem[160] = {0};
+fc::DutyCycleLimiter duty(0.08f, 72000);
 uint32_t uplink_airtime_us = 0;
 uint8_t beep_period_s = 10;
 uint16_t uplink_seq = 0;
@@ -68,13 +81,15 @@ uint32_t n_ok = 0, n_bad = 0, t_stats = 0, t_noise = 0;
 float noise_sum = 0;
 int noise_n = 0;
 float last_rssi = 0, last_snr = 0;
-char cmd[48];
+char cmd[112];
 size_t cmd_len = 0;
 
 void print_headers() {
-  Serial.printf("# rocket-fc ground station %s  %.3f MHz SF%u BW%.0f sync 0x%02X\n", FC_GIT_REV,
-                static_cast<double>(radio_cfg::kFreqMHz), radio_cfg::kSpreadingFactor,
-                static_cast<double>(radio_cfg::kBandwidthKHz), radio_cfg::kSyncWord);
+  Serial.printf("# rocket-fc ground station %s  %.3f MHz SF%lu BW%.1f sync 0x%02lX %ld dBm  settings crc %08lX\n",
+                FC_GIT_REV, static_cast<double>(set.radio_freq_mhz), static_cast<unsigned long>(set.radio_sf),
+                static_cast<double>(fc::radio_bw_khz(set)), static_cast<unsigned long>(set.radio_sync),
+                static_cast<long>(set.radio_power_dbm), static_cast<unsigned long>(fc::settings_crc(set)));
+  if (!settings_ok) Serial.printf("# ERROR: radio settings invalid (%s): running on the defaults\n", settings_problem);
   Serial.printf("%s,rssi_dbm,snr_db\n", fc::csv::telemetry_header());
   Serial.printf("%s,rssi_dbm,snr_db\n", fc::csv::event_header());
 }
@@ -89,12 +104,54 @@ void print_uplink() {
                 utc_base_ms ? "set" : "unset");
 }
 
+void serial_line(void*, const char* line) { Serial.println(line); }
+bool store_text(void* ctx, const char* text, size_t len) {
+  return static_cast<hal::SettingsStore*>(ctx)->save(text, len);
+}
+
+void load_settings() {
+  static char text[hal::SettingsStore::kMaxText];
+  bool read_ok = true;
+  const size_t n = store.load(text, sizeof(text), &read_ok);
+  fc::Settings stored;
+  fc::LoadReport rep;
+  if (n) fc::settings_from_text(stored, text, n, &rep);
+  settings_ok = true;
+  if (!read_ok) {
+    settings_ok = false;
+    snprintf(settings_problem, sizeof(settings_problem), "flash read error");
+  } else if (rep.errors) {
+    settings_ok = false;
+    snprintf(settings_problem, sizeof(settings_problem), "%s", rep.first_problem);
+  } else if (!fc::validate_radio(stored, settings_problem, sizeof(settings_problem))) {
+    settings_ok = false;
+  }
+  set = settings_ok ? stored : fc::Settings{};
+  params.init(set, stored);
+  duty = fc::DutyCycleLimiter(set.radio_duty_pct / 100.0f, set.radio_burst_s * 1000u);
+}
+
 void exec(char* line) {
   char* save = nullptr;
-  const char* c = strtok_r(line, " \t", &save);
-  const char* a = strtok_r(nullptr, " \t", &save);
+  const char* argv[6] = {};
+  int argc = 0;
+  for (char* t = strtok_r(line, " \t", &save); t && argc < 6; t = strtok_r(nullptr, " \t", &save)) argv[argc++] = t;
+  const char* c = argv[0];
+  const char* a = argv[1];
   if (!c) {
     print_headers();
+  } else if (!strcmp(c, "param")) {
+    params.exec(argc - 1, argv + 1, true, serial_line, store_text, &store);
+  } else if (!strcmp(c, "reboot")) {
+    Serial.println("# rebooting");
+    Serial.flush();
+    ESP.restart();
+  } else if (!strcmp(c, "bench") && a && (!strcmp(a, "on") || !strcmp(a, "off"))) {
+    rf_since = millis();
+    rf_kind = fc::tlm::UplinkKind::BenchMode;
+    rf_pulse_ms = !strcmp(a, "on") ? 1 : 0;
+    rf_pending = true;
+    Serial.printf("# rf queued bench %s\n", a);
   } else if (!strcmp(c, "beep") && a) {
     const long v = strtol(a, nullptr, 10);
     beep_period_s = static_cast<uint8_t>(v < 0 ? 0 : v > 255 ? 255 : v);
@@ -106,7 +163,7 @@ void exec(char* line) {
       print_uplink();
     }
   } else if (!strcmp(c, "rf") && a) {
-    const char* b = strtok_r(nullptr, " \t", &save);
+    const char* b = argv[2];
     rf_since = millis();
     if (!strcmp(a, "arm") && b) {
       const long ms = strtol(b, nullptr, 10);
@@ -137,7 +194,8 @@ void exec(char* line) {
     policy.set_enabled(!strcmp(a, "on"));
     print_uplink();
   } else {
-    Serial.println("# commands: beep <0..255 s>, uplink on|off, time <unix ms>, empty line = headers");
+    Serial.println("# commands: beep <0..255 s>, uplink on|off, time <unix ms>, rf arm <ms>|fire|disarm, "
+                   "bench on|off, param ..., reboot, empty line = headers");
   }
 }
 
@@ -152,14 +210,17 @@ void send_rf(uint32_t now) {
   u.kind = rf_kind;
   u.pulse_ms = rf_pulse_ms;
   if (rf_kind == fc::tlm::UplinkKind::Fire) {
-    u.code = fc::remote_fire_code(rf_nonce, radio_cfg::kRemoteFireKey);
+    u.code = fc::remote_fire_code(rf_nonce, set.rf_key);
     rf_have_nonce = false;  // one use
+  } else if (rf_kind == fc::tlm::UplinkKind::BenchMode) {
+    u.code = fc::bench_mode_code(rf_pulse_ms != 0, set.rf_key);
   }
   uint8_t buf[fc::tlm::kUplinkLen];
   const size_t n = fc::tlm::encode(u, buf, sizeof(buf));
-  const char* what = rf_kind == fc::tlm::UplinkKind::FireArm ? "arm"
-                     : rf_kind == fc::tlm::UplinkKind::Fire  ? "fire"
-                                                             : "disarm";
+  const char* what = rf_kind == fc::tlm::UplinkKind::FireArm     ? "arm"
+                     : rf_kind == fc::tlm::UplinkKind::Fire      ? "fire"
+                     : rf_kind == fc::tlm::UplinkKind::BenchMode ? (rf_pulse_ms ? "bench on" : "bench off")
+                                                                 : "disarm";
   if (radio.send(buf, n)) {
     ++uplink_sent;
     Serial.printf("# rf sent %s\n", what);
@@ -190,18 +251,19 @@ void setup() {
   const hal::RadioLink::Pins p{pins::kLoraSck,  pins::kLoraMiso,  pins::kLoraMosi,
                                pins::kLoraNss,  pins::kLoraDio1,  pins::kLoraReset,
                                pins::kLoraBusy, pins::kLoraRfSw};
-  const hal::RadioLink::Params r{radio_cfg::kFreqMHz,         radio_cfg::kBandwidthKHz,
-                                 radio_cfg::kSpreadingFactor, radio_cfg::kCodingRateDenom,
-                                 radio_cfg::kSyncWord,        radio_cfg::kTxPowerDbm,
-                                 radio_cfg::kPreambleLen,     radio_cfg::kTcxoVolts};
+  load_settings();
+  const hal::RadioLink::Params r{set.radio_freq_mhz,
+                                 fc::radio_bw_khz(set),
+                                 static_cast<uint8_t>(set.radio_sf),
+                                 static_cast<uint8_t>(set.radio_cr),
+                                 static_cast<uint8_t>(set.radio_sync),
+                                 static_cast<int8_t>(set.radio_power_dbm),
+                                 static_cast<uint16_t>(set.radio_preamble),
+                                 radio_cfg::kTcxoVolts,
+                                 set.radio_rx_boost};
   delay(1500);  // give the USB host time to open the port and see the header
   print_headers();
-  fc::LoraModulation m;
-  m.sf = radio_cfg::kSpreadingFactor;
-  m.bw_hz = static_cast<uint32_t>(radio_cfg::kBandwidthKHz * 1000.0f);
-  m.cr_denom = radio_cfg::kCodingRateDenom;
-  m.preamble = radio_cfg::kPreambleLen;
-  uplink_airtime_us = fc::lora_airtime_us(m, fc::tlm::kUplinkLen);
+  uplink_airtime_us = fc::lora_airtime_us(fc::lora_modulation(set), fc::tlm::kUplinkLen);
   duty.reset(millis());
   if (!radio.begin(p, r) || !radio.start_receive()) {
     Serial.printf("# ERROR: radio init failed (RadioLib error %d)\n", radio.last_error());
@@ -251,13 +313,17 @@ void loop() {
       }
       if (rf_pending && !reply_pending) {
         rf_pending = false;
-        if (rocket_state == fc::FlightState::Pad ||
-            rf_kind == fc::tlm::UplinkKind::FireDisarm) {
+        const bool flying = rocket_state == fc::FlightState::Boost ||
+                            rocket_state == fc::FlightState::Coast ||
+                            rocket_state == fc::FlightState::Descent;
+        const bool any_ground_state = rf_kind == fc::tlm::UplinkKind::FireDisarm ||
+                                      rf_kind == fc::tlm::UplinkKind::BenchMode;
+        if (rocket_state == fc::FlightState::Pad || (any_ground_state && !flying)) {
           reply_pending = true;
           reply_is_rf = true;
           reply_due = now + kReplyDelayMs;
         } else {
-          Serial.printf("# rf error: rocket is in %s, not PAD: command dropped\n",
+          Serial.printf("# rf error: rocket is in %s: command dropped\n",
                         fc::to_string(rocket_state));
         }
       } else if (policy.on_rocket_frame(rocket_state, now)) {

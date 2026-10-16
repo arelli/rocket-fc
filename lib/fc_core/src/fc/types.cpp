@@ -38,6 +38,9 @@ const char* to_string(EventCode e) {
     case EventCode::RemoteArmed: return "REMOTE_ARMED";
     case EventCode::RemoteDisarmed: return "REMOTE_DISARMED";
     case EventCode::RemoteRefused: return "REMOTE_REFUSED";
+    case EventCode::Config: return "CONFIG";
+    case EventCode::PyroSag: return "PYRO_SAG";
+    case EventCode::BenchMode: return "BENCH_MODE";
   }
   return "?";
 }
