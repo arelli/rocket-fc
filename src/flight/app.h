@@ -119,7 +119,7 @@ class App {
   bool have_battery_ = false;
   float vpyro_ = 0;
   bool continuity_ = false;
-  bool fire_logged_open_ = false;
+  bool watch_open_ = false;  // after a pulse: report when the bridge burns through
   uint32_t critical_since_ = 0;
   bool critical_timing_ = false;
 

@@ -100,7 +100,7 @@ void App::console_exec(char* line, uint32_t now) {
                     static_cast<unsigned long>(hal::PyroChannel::kMaxPulseMs));
     } else if (pyro_.bench_fire(now, static_cast<uint32_t>(ms))) {
       event(fc::EventCode::BenchFire, ms, now);
-      fire_logged_open_ = false;
+      watch_open_ = continuity_;
     }
 #endif
   } else {

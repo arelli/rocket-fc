@@ -357,7 +357,6 @@ void App::handle_output(const fc::SmOutput& out, uint32_t now) {
   for (size_t i = 0; i < out.n_events; ++i) event(out.events[i].code, out.events[i].arg, now);
   if (!out.fire) return;
 
-  fire_logged_open_ = false;
 #ifdef FC_BENCH_BUILD
   if (sim_) {
     sim_->deploy();
@@ -368,6 +367,7 @@ void App::handle_output(const fc::SmOutput& out, uint32_t now) {
   }
 #endif
   if (pyro_.fire(now, cfg::kPyroPulseMs)) {
+    watch_open_ = continuity_;  // only meaningful if the circuit was closed
     Serial.printf("[%lu] PYRO FIRED (%lu ms pulse)\n", static_cast<unsigned long>(now),
                   static_cast<unsigned long>(cfg::kPyroPulseMs));
   } else {
@@ -443,9 +443,16 @@ void App::update_continuity(uint32_t now) {
   if (pyro_.firing()) return;  // the MOSFET pulls the drain low while firing
   continuity_ = have_battery_ && vpyro_ >= cfg::kContinuityFraction * vbat_;
 
-  if (pyro_.fired() && !continuity_ && !fire_logged_open_) {
-    fire_logged_open_ = true;  // bridge wire burned through: good sign
-    event(EventCode::PyroOpen, static_cast<int32_t>(now - pyro_.fire_time()), now);
+  // After a pulse, report if (and when) the bridge wire burned through. Only
+  // within 10 s of the pulse, so removing the arm link later is not reported.
+  if (watch_open_) {
+    const uint32_t since = now - pyro_.fire_time();
+    if (!continuity_) {
+      watch_open_ = false;
+      event(EventCode::PyroOpen, static_cast<int32_t>(since), now);
+    } else if (since > hal::PyroChannel::kMaxPulseMs + 10000) {
+      watch_open_ = false;
+    }
   }
 }
 
