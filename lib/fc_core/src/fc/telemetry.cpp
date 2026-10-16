@@ -1,0 +1,141 @@
+#include "fc/telemetry.h"
+
+#include "fc/bytes.h"
+#include "fc/crc16.h"
+
+namespace fc {
+namespace tlm {
+
+namespace {
+
+void write_header(ByteWriter& w, FrameType type, FlightState state, uint16_t seq,
+                  uint32_t t_ms) {
+  w.u8(kMagic);
+  w.u8(kVersion);
+  w.u8(static_cast<uint8_t>(type));
+  w.u8(static_cast<uint8_t>(state));
+  w.u16(seq);
+  w.u32(t_ms);
+}
+
+size_t finish(ByteWriter& w, uint8_t* out) {
+  if (!w.ok()) return 0;
+  const uint16_t crc = crc16_ccitt(out, w.size());
+  w.u16(crc);
+  return w.ok() ? w.size() : 0;
+}
+
+DecodeResult check_frame(const uint8_t* buf, size_t len, FrameType* type) {
+  if (len < kHeaderLen + 2) return DecodeResult::TooShort;
+  if (buf[0] != kMagic) return DecodeResult::BadMagic;
+  if (buf[1] != kVersion) return DecodeResult::BadVersion;
+  size_t expected;
+  switch (static_cast<FrameType>(buf[2])) {
+    case FrameType::Telemetry: expected = kTelemetryLen; break;
+    case FrameType::Event: expected = kEventLen; break;
+    default: return DecodeResult::BadType;
+  }
+  if (len != expected) return DecodeResult::BadLength;
+  const uint16_t want = static_cast<uint16_t>(buf[len - 2] | (buf[len - 1] << 8));
+  if (crc16_ccitt(buf, len - 2) != want) return DecodeResult::BadCrc;
+  *type = static_cast<FrameType>(buf[2]);
+  return DecodeResult::Ok;
+}
+
+}  // namespace
+
+size_t encode(const Telemetry& t, uint8_t* out, size_t cap) {
+  ByteWriter w(out, cap);
+  write_header(w, FrameType::Telemetry, t.state, t.seq, t.t_ms);
+  w.i32(sat_i32(t.alt_m * 100.0f));
+  w.i16(sat_i16(t.vel_mps * 100.0f));
+  w.i16(sat_i16(t.accel_g.x * 1000.0f));
+  w.i16(sat_i16(t.accel_g.y * 1000.0f));
+  w.i16(sat_i16(t.accel_g.z * 1000.0f));
+  w.i16(sat_i16(t.gyro_dps.x * 10.0f));
+  w.i16(sat_i16(t.gyro_dps.y * 10.0f));
+  w.i16(sat_i16(t.gyro_dps.z * 10.0f));
+  w.i16(sat_i16(t.mag_uT.x * 10.0f));
+  w.i16(sat_i16(t.mag_uT.y * 10.0f));
+  w.i16(sat_i16(t.mag_uT.z * 10.0f));
+  w.u32(sat_u32(t.pressure_pa));
+  w.i16(sat_i16(t.temp_c * 100.0f));
+  w.u16(sat_u16(t.batt_v * 1000.0f));
+  w.u8(t.flags);
+  return finish(w, out);
+}
+
+size_t encode(const Event& e, uint8_t* out, size_t cap) {
+  ByteWriter w(out, cap);
+  write_header(w, FrameType::Event, e.state, e.seq, e.t_ms);
+  w.u8(static_cast<uint8_t>(e.code));
+  w.i32(e.arg);
+  return finish(w, out);
+}
+
+DecodeResult frame_type(const uint8_t* buf, size_t len, FrameType* type) {
+  return check_frame(buf, len, type);
+}
+
+DecodeResult decode(const uint8_t* buf, size_t len, Telemetry* out) {
+  FrameType type;
+  DecodeResult r = check_frame(buf, len, &type);
+  if (r != DecodeResult::Ok) return r;
+  if (type != FrameType::Telemetry) return DecodeResult::BadType;
+  ByteReader rd(buf, len);
+  rd.u8();  // magic
+  rd.u8();  // version
+  rd.u8();  // type
+  out->state = static_cast<FlightState>(rd.u8());
+  out->seq = rd.u16();
+  out->t_ms = rd.u32();
+  out->alt_m = rd.i32() / 100.0f;
+  out->vel_mps = rd.i16() / 100.0f;
+  out->accel_g.x = rd.i16() / 1000.0f;
+  out->accel_g.y = rd.i16() / 1000.0f;
+  out->accel_g.z = rd.i16() / 1000.0f;
+  out->gyro_dps.x = rd.i16() / 10.0f;
+  out->gyro_dps.y = rd.i16() / 10.0f;
+  out->gyro_dps.z = rd.i16() / 10.0f;
+  out->mag_uT.x = rd.i16() / 10.0f;
+  out->mag_uT.y = rd.i16() / 10.0f;
+  out->mag_uT.z = rd.i16() / 10.0f;
+  out->pressure_pa = static_cast<float>(rd.u32());
+  out->temp_c = rd.i16() / 100.0f;
+  out->batt_v = rd.u16() / 1000.0f;
+  out->flags = rd.u8();
+  return rd.ok() ? DecodeResult::Ok : DecodeResult::BadLength;
+}
+
+DecodeResult decode(const uint8_t* buf, size_t len, Event* out) {
+  FrameType type;
+  DecodeResult r = check_frame(buf, len, &type);
+  if (r != DecodeResult::Ok) return r;
+  if (type != FrameType::Event) return DecodeResult::BadType;
+  ByteReader rd(buf, len);
+  rd.u8();
+  rd.u8();
+  rd.u8();
+  out->state = static_cast<FlightState>(rd.u8());
+  out->seq = rd.u16();
+  out->t_ms = rd.u32();
+  out->code = static_cast<EventCode>(rd.u8());
+  out->arg = rd.i32();
+  return rd.ok() ? DecodeResult::Ok : DecodeResult::BadLength;
+}
+
+const char* to_string(DecodeResult r) {
+  switch (r) {
+    case DecodeResult::Ok: return "ok";
+    case DecodeResult::TooShort: return "too_short";
+    case DecodeResult::BadMagic: return "bad_magic";
+    case DecodeResult::BadVersion: return "bad_version";
+    case DecodeResult::BadType: return "bad_type";
+    case DecodeResult::BadLength: return "bad_length";
+    case DecodeResult::BadCrc: return "bad_crc";
+  }
+  return "?";
+}
+
+}  // namespace tlm
+}  // namespace fc

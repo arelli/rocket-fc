@@ -1,0 +1,72 @@
+// Shared vocabulary of the flight computer: states, events, sensor samples.
+// Numeric values are part of the telemetry wire format (docs/TELEMETRY.md):
+// append new values, never renumber existing ones.
+#pragma once
+
+#include <stdint.h>
+
+namespace fc {
+
+enum class FlightState : uint8_t {
+  Init = 0,     // power-up, settle countdown, ground calibration
+  Fault = 1,    // self-test failed: launch detection and pyro locked out
+  Pad = 2,      // ready, waiting for launch (pyro software-disarmed)
+  Boost = 3,    // launch detected, motor burning (pyro software-armed)
+  Coast = 4,    // motor burnout detected, waiting for apogee (armed)
+  Descent = 5,  // deployment fired (or apogee passed), descending
+  Landed = 6,   // stationary on the ground: recovery beacon
+};
+
+enum class EventCode : uint8_t {
+  Boot = 1,            // arg: first 8 hex digits of the firmware git hash
+  SelfTestOk = 2,      // arg: warning bitmask (WarnBits)
+  SelfTestFail = 3,    // arg: fault code (FaultCode)
+  Launch = 4,          // arg: altitude AGL [cm]
+  Burnout = 5,         // arg: altitude AGL [cm]
+  Apogee = 6,          // arg: max altitude AGL [cm]
+  PyroFire = 7,        // arg: altitude AGL [cm] when fired (apogee path)
+  PyroBackupFire = 8,  // arg: altitude AGL [cm] when fired by backup timer
+  Landed = 9,          // arg: max altitude AGL [cm]
+  BattLow = 10,        // arg: battery [mV]
+  BattCritical = 11,   // arg: battery [mV]
+  PyroOpen = 12,       // arg: ms since fire (continuity lost: bridge burned)
+  SensorLost = 13,     // arg: sensor bitmask (SensorBits) that stopped answering
+  Resumed = 14,        // arg: ms since launch restored after a mid-flight reset
+  ApogeeNoDeploy = 15, // arg: max altitude AGL [cm] (below min deploy altitude)
+  BenchFire = 16,      // arg: pulse length [ms] (bench build only)
+};
+
+// Why the computer refuses to fly (FlightState::Fault). Beeped as N long beeps.
+enum class FaultCode : uint8_t {
+  None = 0,
+  BaroMissing = 1,
+  BaroImplausible = 2,
+  ConfigInvalid = 3,
+};
+
+// Non-fatal self-test findings. Reported once after self-test and in the
+// periodic pad report.
+enum WarnBits : uint8_t {
+  kWarnImuMissing = 1 << 0,
+  kWarnMagMissing = 1 << 1,
+  kWarnRadioFail = 1 << 2,
+  kWarnBattLow = 1 << 3,
+  kWarnImuAxis = 1 << 4,  // "up" axis does not read ~+1 g on the pad
+  kWarnNoBackupTimer = 1 << 5,
+};
+
+enum SensorBits : uint8_t {
+  kSensorImu = 1 << 0,
+  kSensorMag = 1 << 1,
+  kSensorBaro = 1 << 2,
+  kSensorRadio = 1 << 3,
+};
+
+struct Vec3 {
+  float x = 0, y = 0, z = 0;
+};
+
+const char* to_string(FlightState s);
+const char* to_string(EventCode e);
+
+}  // namespace fc
