@@ -27,8 +27,11 @@ deployment, live LoRa telemetry and an onboard flight log.
    (bench build, for testing) or `pio run -e flight -t upload` (for flight).
 4. Ground station: connect the second kit, `pio run -e ground -t upload`.
 5. Serial console: `pio device monitor` (115200 baud), type `help`.
-6. Live telemetry on your computer: `pip install pyserial`, then
-   `python tools/ground_station.py COM5` (your ground kit's port).
+6. Ground station window: open `tools/ground_station.html` in Chrome or Edge
+   (double-click it; works offline). Connect the ground kit for live telemetry
+   and the flight computer for its console. It also opens saved logs.
+   Command-line alternative: `pip install pyserial`, then
+   `python tools/ground_station.py COM5`.
 7. Unit tests on your computer: `pio test -e native` (needs a C++ compiler:
    on Windows install one, e.g. `scoop install gcc` or MSYS2).
 
@@ -54,7 +57,7 @@ lib/fc_hal/         drivers: MPU-9250, BMP280, SX1262, pyro channel, ADC, system
 src/flight/         flight firmware (app.cpp = wiring of the above)
 src/ground/         ground station firmware
 test/               unit tests (pio test -e native)
-tools/              ground_station.py, build_info.py (git hash -> firmware)
+tools/              ground_station.html (UI), ground_station.py (CLI recorder), build_info.py
 docs/               hardware, flight logic, telemetry, indicators, testing
 ```
 

@@ -1,0 +1,807 @@
+<!doctype html>
+<!--
+  rocket-fc ground station UI
+
+  Open this file in Chrome or Edge (they support Web Serial). No internet,
+  no install, no build step. It talks to:
+    - the ground station kit over USB (live LoRa telemetry), and
+    - the flight computer over USB (console commands, onboard log download).
+  It can also open saved CSV logs (ground station recordings, onboard dumps).
+
+  To extend: almost everything shown is driven by the CONFIG tables at the top
+  of the script (columns, flags, gauges, plots, commands). The data format is
+  described in docs/TELEMETRY.md and lib/fc_core/src/fc/csv.h.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>rocket-fc ground station</title>
+<style>
+  :root {
+    --bg: #f3f4f6; --panel: #ffffff; --ink: #1f2328; --muted: #646b73; --line: #d5d9de;
+    --accent: #1f6feb; --ok: #1a7f37; --warn: #9a6700; --bad: #cf222e; --info: #0969da;
+    --track: #e7eaee; --s1: #1f6feb; --s2: #cf6a1f; --s3: #6e40c9;
+    --mono: ui-monospace, "Cascadia Mono", Consolas, "Liberation Mono", monospace;
+    --sans: system-ui, "Segoe UI", Roboto, Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1216; --panel: #171b21; --ink: #e2e6ea; --muted: #8b949e; --line: #2c333b;
+      --accent: #4c8dff; --ok: #3fb950; --warn: #d29922; --bad: #f85149; --info: #58a6ff;
+      --track: #232a32; --s1: #4c8dff; --s2: #f0883e; --s3: #a371f7;
+      color-scheme: dark;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.4 var(--sans); }
+  header { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center;
+    padding: 10px 16px; background: var(--panel); border-bottom: 1px solid var(--line); }
+  header h1 { font-size: 16px; margin: 0 12px 0 0; }
+  .conn { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  button, select, input { font: inherit; color: inherit; }
+  button { background: var(--panel); border: 1px solid var(--line); border-radius: 4px;
+    padding: 4px 10px; cursor: pointer; }
+  button:hover:not(:disabled) { border-color: var(--accent); }
+  button:disabled { opacity: .45; cursor: default; }
+  button.danger { border-color: var(--bad); color: var(--bad); }
+  select, input[type=number], input[type=text] { background: var(--panel);
+    border: 1px solid var(--line); border-radius: 4px; padding: 3px 6px; }
+  .pill { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 12px;
+    border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+  .pill.ok { color: var(--ok); border-color: var(--ok); }
+  .pill.warn { color: var(--warn); border-color: var(--warn); }
+  .pill.bad { color: var(--bad); border-color: var(--bad); }
+  .pill.info { color: var(--info); border-color: var(--info); }
+  .pill.on.ok { background: var(--ok); color: var(--panel); }
+  .pill.on.warn { background: var(--warn); color: var(--panel); }
+  .pill.on.bad { background: var(--bad); color: var(--panel); }
+  main { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 12px; padding: 12px 16px 24px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; min-width: 0; }
+  .panel h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 8px; }
+  .c3 { grid-column: span 3; } .c4 { grid-column: span 4; } .c5 { grid-column: span 5; }
+  .c6 { grid-column: span 6; } .c7 { grid-column: span 7; } .c8 { grid-column: span 8; } .c12 { grid-column: span 12; }
+  @media (max-width: 1100px) { .c3, .c4, .c5, .c6, .c7, .c8 { grid-column: span 12; } }
+  table.kv { width: 100%; border-collapse: collapse; }
+  table.kv td { padding: 3px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+  table.kv td:first-child { color: var(--muted); width: 45%; }
+  .num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .state { font: 600 22px var(--mono); padding: 4px 12px; border-radius: 4px; display: inline-block;
+    border: 2px solid var(--line); margin-bottom: 8px; }
+  .state.ok { border-color: var(--ok); color: var(--ok); } .state.warn { border-color: var(--warn); color: var(--warn); }
+  .state.bad { border-color: var(--bad); color: var(--bad); } .state.info { border-color: var(--info); color: var(--info); }
+  .flags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
+  .gauges { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px 16px; }
+  .gauge .g-head { display: flex; justify-content: space-between; gap: 8px; }
+  .gauge .g-label { color: var(--muted); }
+  .gauge .g-val { font: 600 14px var(--mono); }
+  .gauge .g-bar { position: relative; height: 10px; background: var(--track); border-radius: 2px; margin: 3px 0 1px; overflow: hidden; }
+  .gauge .g-fill { position: absolute; top: 0; bottom: 0; background: var(--accent); }
+  .gauge .g-mark { position: absolute; top: -1px; bottom: -1px; width: 2px; }
+  .gauge .g-mark.warn { background: var(--warn); } .gauge .g-mark.bad { background: var(--bad); } .gauge .g-mark.zero { background: var(--muted); }
+  .gauge .g-scale { display: flex; justify-content: space-between; font: 11px var(--mono); color: var(--muted); }
+  .gauge.stale .g-fill { background: var(--muted); }
+  canvas { display: block; width: 100%; }
+  #attitude { height: 300px; }
+  .plots { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 12px; }
+  .plot canvas { height: 170px; }
+  .plot .p-title { font-size: 12px; color: var(--muted); display: flex; gap: 10px; flex-wrap: wrap; }
+  .legend-swatch { display: inline-block; width: 12px; height: 3px; vertical-align: middle; margin-right: 4px; }
+  .row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 8px; }
+  .muted { color: var(--muted); }
+  .note { font-size: 12px; color: var(--muted); }
+  #events-wrap { max-height: 300px; overflow: auto; }
+  table.list { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table.list th { text-align: left; color: var(--muted); font-weight: 500; border-bottom: 1px solid var(--line); padding: 3px 6px; position: sticky; top: 0; background: var(--panel); }
+  table.list td { padding: 3px 6px; border-bottom: 1px solid var(--line); }
+  #console { height: 260px; overflow: auto; margin: 0; padding: 6px 8px; background: var(--bg);
+    border: 1px solid var(--line); border-radius: 4px; font: 12px/1.35 var(--mono); white-space: pre-wrap; }
+  .cmds { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; margin-bottom: 8px; }
+  fieldset { border: 1px solid var(--line); border-radius: 4px; margin: 0 0 8px; padding: 6px 10px; }
+  legend { color: var(--muted); font-size: 12px; padding: 0 4px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>rocket-fc ground station</h1>
+  <div class="conn">
+    <button id="btn-radio">Connect ground station…</button><span id="st-radio" class="pill">radio: not connected</span>
+    <button id="btn-usb">Connect flight computer…</button><span id="st-usb" class="pill">USB: not connected</span>
+  </div>
+  <div class="conn">
+    <label>Show <select id="source">
+      <option value="auto">auto</option><option value="radio">radio telemetry</option>
+      <option value="usb">USB stream</option><option value="file">log file</option></select></label>
+    <button id="btn-open">Open log file…</button><input id="file" type="file" accept=".csv,.txt,.log" hidden>
+    <button id="btn-save">Save radio log</button>
+    <span id="st-msg" class="note"></span>
+  </div>
+</header>
+
+<main>
+  <section class="panel c3">
+    <h2>Flight</h2>
+    <div id="state" class="state">—</div>
+    <table class="kv" id="readouts"></table>
+    <div class="flags" id="flags"></div>
+  </section>
+
+  <section class="panel c5">
+    <h2>Attitude</h2>
+    <canvas id="attitude"></canvas>
+    <table class="kv" id="att-readouts"></table>
+  </section>
+
+  <section class="panel c4">
+    <h2>Radio link</h2>
+    <div class="gauges" id="link-gauges" style="grid-template-columns: 1fr"></div>
+    <table class="kv" id="link-readouts" style="margin-top:8px"></table>
+  </section>
+
+  <section class="panel c12">
+    <h2>Sensors</h2>
+    <div class="gauges" id="gauges"></div>
+  </section>
+
+  <section class="panel c12">
+    <div class="row"><h2 style="margin:0">Plots</h2>
+      <label class="note">window <select id="window">
+        <option value="30">30 s</option><option value="120" selected>2 min</option>
+        <option value="600">10 min</option><option value="0">all</option></select></label></div>
+    <div class="plots" id="plots"></div>
+  </section>
+
+  <section class="panel c5">
+    <h2>Events</h2>
+    <div id="events-wrap"><table class="list"><thead><tr><th>t [s]</th><th>state</th><th>event</th><th>value</th></tr></thead>
+      <tbody id="events"></tbody></table></div>
+  </section>
+
+  <section class="panel c7">
+    <h2>Flight computer (USB)</h2>
+    <div class="cmds" id="cmds"></div>
+    <fieldset>
+      <legend>Pyro test (bench build only)</legend>
+      <div class="row">
+        <label><input type="checkbox" id="fire-safe"> No charge fitted: dummy load or bare nichrome only</label>
+      </div>
+      <div class="row">
+        <label>pulse <input type="number" id="fire-ms" min="1" max="2000" value="500" style="width:80px"> ms</label>
+        <button id="btn-fire" class="danger" disabled>Fire pyro output</button>
+      </div>
+    </fieldset>
+    <pre id="console"></pre>
+    <div class="row" style="margin-top:6px">
+      <input type="text" id="cmd" placeholder="command (Enter to send, ↑ for history)" style="flex:1" autocomplete="off">
+      <button id="btn-send">Send</button>
+      <button id="btn-clear">Clear</button>
+    </div>
+  </section>
+</main>
+
+<script>
+'use strict';
+
+// ===========================================================================
+// CONFIG: edit these tables to change what is shown.
+// ===========================================================================
+
+// CSV columns, in order (lib/fc_core/src/fc/csv.h). The ground station appends rssi_dbm,snr_db.
+const TLM_COLUMNS = ['seq', 't_ms', 'state', 'alt_m', 'vel_mps', 'ax_g', 'ay_g', 'az_g',
+  'gx_dps', 'gy_dps', 'gz_dps', 'mx_uT', 'my_uT', 'mz_uT', 'p_pa', 'temp_c', 'batt_v', 'flags',
+  'qw', 'qx', 'qy', 'qz'];
+const EVT_COLUMNS = ['seq', 't_ms', 'state', 'event', 'arg'];
+
+// Telemetry flag bits (docs/TELEMETRY.md). cls: colour when set / when clear.
+const FLAGS = [
+  { bit: 0, name: 'CONTINUITY', set: 'ok' },
+  { bit: 1, name: 'ARMED', set: 'warn' },
+  { bit: 2, name: 'FIRED', set: 'warn' },
+  { bit: 3, name: 'IMU', set: 'ok', clear: 'bad' },
+  { bit: 4, name: 'MAG', set: 'ok' },
+  { bit: 5, name: 'BARO', set: 'ok', clear: 'bad' },
+  { bit: 6, name: 'BATT LOW', set: 'bad' },
+  { bit: 7, name: 'RESUMED', set: 'warn' },
+];
+
+const STATE_CLASS = { INIT: '', FAULT: 'bad', PAD: 'info', BOOST: 'warn', COAST: 'warn', DESCENT: 'warn', LANDED: 'ok' };
+
+// How to show each event's argument (docs/TELEMETRY.md, event table).
+const cm = a => (a / 100).toFixed(1) + ' m';
+const EVENT_ARG = {
+  BOOT: a => 'firmware ' + (a >>> 0).toString(16).padStart(8, '0'),
+  SELFTEST_OK: a => a ? 'warnings 0x' + a.toString(16) + ' (' + warnNames(a) + ')' : 'no warnings',
+  SELFTEST_FAIL: a => 'fault ' + a + ' (' + (['', 'baro missing', 'pressure implausible', 'config invalid'][a] || '?') + ')',
+  LAUNCH: cm, BURNOUT: cm, APOGEE: cm, PYRO_FIRE: cm, PYRO_BACKUP_FIRE: cm, LANDED: cm, APOGEE_NO_DEPLOY: cm,
+  BATT_LOW: a => (a / 1000).toFixed(2) + ' V', BATT_CRITICAL: a => (a / 1000).toFixed(2) + ' V',
+  PYRO_OPEN: a => a + ' ms after fire', RESUMED: a => (a / 1000).toFixed(1) + ' s after launch',
+  SENSOR_LOST: a => ['IMU', 'MAG', 'BARO', 'RADIO'].filter((_, i) => a & (1 << i)).join(', '),
+  BENCH_FIRE: a => a + ' ms pulse',
+};
+const WARN_BITS = ['IMU missing', 'no magnetometer', 'radio failed', 'battery low', 'up axis not ~1 g', 'no backup timer'];
+function warnNames(a) { return WARN_BITS.filter((_, i) => a & (1 << i)).join(', '); }
+
+// Readouts in the Flight panel: [label, f(frame, track) -> text]
+const READOUTS = [
+  ['Time since boot', f => fmt(f.t_ms / 1000, 1) + ' s'],
+  ['Altitude (AGL)', f => fmt(f.alt_m, 1) + ' m'],
+  ['Max altitude', (f, t) => fmt(t.maxAlt, 1) + ' m'],
+  ['Vertical speed', f => fmt(f.vel_mps, 1) + ' m/s'],
+  ['Battery', f => fmt(f.batt_v, 2) + ' V  (' + fmt(liionPercent(f.batt_v), 0) + ' %)'],
+  ['Pressure', f => fmt(f.p_pa / 100, 1) + ' hPa'],
+  ['Last frame', (f, t) => t.lastRx ? fmt((performance.now() - t.lastRx) / 1000, 1) + ' s ago  (#' + f.seq + ')' : 'from file'],
+];
+
+// Gauges in the Sensors panel. auto: widen the range to fit the data.
+// marks: reference lines. zero: draw the bar from 0 (signed values).
+const GAUGES = [
+  { label: 'Altitude', unit: 'm', min: 0, max: 300, auto: true, digits: 1, get: f => f.alt_m },
+  { label: 'Vertical speed', unit: 'm/s', min: -50, max: 150, auto: true, zero: true, digits: 1, get: f => f.vel_mps },
+  { label: 'Axial acceleration', unit: 'g', min: -2, max: 16, zero: true, digits: 2, get: f => f.az_g },
+  { label: 'Total acceleration', unit: 'g', min: 0, max: 16, digits: 2, get: f => Math.hypot(f.ax_g, f.ay_g, f.az_g) },
+  { label: 'Spin rate (roll)', unit: '°/s', min: -720, max: 720, zero: true, digits: 0, get: f => f.gz_dps },
+  { label: 'Pitch/yaw rate', unit: '°/s', min: 0, max: 360, digits: 0, get: f => Math.hypot(f.gx_dps, f.gy_dps) },
+  { label: 'Tilt from vertical', unit: '°', min: 0, max: 90, digits: 1, get: f => imuOk(f) ? tiltDeg(f) : NaN,
+    marks: [{ v: 20, cls: 'warn' }] },
+  { label: 'Battery', unit: 'V', min: 3.2, max: 4.3, digits: 2, get: f => f.batt_v,
+    marks: [{ v: 3.4, cls: 'bad' }, { v: 3.6, cls: 'warn' }] },
+  { label: 'Pressure', unit: 'hPa', min: 850, max: 1050, digits: 1, get: f => f.p_pa / 100 },
+  { label: 'Baro temperature', unit: '°C', min: -10, max: 60, digits: 1, get: f => f.temp_c },
+  { label: 'Magnetic field', unit: 'µT', min: 0, max: 100, digits: 1, get: f => Math.hypot(f.mx_uT, f.my_uT, f.mz_uT) },
+];
+
+// Radio link gauges: s = { rssi, snr, noise } of the selected track.
+const SF7_SNR_LIMIT_DB = -7.5;  // LoRa SF7 demodulation limit
+const LINK_GAUGES = [
+  { label: 'RSSI', unit: 'dBm', min: -130, max: -30, digits: 1, get: s => s.rssi, marks: [{ v: -120, cls: 'bad' }] },
+  { label: 'SNR', unit: 'dB', min: -20, max: 15, digits: 1, get: s => s.snr, marks: [{ v: SF7_SNR_LIMIT_DB, cls: 'bad' }] },
+  { label: 'Noise floor', unit: 'dBm', min: -130, max: -80, digits: 1, get: s => s.noise },
+];
+
+// Plots: each series is { label, get(frame) }.
+const PLOTS = [
+  { title: 'Altitude [m]', series: [{ label: 'altitude', get: f => f.alt_m }] },
+  { title: 'Vertical speed [m/s]', series: [{ label: 'velocity', get: f => f.vel_mps }] },
+  { title: 'Acceleration [g]', series: [{ label: 'axial', get: f => f.az_g },
+    { label: 'total', get: f => Math.hypot(f.ax_g, f.ay_g, f.az_g) }] },
+  { title: 'Rotation rate [°/s]', series: [{ label: 'roll', get: f => f.gz_dps },
+    { label: 'pitch/yaw', get: f => Math.hypot(f.gx_dps, f.gy_dps) }] },
+  { title: 'Battery [V]', series: [{ label: 'battery', get: f => f.batt_v }] },
+  { title: 'Radio [dBm / dB]', series: [{ label: 'RSSI', get: f => f.rssi }, { label: 'SNR', get: f => f.snr }] },
+];
+
+// Console buttons. bench: only exists in the bench build. confirm: asked before sending.
+const COMMANDS = [
+  { label: 'Status', cmd: 'status' },
+  { label: 'Config', cmd: 'config' },
+  { label: 'I²C scan', cmd: 'i2c' },
+  { label: 'CSV stream on', cmd: 'csv on' },
+  { label: 'CSV stream off', cmd: 'csv off' },
+  { label: 'Download onboard log', cmd: 'dump' },
+  { label: 'Clear onboard log', cmd: 'logclear', confirm: 'Erase the onboard flight log?' },
+  { label: 'Reboot', cmd: 'reboot', confirm: 'Restart the flight computer? (It recalibrates on the pad.)' },
+  { label: 'Beep (bench)', cmd: 'beep', bench: true },
+  { label: 'Simulated flight (bench)', cmd: 'sim', bench: true },
+  { label: 'Sim + live pyro (bench)', cmd: 'sim live', bench: true,
+    confirm: 'The pyro output WILL pulse at simulated apogee.\nOnly with a dummy load or bare nichrome, never a charge. Continue?' },
+];
+
+const BAUD = 115200;
+const CONSOLE_MAX_LINES = 3000;
+const MAX_FRAMES = 300000;     // per track (memory guard)
+const RENDER_MS = 200;
+
+// ===========================================================================
+// Helpers
+// ===========================================================================
+
+const $ = id => document.getElementById(id);
+function fmt(v, digits) { return (v === undefined || v === null || !isFinite(v)) ? '—' : Number(v).toFixed(digits); }
+function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; }
+function css(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+function stamp() { const d = new Date(), p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`; }
+function download(name, text) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], { type: 'text/csv' }));
+  a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+function setMsg(text) { $('st-msg').textContent = text; }
+
+// Same curve as fc::liion_percent (lib/fc_core/src/fc/battery.cpp).
+const LIION = [[3.30, 0], [3.40, 2], [3.50, 5], [3.60, 12], [3.70, 28], [3.80, 45], [3.90, 62], [4.00, 78], [4.10, 90], [4.20, 100]];
+function liionPercent(v) {
+  if (!(v > LIION[0][0])) return 0;
+  for (let i = 1; i < LIION.length; i++) if (v <= LIION[i][0])
+    return LIION[i - 1][1] + (v - LIION[i - 1][0]) / (LIION[i][0] - LIION[i - 1][0]) * (LIION[i][1] - LIION[i - 1][1]);
+  return 100;
+}
+
+// --- attitude math (frames: docs/TELEMETRY.md; earth frame NWU) ---
+function imuOk(f) { return (f.flags & 8) !== 0; }
+function qRotate(q, v) {  // rotate rocket-frame vector v into the earth frame
+  const { w, x, y, z } = q;
+  const tx = 2 * (y * v[2] - z * v[1]), ty = 2 * (z * v[0] - x * v[2]), tz = 2 * (x * v[1] - y * v[0]);
+  return [v[0] + w * tx + (y * tz - z * ty), v[1] + w * ty + (z * tx - x * tz), v[2] + w * tz + (x * ty - y * tx)];
+}
+function frameQuat(f) { return { w: f.qw, x: f.qx, y: f.qy, z: f.qz }; }
+function tiltDeg(f) { const c = 1 - 2 * (f.qx * f.qx + f.qy * f.qy); return Math.acos(Math.max(-1, Math.min(1, c))) * 180 / Math.PI; }
+function leanBearingDeg(f) {  // compass bearing the nose leans toward
+  const n = qRotate(frameQuat(f), [0, 0, 1]);           // NWU
+  const north = n[0], east = -n[1];
+  return (Math.atan2(east, north) * 180 / Math.PI + 360) % 360;
+}
+
+// ===========================================================================
+// Data: one Track per source (radio, usb, file)
+// ===========================================================================
+
+class Track {
+  constructor(name) { this.name = name; this.reset(); }
+  reset() {
+    this.frames = []; this.events = []; this.lastSeq = null; this.received = 0; this.lost = 0;
+    this.maxAlt = NaN; this.lastRx = 0; this.rxTimes = []; this.bad = 0; this.noise = NaN; this.stats = ''; this.version++;
+  }
+  // Telemetry and events share one sequence counter per link: gaps = lost frames.
+  noteSeq(seq) {
+    if (this.lastSeq !== null) {
+      const gap = (seq - this.lastSeq - 1 + 65536) % 65536;
+      if (gap < 1000) this.lost += gap;   // larger jumps: the flight computer restarted
+    }
+    this.lastSeq = seq; this.received++;
+  }
+  addFrame(f, live) {
+    this.noteSeq(f.seq);
+    if (!(f.alt_m <= this.maxAlt)) this.maxAlt = f.alt_m;
+    this.frames.push(f);
+    if (this.frames.length > MAX_FRAMES) this.frames.splice(0, this.frames.length - MAX_FRAMES);
+    if (live) { this.lastRx = performance.now(); this.rxTimes.push(this.lastRx); }
+    this.version++;
+  }
+  addEvent(e) { this.noteSeq(e.seq); this.events.push(e); this.version++; }
+  latest() { return this.frames[this.frames.length - 1]; }
+  rateHz() {
+    const now = performance.now();
+    while (this.rxTimes.length && now - this.rxTimes[0] > 10000) this.rxTimes.shift();
+    return this.rxTimes.length / 10;
+  }
+}
+Track.prototype.version = 0;
+const tracks = { radio: new Track('radio'), usb: new Track('usb'), file: new Track('file') };
+
+function parseCsvLine(line) {
+  const p = line.split(',');
+  if (p[0] === 'T' && p.length >= 1 + TLM_COLUMNS.length) {
+    const f = {};
+    TLM_COLUMNS.forEach((k, i) => {
+      const s = p[i + 1];
+      f[k] = k === 'state' ? s : k === 'flags' ? parseInt(s, 16) : Number(s);
+    });
+    const extra = p.slice(1 + TLM_COLUMNS.length);
+    f.rssi = extra.length >= 2 ? Number(extra[0]) : NaN;
+    f.snr = extra.length >= 2 ? Number(extra[1]) : NaN;
+    return { kind: 'T', data: f };
+  }
+  if (p[0] === 'E' && p.length >= 1 + EVT_COLUMNS.length) {
+    const e = {};
+    EVT_COLUMNS.forEach((k, i) => { e[k] = (k === 'state' || k === 'event') ? p[i + 1] : Number(p[i + 1]); });
+    return { kind: 'E', data: e };
+  }
+  return null;
+}
+
+function feed(track, line, live) {
+  const r = parseCsvLine(line);
+  if (!r) return false;
+  if (r.kind === 'T') track.addFrame(r.data, live); else track.addEvent(r.data);
+  return true;
+}
+
+// ===========================================================================
+// Serial ports (Web Serial API)
+// ===========================================================================
+
+class SerialLink {
+  constructor(name, onLine, onState) { this.name = name; this.onLine = onLine; this.onState = onState; this.port = null; }
+  get open() { return this.port !== null; }
+  async connect() {
+    if (!('serial' in navigator)) { alert('This browser has no Web Serial support. Use Chrome or Edge.'); return; }
+    const port = await navigator.serial.requestPort();
+    await port.open({ baudRate: BAUD });
+    // Keep RTS low: on the ESP32-S3 USB serial, RTS high with DTR low resets the chip.
+    try { await port.setSignals({ dataTerminalReady: false, requestToSend: false }); } catch (_) { /* not supported */ }
+    this.port = port;
+    this.onState('connected');
+    this.readLoop(port);
+  }
+  async readLoop(port) {
+    let buf = '';
+    const decoder = new TextDecoder();
+    try {
+      while (port.readable) {
+        this.reader = port.readable.getReader();
+        try {
+          for (;;) {
+            const { value, done } = await this.reader.read();
+            if (done) break;
+            buf += decoder.decode(value, { stream: true });
+            let i;
+            while ((i = buf.indexOf('\n')) >= 0) {
+              const line = buf.slice(0, i).replace(/\r$/, '');
+              buf = buf.slice(i + 1);
+              if (line.length) this.onLine(line);
+            }
+          }
+        } finally { this.reader.releaseLock(); this.reader = null; }
+        if (!this.port) break;
+      }
+    } catch (err) {
+      this.onState('error: ' + err.message);
+    }
+    await this.close(true);
+  }
+  async write(text) {
+    if (!this.port || !this.port.writable) return false;
+    const w = this.port.writable.getWriter();
+    try { await w.write(new TextEncoder().encode(text + '\n')); } finally { w.releaseLock(); }
+    return true;
+  }
+  async close(lost) {
+    const port = this.port;
+    if (!port) return;
+    this.port = null;
+    try { if (this.reader) await this.reader.cancel(); } catch (_) {}
+    try { await port.close(); } catch (_) {}
+    this.onState(lost ? 'disconnected' : 'not connected');
+  }
+}
+
+// --- ground station (radio) port ---
+const radioLines = [];
+let radioUnsaved = false;
+// One line of ground station output (live, or from a saved log file).
+function handleGroundLine(track, line, live) {
+  if (feed(track, line, live)) return;
+  if (line.startsWith('# noise')) track.noise = Number(line.split(/\s+/)[2]);
+  else if (line.startsWith('# bad frame')) track.bad++;
+  else if (line.startsWith('# stats')) track.stats = line.slice(2);
+  else if (live && line.startsWith('# ERROR')) setMsg('Ground station: ' + line.slice(2));
+}
+const radioLink = new SerialLink('radio', line => {
+  radioLines.push(line); radioUnsaved = true;
+  handleGroundLine(tracks.radio, line, true);
+}, s => setLinkState('radio', s));
+
+// --- flight computer (USB console) port ---
+let dumpLines = null;
+const usbLink = new SerialLink('usb', line => {
+  if (dumpLines) {                                  // capturing an onboard log dump
+    dumpLines.push(line);
+    if (line === '# end of log') finishDump();
+    else if (dumpLines.length % 2000 === 0) setMsg('Downloading onboard log: ' + dumpLines.length + ' lines…');
+    return;
+  }
+  if (line.startsWith('# onboard log')) { dumpLines = [line]; setMsg('Downloading onboard log…'); return; }
+  if (feed(tracks.usb, line, true)) return;         // "csv on" stream
+  consoleAppend(line);
+}, s => setLinkState('usb', s));
+
+function setLinkState(which, s) {
+  const pill = $(which === 'radio' ? 'st-radio' : 'st-usb');
+  const label = which === 'radio' ? 'radio: ' : 'USB: ';
+  pill.textContent = label + s;
+  pill.className = 'pill ' + (s === 'connected' ? 'ok' : s.startsWith('error') || s === 'disconnected' ? 'bad' : '');
+  $(which === 'radio' ? 'btn-radio' : 'btn-usb').textContent =
+    (s === 'connected' ? 'Disconnect ' : 'Connect ') + (which === 'radio' ? 'ground station' : 'flight computer') + (s === 'connected' ? '' : '…');
+  updateCommandButtons();
+}
+
+function finishDump() {
+  const lines = dumpLines; dumpLines = null;
+  const name = 'onboard_' + stamp() + '.csv';
+  download(name, lines.join('\n') + '\n');
+  tracks.file.reset();
+  let n = 0;
+  for (const l of lines) if (feed(tracks.file, l, false)) n++;
+  $('source').value = 'file';
+  setMsg(`Onboard log: ${n} records, saved as ${name}. Showing it now (source: log file).`);
+}
+
+// ===========================================================================
+// Widgets
+// ===========================================================================
+
+function makeGauge(cfg, parent) {
+  const g = el('div', 'gauge');
+  const head = el('div', 'g-head'); head.append(el('span', 'g-label', cfg.label), cfg.valEl = el('span', 'g-val num', '—'));
+  const bar = el('div', 'g-bar'); bar.append(cfg.fillEl = el('div', 'g-fill'));
+  cfg.markEls = (cfg.marks || []).map(m => { const e = el('div', 'g-mark ' + m.cls); bar.append(e); return e; });
+  if (cfg.zero) { cfg.zeroEl = el('div', 'g-mark zero'); bar.append(cfg.zeroEl); }
+  const scale = el('div', 'g-scale'); scale.append(cfg.minEl = el('span'), cfg.maxEl = el('span'));
+  g.append(head, bar, scale); parent.append(g); cfg.root = g;
+  cfg.curMax = cfg.max;
+}
+
+function scaleDigits(range) { return range < 0.1 ? 3 : range < 10 ? 2 : range < 100 ? 1 : 0; }
+function niceCeil(v) { const p = Math.pow(10, Math.floor(Math.log10(v))); for (const m of [1, 2, 2.5, 5, 10]) if (m * p >= v) return m * p; return 10 * p; }
+
+function setGauge(cfg, v, stale) {
+  if (cfg.auto && isFinite(v) && Math.abs(v) > cfg.curMax) cfg.curMax = niceCeil(Math.abs(v) * 1.1);
+  const min = cfg.auto && cfg.min < 0 ? -cfg.curMax * Math.abs(cfg.min) / cfg.max : cfg.min;
+  const max = cfg.curMax;
+  const pos = x => Math.max(0, Math.min(100, (x - min) / (max - min) * 100));
+  cfg.valEl.textContent = isFinite(v) ? fmt(v, cfg.digits) + ' ' + cfg.unit : '—';
+  const sd = scaleDigits(max - min);
+  cfg.minEl.textContent = fmt(min, sd); cfg.maxEl.textContent = fmt(max, sd);
+  const from = cfg.zero ? pos(0) : 0, to = isFinite(v) ? pos(v) : from;
+  cfg.fillEl.style.left = Math.min(from, to) + '%'; cfg.fillEl.style.width = Math.abs(to - from) + '%';
+  (cfg.marks || []).forEach((m, i) => { cfg.markEls[i].style.left = pos(m.v) + '%'; });
+  if (cfg.zeroEl) cfg.zeroEl.style.left = pos(0) + '%';
+  cfg.root.classList.toggle('stale', !!stale);
+}
+
+function fitCanvas(c) {
+  const dpr = window.devicePixelRatio || 1, w = c.clientWidth, h = c.clientHeight;
+  if (c.width !== Math.round(w * dpr) || c.height !== Math.round(h * dpr)) { c.width = Math.round(w * dpr); c.height = Math.round(h * dpr); }
+  const ctx = c.getContext('2d'); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); return [ctx, w, h];
+}
+
+// --- line plot ---
+function makePlot(cfg, parent) {
+  const box = el('div', 'plot');
+  const title = el('div', 'p-title'); title.append(el('span', '', cfg.title));
+  cfg.series.forEach((s, i) => { const lg = el('span'); const sw = el('span', 'legend-swatch'); sw.style.background = `var(--s${i + 1})`; lg.append(sw, s.label); title.append(lg); });
+  cfg.canvas = el('canvas'); box.append(title, cfg.canvas); parent.append(box);
+}
+
+function drawPlot(cfg, frames, windowS) {
+  const [ctx, w, h] = fitCanvas(cfg.canvas);
+  ctx.clearRect(0, 0, w, h);
+  const L = 46, R = 8, T = 6, B = 20, pw = w - L - R, ph = h - T - B;
+  ctx.font = '11px ' + css('--mono'); ctx.fillStyle = css('--muted'); ctx.strokeStyle = css('--line'); ctx.lineWidth = 1;
+  if (!frames.length) { ctx.fillText('no data', L + 6, T + 14); return; }
+  const tEnd = frames[frames.length - 1].t_ms / 1000;
+  const tStart = windowS > 0 ? tEnd - windowS : frames[0].t_ms / 1000;
+  let i0 = 0; while (i0 < frames.length && frames[i0].t_ms / 1000 < tStart) i0++;
+  const sel = frames.slice(i0);
+  const step = Math.max(1, Math.floor(sel.length / (pw * 2)));
+  let lo = Infinity, hi = -Infinity;
+  for (const s of cfg.series) for (let i = 0; i < sel.length; i += step) { const v = s.get(sel[i]); if (isFinite(v)) { lo = Math.min(lo, v); hi = Math.max(hi, v); } }
+  if (!isFinite(lo)) { ctx.fillText('no data', L + 6, T + 14); return; }
+  if (hi - lo < 1e-6) { lo -= 1; hi += 1; }
+  const pad = (hi - lo) * 0.08; lo -= pad; hi += pad;
+  const X = t => L + (t - tStart) / Math.max(1e-6, tEnd - tStart) * pw;
+  const Y = v => T + (hi - v) / (hi - lo) * ph;
+  // grid + labels
+  ctx.beginPath();
+  for (let k = 0; k <= 4; k++) { const v = lo + (hi - lo) * k / 4, y = Math.round(Y(v)) + 0.5; ctx.moveTo(L, y); ctx.lineTo(L + pw, y); ctx.fillText(fmt(v, scaleDigits(hi - lo)).padStart(6), 2, y + 4); }
+  ctx.stroke();
+  ctx.fillText(fmt(tStart, 0) + ' s', L, h - 5);
+  const endLabel = fmt(tEnd, 0) + ' s'; ctx.fillText(endLabel, L + pw - ctx.measureText(endLabel).width, h - 5);
+  if (lo < 0 && hi > 0) { ctx.strokeStyle = css('--muted'); ctx.beginPath(); const y0 = Math.round(Y(0)) + 0.5; ctx.moveTo(L, y0); ctx.lineTo(L + pw, y0); ctx.stroke(); }
+  // series
+  cfg.series.forEach((s, si) => {
+    ctx.strokeStyle = css(`--s${si + 1}`); ctx.lineWidth = 1.5; ctx.beginPath();
+    let pen = false;
+    for (let i = 0; i < sel.length; i += step) {
+      const v = s.get(sel[i]);
+      if (!isFinite(v)) { pen = false; continue; }
+      const x = X(sel[i].t_ms / 1000), y = Y(v);
+      if (pen) ctx.lineTo(x, y); else { ctx.moveTo(x, y); pen = true; }
+    }
+    ctx.stroke();
+  });
+}
+
+// --- 3D attitude view (wireframe, canvas 2D) ---
+const ROCKET = (() => {   // line segments in the rocket frame (+Z nose), length ~1.15
+  const segs = [], r = 0.07, zb = -0.55, zt = 0.35, tip = 0.62, n = 16;
+  const ring = z => { for (let i = 0; i < n; i++) { const a = 2 * Math.PI * i / n, b = 2 * Math.PI * (i + 1) / n;
+    segs.push({ a: [r * Math.cos(a), r * Math.sin(a), z], b: [r * Math.cos(b), r * Math.sin(b), z] }); } };
+  ring(zb); ring(0); ring(zt);
+  for (let i = 0; i < 8; i++) { const a = 2 * Math.PI * i / 8, c = [r * Math.cos(a), r * Math.sin(a)];
+    segs.push({ a: [c[0], c[1], zb], b: [c[0], c[1], zt] }); segs.push({ a: [c[0], c[1], zt], b: [0, 0, tip] }); }
+  for (let k = 0; k < 4; k++) {   // fins; fin 0 (along +X) is highlighted to show roll
+    const a = Math.PI / 2 * k, ux = Math.cos(a), uy = Math.sin(a), R = 0.2, hl = k === 0;
+    const p = (rr, z) => [rr * ux, rr * uy, z];
+    segs.push({ a: p(r, zb), b: p(R, zb - 0.03), hl }, { a: p(R, zb - 0.03), b: p(R, zb + 0.1), hl }, { a: p(R, zb + 0.1), b: p(r, zb + 0.22), hl });
+  }
+  return segs;
+})();
+
+function drawAttitude(f, live) {
+  const c = $('attitude'), [ctx, w, h] = fitCanvas(c);
+  ctx.clearRect(0, 0, w, h);
+  // Camera in ENU, looking at the origin from bearing 200°, 18° above the horizon.
+  const az = 200 * Math.PI / 180, elv = 18 * Math.PI / 180, dist = 3.2;
+  const eye = [Math.sin(az) * Math.cos(elv), Math.cos(az) * Math.cos(elv), Math.sin(elv)];
+  const fwd = eye.map(v => -v);
+  const right = norm(cross(fwd, [0, 0, 1])), up = cross(right, fwd);
+  const S = Math.min(w, h) * 1.25;
+  const proj = p => {   // p in ENU
+    const x = dot(p, right), y = dot(p, up), z = dot(p, fwd) + dist;
+    return [w / 2 + S * x / z, h / 2 + 10 - S * y / z];
+  };
+  const nwuToEnu = v => [-v[1], v[0], v[2]];
+  const line = (a, b) => { const A = proj(a), B = proj(b); ctx.moveTo(A[0], A[1]); ctx.lineTo(B[0], B[1]); };
+  // ground grid at z = -0.75
+  const g = -0.75;
+  ctx.strokeStyle = css('--line'); ctx.lineWidth = 1; ctx.beginPath();
+  for (let k = -4; k <= 4; k++) { const v = k * 0.25; line([v, -1, g], [v, 1, g]); line([-1, v, g], [1, v, g]); }
+  ctx.stroke();
+  ctx.fillStyle = css('--muted'); ctx.font = '12px ' + css('--sans');
+  for (const [lab, p] of [['N', [0, 1.18, g]], ['E', [1.18, 0, g]], ['S', [0, -1.18, g]], ['W', [-1.18, 0, g]]]) { const q = proj(p); ctx.fillText(lab, q[0] - 4, q[1] + 4); }
+  // vertical reference
+  ctx.setLineDash([4, 4]); ctx.strokeStyle = css('--muted'); ctx.beginPath(); line([0, 0, g], [0, 0, 0.85]); ctx.stroke(); ctx.setLineDash([]);
+  if (!f || !imuOk(f)) {
+    ctx.fillStyle = css('--muted'); ctx.fillText(f ? 'no IMU data' : 'no data', 10, 18); return;
+  }
+  const q = frameQuat(f);
+  const toScreen = v => nwuToEnu(qRotate(q, v));
+  for (const pass of [false, true]) {   // body first, highlighted fin on top
+    ctx.strokeStyle = pass ? css('--s2') : (live ? css('--ink') : css('--muted'));
+    ctx.lineWidth = pass ? 2.5 : 1.3; ctx.beginPath();
+    for (const s of ROCKET) if (!!s.hl === pass) line(toScreen(s.a), toScreen(s.b));
+    ctx.stroke();
+  }
+  // nose direction shadow on the ground
+  const nose = toScreen([0, 0, 0.62]);
+  ctx.strokeStyle = css('--s1'); ctx.lineWidth = 2; ctx.beginPath(); line([0, 0, g], [nose[0], nose[1], g]); ctx.stroke();
+}
+function cross(a, b) { return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]; }
+function dot(a, b) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; }
+function norm(a) { const n = Math.hypot(...a); return a.map(v => v / n); }
+
+// ===========================================================================
+// UI
+// ===========================================================================
+
+function currentTrack() {
+  const sel = $('source').value;
+  if (sel !== 'auto') return tracks[sel];
+  const now = performance.now();
+  for (const k of ['radio', 'usb']) if (tracks[k].lastRx && now - tracks[k].lastRx < 10000) return tracks[k];
+  for (const k of ['radio', 'usb', 'file']) if (tracks[k].frames.length) return tracks[k];
+  return tracks.radio;
+}
+
+function buildUi() {
+  const ro = $('readouts');
+  READOUTS.forEach(r => { const tr = el('tr'); tr.append(el('td', '', r[0]), r.valEl = el('td', 'num', '—')); ro.append(tr); });
+  const fl = $('flags');
+  FLAGS.forEach(fg => { fg.el = el('span', 'pill', fg.name); fl.append(fg.el); });
+  GAUGES.forEach(g => makeGauge(g, $('gauges')));
+  LINK_GAUGES.forEach(g => makeGauge(g, $('link-gauges')));
+  PLOTS.forEach(p => makePlot(p, $('plots')));
+  const cmds = $('cmds');
+  COMMANDS.forEach(c => {
+    const b = el('button', c.confirm ? 'danger' : '', c.label);
+    b.title = c.cmd + (c.bench ? '  (bench build only)' : '');
+    b.onclick = () => { if (!c.confirm || confirm(c.confirm)) sendCommand(c.cmd); };
+    c.btn = b; cmds.append(b);
+  });
+  for (const [label, id] of [['Tilt from vertical', 'att-tilt'], ['Nose leans toward', 'att-lean'], ['Roll rate', 'att-roll'], ['Quaternion (w x y z)', 'att-q']]) {
+    const tr = el('tr'); tr.append(el('td', '', label), el('td', 'num', '—')); tr.lastChild.id = id; $('att-readouts').append(tr);
+  }
+  for (const [label, id] of [['Packets', 'lk-pkts'], ['Packet rate', 'lk-rate'], ['Lost (sequence gaps)', 'lk-lost'], ['Bad frames', 'lk-bad'], ['SNR margin (SF7)', 'lk-margin'], ['Last packet', 'lk-age'], ['Ground station', 'lk-stats']]) {
+    const tr = el('tr'); tr.append(el('td', '', label), el('td', 'num', '—')); tr.lastChild.id = id; $('link-readouts').append(tr);
+  }
+}
+
+function updateCommandButtons() {
+  COMMANDS.forEach(c => { c.btn.disabled = !usbLink.open; });
+  $('btn-send').disabled = !usbLink.open;
+  $('btn-fire').disabled = !(usbLink.open && $('fire-safe').checked);
+}
+
+let lastEventsKey = '';
+function render() {
+  const t = currentTrack(), f = t.latest();
+  const live = t.lastRx && performance.now() - t.lastRx < 3000;
+  // flight panel
+  const st = $('state');
+  st.textContent = f ? f.state + (t.name === 'file' ? ' (log)' : live ? '' : ' (stale)') : '—';
+  st.className = 'state ' + (f ? STATE_CLASS[f.state] || '' : '');
+  READOUTS.forEach(r => { r.valEl.textContent = f ? r[1](f, t) : '—'; });
+  FLAGS.forEach(fg => {
+    const on = f && (f.flags & (1 << fg.bit)) !== 0, cls = on ? fg.set : (fg.clear || '');
+    fg.el.className = 'pill ' + cls + (on ? ' on' : '');
+  });
+  // gauges
+  const stale = !(live || t.name === 'file');
+  GAUGES.forEach(g => setGauge(g, f ? g.get(f) : NaN, stale));
+  // link
+  const s = { rssi: f ? f.rssi : NaN, snr: f ? f.snr : NaN, noise: t.noise };
+  LINK_GAUGES.forEach(g => setGauge(g, g.get(s), stale));
+  $('lk-pkts').textContent = t.received;
+  $('lk-rate').textContent = t.lastRx ? fmt(t.rateHz(), 1) + ' /s' : '—';
+  $('lk-lost').textContent = t.received ? `${t.lost} (${fmt(100 * t.lost / (t.received + t.lost), 1)} %)` : '—';
+  $('lk-bad').textContent = t.name === 'usb' ? '—' : t.bad;
+  $('lk-margin').textContent = isFinite(s.snr) ? fmt(s.snr - SF7_SNR_LIMIT_DB, 1) + ' dB' : '—';
+  $('lk-age').textContent = t.lastRx ? fmt((performance.now() - t.lastRx) / 1000, 1) + ' s ago' : '—';
+  $('lk-stats').textContent = t.stats || '—';
+  // attitude
+  drawAttitude(f, live || t.name === 'file');
+  const ok = f && imuOk(f);
+  $('att-tilt').textContent = ok ? fmt(tiltDeg(f), 1) + ' °' : '—';
+  $('att-lean').textContent = ok && tiltDeg(f) > 2 ? fmt(leanBearingDeg(f), 0) + ' °' + ((f.flags & 16) ? ' (magnetic)' : ' (relative: no magnetometer)') : '—';
+  $('att-roll').textContent = ok ? fmt(f.gz_dps, 0) + ' °/s (' + fmt(f.gz_dps / 6, 0) + ' rpm)' : '—';
+  $('att-q').textContent = ok ? [f.qw, f.qx, f.qy, f.qz].map(v => fmt(v, 3)).join(' ') : '—';
+  // plots
+  const win = Number($('window').value);
+  PLOTS.forEach(p => drawPlot(p, t.frames, win));
+  // events (rebuild only when changed)
+  const key = t.name + ':' + t.events.length;
+  if (key !== lastEventsKey) {
+    lastEventsKey = key;
+    const tb = $('events'); tb.textContent = '';
+    for (const e of t.events.slice(-200).reverse()) {
+      const tr = el('tr');
+      const fmtArg = EVENT_ARG[e.event] || (a => String(a));
+      tr.append(el('td', 'num', fmt(e.t_ms / 1000, 2)), el('td', '', e.state), el('td', '', e.event), el('td', 'num', fmtArg(e.arg)));
+      tb.append(tr);
+    }
+  }
+}
+
+// --- console ---
+const consoleLines = [];
+function consoleAppend(line) {
+  consoleLines.push(line);
+  if (consoleLines.length > CONSOLE_MAX_LINES) consoleLines.splice(0, consoleLines.length - CONSOLE_MAX_LINES);
+  const c = $('console'), atBottom = c.scrollTop + c.clientHeight >= c.scrollHeight - 4;
+  c.textContent = consoleLines.join('\n');
+  if (atBottom) c.scrollTop = c.scrollHeight;
+}
+const cmdHistory = []; let histPos = 0;
+async function sendCommand(cmd) {
+  if (!usbLink.open) return;
+  consoleAppend('> ' + cmd);
+  cmdHistory.push(cmd); histPos = cmdHistory.length;
+  await usbLink.write(cmd);
+}
+
+// --- wiring ---
+$('btn-radio').onclick = () => (radioLink.open ? radioLink.close(false) : radioLink.connect().catch(e => setMsg(e.message)));
+$('btn-usb').onclick = () => (usbLink.open ? usbLink.close(false) : usbLink.connect().catch(e => setMsg(e.message)));
+$('btn-send').onclick = () => { const v = $('cmd').value.trim(); if (v) { sendCommand(v); $('cmd').value = ''; } };
+$('cmd').addEventListener('keydown', e => {
+  if (e.key === 'Enter') $('btn-send').onclick();
+  else if (e.key === 'ArrowUp' && histPos > 0) { $('cmd').value = cmdHistory[--histPos]; e.preventDefault(); }
+  else if (e.key === 'ArrowDown') { histPos = Math.min(cmdHistory.length, histPos + 1); $('cmd').value = cmdHistory[histPos] || ''; e.preventDefault(); }
+});
+$('btn-clear').onclick = () => { consoleLines.length = 0; $('console').textContent = ''; };
+$('fire-safe').onchange = updateCommandButtons;
+$('btn-fire').onclick = () => {
+  const ms = Math.round(Number($('fire-ms').value));
+  if (!(ms >= 1 && ms <= 2000)) { setMsg('Pulse must be 1–2000 ms.'); return; }
+  if (confirm(`Pulse the pyro output for ${ms} ms now?\nOnly with a dummy load or bare nichrome fitted.`)) {
+    sendCommand(`fire ${ms} CONFIRM`); $('fire-safe').checked = false; updateCommandButtons();
+  }
+};
+$('btn-save').onclick = () => {
+  if (!radioLines.length) { setMsg('Nothing received yet.'); return; }
+  const name = 'ground_' + stamp() + '.csv'; download(name, radioLines.join('\n') + '\n'); radioUnsaved = false;
+  setMsg(`Saved ${radioLines.length} lines as ${name}.`);
+};
+$('btn-open').onclick = () => $('file').click();
+$('file').onchange = async () => {
+  const file = $('file').files[0]; if (!file) return;
+  const text = await file.text();
+  tracks.file.reset();
+  let n = 0;
+  for (const line of text.split(/\r?\n/)) { const before = tracks.file.received; handleGroundLine(tracks.file, line, false); if (tracks.file.received > before) n++; }
+  $('source').value = 'file'; $('window').value = '0';
+  setMsg(`${file.name}: ${n} records.`);
+  $('file').value = '';
+};
+window.addEventListener('beforeunload', e => { if (radioUnsaved && radioLines.length > 50) { e.preventDefault(); e.returnValue = ''; } });
+
+buildUi();
+updateCommandButtons();
+render();
+setInterval(render, RENDER_MS);
+if (!('serial' in navigator)) setMsg('Web Serial is not available in this browser: use Chrome or Edge. Log files can still be opened.');
+</script>
+</body>
+</html>
