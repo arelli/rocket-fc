@@ -22,6 +22,10 @@ class ByteWriter {
                     static_cast<uint8_t>(v >> 16), static_cast<uint8_t>(v >> 24)};
     put(b, 4);
   }
+  void u64(uint64_t v) {
+    u32(static_cast<uint32_t>(v));
+    u32(static_cast<uint32_t>(v >> 32));
+  }
   void i16(int16_t v) { u16(static_cast<uint16_t>(v)); }
   void i32(int32_t v) { u32(static_cast<uint32_t>(v)); }
 
@@ -63,6 +67,11 @@ class ByteReader {
     get(b, 4);
     return static_cast<uint32_t>(b[0]) | (static_cast<uint32_t>(b[1]) << 8) |
            (static_cast<uint32_t>(b[2]) << 16) | (static_cast<uint32_t>(b[3]) << 24);
+  }
+  uint64_t u64() {
+    const uint64_t lo = u32();
+    const uint64_t hi = u32();
+    return lo | (hi << 32);
   }
   int16_t i16() { return static_cast<int16_t>(u16()); }
   int32_t i32() { return static_cast<int32_t>(u32()); }

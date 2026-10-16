@@ -1,5 +1,8 @@
 #include "app.h"
 
+#include <esp_system.h>
+#include <time.h>
+
 #include "board_pins.h"
 #include "fc/csv.h"
 #include "flight_config.h"
@@ -45,7 +48,8 @@ App::App()
     : fc_(cfg::flight_computer()),
       batt_(cfg::battery()),
       duty_(radio_cfg::kDutyFraction, radio_cfg::kDutyBurstMs),
-      ground_(cfg::kUplinkTimeoutMs) {}
+      ground_(cfg::kUplinkTimeoutMs),
+      remote_(radio_cfg::kRemoteFireKey) {}
 
 bool App::simulating() const {
 #ifdef FC_BENCH_BUILD
@@ -90,6 +94,7 @@ void App::setup() {
   duty_.reset(now);
   airtime_tlm_us_ = fc::lora_airtime_us(modulation(), fc::tlm::kTelemetryLen);
   airtime_evt_us_ = fc::lora_airtime_us(modulation(), fc::tlm::kEventLen);
+  airtime_up_ms_ = fc::lora_airtime_us(modulation(), fc::tlm::kUplinkLen) / 1000;
 
   event(EventCode::Boot, static_cast<int32_t>(FC_GIT_REV_U32), now);
   try_resume(now);
@@ -450,6 +455,7 @@ void App::on_state_change(FlightState from, FlightState to, uint32_t now) {
 // =============================================================================
 
 void App::slow_tick(uint32_t now) {
+  check_remote_fire(now);
   const bool heard = ground_.connected(now);
   if (heard != ground_was_) {
     ground_was_ = heard;
@@ -565,9 +571,10 @@ void App::update_indicators(uint32_t now) {
     case FlightState::Descent: m = fc::LedMode::Flight; break;
     case FlightState::Landed: m = fc::LedMode::Landed; break;
   }
+  if (remote_.armed()) m = fc::LedMode::Init;  // fast blink: remote test fire armed
   const bool low = batt_.level() == fc::BatteryMonitor::Level::Low ||
                    batt_.level() == fc::BatteryMonitor::Level::Critical;
-  if (low && (fc_.state() == FlightState::Pad || fc_.state() == FlightState::Landed)) {
+  if (low && !remote_.armed() && (fc_.state() == FlightState::Pad || fc_.state() == FlightState::Landed)) {
     m = fc::LedMode::LowBattery;
   }
   led_.set(fc::led_on(m, now));
@@ -619,7 +626,8 @@ fc::tlm::Telemetry App::snapshot(uint32_t now) const {
   t.gyro_dps = fc::to_rocket_frame(imu_s_.gyro_dps, cfg::kImuUpAxis);
   t.mag_uT = fc::to_rocket_frame(imu_s_.mag_uT, cfg::kImuUpAxis);
   t.q = imu_ok_ ? ahrs_.q() : fc::Quat{};
-  t.link = ground_.connected(now) ? fc::tlm::kLinkGroundHeard : 0;
+  t.link = static_cast<uint8_t>((ground_.connected(now) ? fc::tlm::kLinkGroundHeard : 0) |
+                                (clock_.synced() ? fc::tlm::kLinkTimeSynced : 0));
   t.uplink_rssi_dbm = ground_.rssi_dbm(now);
   t.beep_period_s = ground_.pad_beep_period_s(now);
   t.pressure_pa = pressure_pa_;
@@ -629,7 +637,9 @@ fc::tlm::Telemetry App::snapshot(uint32_t now) const {
   return t;
 }
 
-void App::event(EventCode code, int32_t arg, uint32_t now) {
+void App::event(EventCode code, int32_t arg, uint32_t now) { event_at(code, arg, now); }
+
+void App::event_at(EventCode code, int32_t arg, uint32_t now) {
   fc::tlm::Event e;
   e.state = fc_.state();
   e.t_ms = now;
@@ -671,6 +681,7 @@ void App::update_log(uint32_t now) {
 }
 
 uint32_t App::telemetry_period_ms() const {
+  if (remote_.armed()) return 500;  // faster round trips during a remote test fire
   switch (fc_.state()) {
     case FlightState::Boost:
     case FlightState::Coast:
@@ -689,8 +700,113 @@ void App::receive_uplink(uint32_t now) {
   fc::tlm::Uplink u;
   if (fc::tlm::decode(buf, n, &u) != fc::tlm::DecodeResult::Ok) return;
   if (in_flight(fc_.state())) return;  // never act on the uplink in flight
+  if (u.kind != fc::tlm::UplinkKind::Heartbeat) {
+    handle_remote_fire(u, now);
+    return;
+  }
   const float r = rssi < -127.0f ? -127.0f : rssi > 0.0f ? 0.0f : rssi;
   ground_.heard(now, static_cast<int8_t>(r), u.beep_period_s);
+  // The time was stamped when the heartbeat started; it arrived one airtime later.
+  if (u.utc_ms) sync_time(u.utc_ms + airtime_up_ms_, now, "ground station");
+}
+
+// --- Remote test fire (ejection charge ground test), see fc/remote_fire.h ---
+
+fc::RemoteFireEnd App::remote_conditions() const {
+#ifndef FC_BENCH_BUILD
+  return fc::RemoteFireEnd::NotBenchBuild;  // the flight build can never fire by radio
+#else
+  if (fc_.state() != FlightState::Pad || simulating()) return fc::RemoteFireEnd::NotOnPad;
+  if (pyro_.firing()) return fc::RemoteFireEnd::Busy;
+  if (!continuity_) return fc::RemoteFireEnd::NoContinuity;
+  return fc::RemoteFireEnd::Fired;  // = all conditions met
+#endif
+}
+
+void App::handle_remote_fire(const fc::tlm::Uplink& u, uint32_t now) {
+  using fc::RemoteFireEnd;
+  switch (u.kind) {
+    case fc::tlm::UplinkKind::FireArm: {
+      const RemoteFireEnd r = remote_.arm(now, u.pulse_ms, esp_random(), remote_conditions());
+      if (r != RemoteFireEnd::Fired) {
+        event(EventCode::RemoteRefused, static_cast<int32_t>(r), now);
+        Serial.printf("REMOTE FIRE: arm refused: %s\n", fc::to_string(r));
+        return;
+      }
+      event(EventCode::RemoteArmed, static_cast<int32_t>(remote_.nonce()), now);
+      Serial.printf("REMOTE FIRE: ARMED for %u ms pulse, fire window %lu s\n", remote_.pulse_ms(),
+                    static_cast<unsigned long>(fc::RemoteFire::kWindowMs / 1000));
+      // Warning to anyone near the rocket: beep for the whole window.
+      beeper_.clear();
+      for (uint32_t i = 0; i < fc::RemoteFire::kWindowMs / 500; ++i) beeper_.push(250, 250);
+      return;
+    }
+    case fc::tlm::UplinkKind::Fire: {
+      const RemoteFireEnd r = remote_.fire(now, u.code, u.pulse_ms, remote_conditions());
+      beeper_.clear();
+      if (r != RemoteFireEnd::Fired) {
+        event(EventCode::RemoteRefused, static_cast<int32_t>(r), now);
+        Serial.printf("REMOTE FIRE: fire refused: %s\n", fc::to_string(r));
+        return;
+      }
+#ifdef FC_BENCH_BUILD
+      watch_open_ = continuity_;
+      if (pyro_.bench_fire(now, u.pulse_ms)) {
+        event(EventCode::BenchFire, u.pulse_ms, now);
+        Serial.printf("REMOTE FIRE: FIRED %u ms\n", u.pulse_ms);
+      }
+#endif
+      return;
+    }
+    case fc::tlm::UplinkKind::FireDisarm:
+      if (remote_.armed()) {
+        remote_.disarm();
+        beeper_.clear();
+        event(EventCode::RemoteDisarmed, static_cast<int32_t>(RemoteFireEnd::Cancelled), now);
+        Serial.println("REMOTE FIRE: disarmed from the ground station");
+      }
+      return;
+    default:
+      return;
+  }
+}
+
+// Disarm when the window runs out or a condition is lost (e.g. arm link pulled).
+void App::check_remote_fire(uint32_t now) {
+  if (!remote_.armed()) return;
+  fc::RemoteFireEnd why = fc::RemoteFireEnd::Timeout;
+  if (!remote_.expired(now)) {
+    why = remote_conditions();
+    if (why == fc::RemoteFireEnd::Fired || why == fc::RemoteFireEnd::Busy) return;
+    remote_.disarm();
+  }
+  beeper_.clear();
+  event(EventCode::RemoteDisarmed, static_cast<int32_t>(why), now);
+  Serial.printf("REMOTE FIRE: disarmed: %s\n", fc::to_string(why));
+}
+
+void App::sync_time(uint64_t utc_ms, uint32_t now, const char* source) {
+  if (!clock_.apply(utc_ms, now)) return;
+  uint32_t t_ms;
+  int32_t unix_s;
+  clock_.event_point(now, &t_ms, &unix_s);
+  event_at(EventCode::TimeSync, unix_s, t_ms);
+  char buf[32];
+  format_utc(now, buf, sizeof(buf));
+  Serial.printf("[%lu] real time from %s: %s\n", static_cast<unsigned long>(now), source, buf);
+}
+
+void App::format_utc(uint32_t t_ms, char* buf, size_t cap) const {
+  if (!clock_.synced()) {
+    snprintf(buf, cap, "not synced");
+    return;
+  }
+  const uint64_t ms = clock_.utc_ms(t_ms);
+  const time_t s = static_cast<time_t>(ms / 1000);
+  struct tm tm;
+  gmtime_r(&s, &tm);
+  snprintf(buf, cap, "%04d-%02d-%02d %02d:%02d:%02d.%03u UTC", tm.tm_year + 1900, tm.tm_mon + 1,
+           tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec, static_cast<unsigned>(ms % 1000));
 }
 
 void App::update_radio(uint32_t now) {

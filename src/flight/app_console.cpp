@@ -57,6 +57,7 @@ void App::console_exec(char* line, uint32_t now) {
         "  dump            print the onboard log as CSV (not in flight)\n"
         "  logclear        erase the onboard log (not in flight)\n"
         "  i2c             scan the I2C bus (not in flight)\n"
+        "  time <unix ms>  set real time for the log (once per boot; the UI sends it)\n"
         "  reboot          restart (not in flight)"
 #ifdef FC_BENCH_BUILD
         "\n bench build only:\n"
@@ -80,6 +81,16 @@ void App::console_exec(char* line, uint32_t now) {
   } else if (!strcmp(cmd, "logclear")) {
     ram_log_.ring().clear();
     Serial.println("onboard log cleared");
+  } else if (!strcmp(cmd, "time")) {
+    // time <unix ms>: real time from the computer (the ground station UI sends it).
+    const unsigned long long v = a1 ? strtoull(a1, nullptr, 10) : 0;
+    if (clock_.synced()) {
+      Serial.println("time already set for this boot (kept, so log timestamps never jump)");
+    } else if (!fc::TimeSync::plausible(v)) {
+      Serial.println("usage: time <unix time in ms>");
+    } else {
+      sync_time(v, now, "USB");
+    }
   } else if (!strcmp(cmd, "i2c")) {
     i2c_scan();
   } else if (!strcmp(cmd, "reboot")) {
@@ -117,6 +128,11 @@ void App::print_status(uint32_t now) {
                 "",
 #endif
                 hal::reset_reason_name(), resumed_ ? " (flight RESUMED)" : "");
+  {
+    char utc[40];
+    format_utc(now, utc, sizeof(utc));
+    Serial.printf("time       %s\n", utc);
+  }
   Serial.printf("state      %s  uptime %lu s  fault %u  warnings 0x%02X%s\n",
                 to_string(fc_.state()), static_cast<unsigned long>(now / 1000),
                 static_cast<unsigned>(fault_), warnings_, simulating() ? "  [SIMULATION]" : "");
@@ -239,6 +255,13 @@ void App::dump_log() {
   Serial.printf("# onboard log: %u frames, %lu overwritten, firmware %s\n",
                 static_cast<unsigned>(r.count()), static_cast<unsigned long>(r.overwritten()),
                 FC_GIT_REV);
+  // Real time of t_ms = 0 (also in the TIME_SYNC event, which an old log may
+  // have overwritten): utc_ms = utc0 + t_ms.
+  if (clock_.synced()) {
+    Serial.printf("# clock utc0_ms %llu\n", static_cast<unsigned long long>(clock_.utc_ms(0)));
+  } else {
+    Serial.println("# clock not synced (no ground station time this boot)");
+  }
   Serial.println(fc::csv::telemetry_header());
   Serial.println(fc::csv::event_header());
   uint8_t frame[fc::FrameRing::kSlot];

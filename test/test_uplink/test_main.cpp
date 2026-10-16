@@ -4,6 +4,7 @@
 #include "fc/csv.h"
 #include "fc/radio_budget.h"
 #include "fc/telemetry.h"
+#include "fc/time_sync.h"
 #include "fc/uplink.h"
 
 using namespace fc;
@@ -16,6 +17,7 @@ static void test_uplink_roundtrip() {
   u.seq = 4321;
   u.t_ms = 987654;
   u.beep_period_s = 30;
+  u.utc_ms = 1792161234567ull;
   uint8_t buf[32];
   const size_t n = tlm::encode(u, buf, sizeof(buf));
   TEST_ASSERT_EQUAL_UINT(tlm::kUplinkLen, n);
@@ -27,6 +29,7 @@ static void test_uplink_roundtrip() {
   TEST_ASSERT_EQUAL_UINT16(4321, out.seq);
   TEST_ASSERT_EQUAL_UINT32(987654, out.t_ms);
   TEST_ASSERT_EQUAL_UINT8(30, out.beep_period_s);
+  TEST_ASSERT_TRUE(out.utc_ms == 1792161234567ull);
   // Not mistaken for rocket frames.
   tlm::Telemetry t;
   tlm::Event e;
@@ -86,11 +89,36 @@ static void test_uplink_policy_rate_and_flight() {
 }
 
 static void test_uplink_airtime_budget() {
-  // Ground: at most one 14-byte heartbeat per 900 ms stays far below 10 %.
+  // Ground: at most one 22-byte heartbeat per 900 ms stays far below 10 %.
   LoraModulation m;
   const uint32_t us = lora_airtime_us(m, tlm::kUplinkLen);
-  TEST_ASSERT_TRUE(us < 30000);
+  TEST_ASSERT_TRUE(us < 32000);
   TEST_ASSERT_TRUE(us * 1000.0 / 900.0 / 1e6 < 0.04);
+}
+
+static void test_time_sync() {
+  TimeSync ts;
+  TEST_ASSERT_FALSE(ts.synced());
+  TEST_ASSERT_TRUE(ts.utc_ms(1000) == 0);
+  TEST_ASSERT_FALSE(ts.apply(0, 1000));             // ground station has no time yet
+  TEST_ASSERT_FALSE(ts.apply(1000000ull, 1000));     // 1970: implausible
+  // Received at rocket time 12,345 ms; real time 2026-10-16 14:33:54.567 UTC.
+  TEST_ASSERT_TRUE(ts.apply(1792161234567ull, 12345));
+  TEST_ASSERT_TRUE(ts.synced());
+  TEST_ASSERT_TRUE(ts.utc_ms(12345) == 1792161234567ull);
+  TEST_ASSERT_TRUE(ts.utc_ms(13345) == 1792161235567ull);
+  // Later syncs are ignored: no jumps within a log.
+  TEST_ASSERT_FALSE(ts.apply(1792161299999ull, 20000));
+  TEST_ASSERT_TRUE(ts.utc_ms(12345) == 1792161234567ull);
+  // Event point: next whole second, and the conversion formula reproduces it.
+  uint32_t t_ms;
+  int32_t unix_s;
+  ts.event_point(12345, &t_ms, &unix_s);
+  TEST_ASSERT_EQUAL_INT32(1792161235, unix_s);
+  TEST_ASSERT_EQUAL_UINT32(12345 + 433, t_ms);
+  // utc_ms = arg * 1000 + (t - event_t) for any t
+  const uint32_t t = 99999;
+  TEST_ASSERT_TRUE(static_cast<uint64_t>(unix_s) * 1000 + (t - t_ms) == ts.utc_ms(t));
 }
 
 int main() {
@@ -100,5 +128,6 @@ int main() {
   RUN_TEST(test_ground_link_timeout);
   RUN_TEST(test_uplink_policy_rate_and_flight);
   RUN_TEST(test_uplink_airtime_budget);
+  RUN_TEST(test_time_sync);
   return UNITY_END();
 }

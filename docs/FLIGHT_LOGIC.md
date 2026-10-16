@@ -79,8 +79,10 @@ Also from COAST if the rocket came down without an apogee decision.
 | 7 | Pulse length 1000 ms, hard cap 2000 ms in the driver | `PyroChannel` |
 | 8 | Apogee lockout, confirmation time, minimum altitude | State machine |
 
-The `bench` build adds a test-fire command (`fire <ms> CONFIRM`). The
-`flight` build does not contain that code at all.
+The `bench` build adds test firing: over USB (`fire <ms> CONFIRM`) and by
+radio from the ground station UI (two-step arm/fire with a one-time code,
+only in PAD with continuity; see docs/TELEMETRY.md). The `flight` build does
+not contain that code at all: it refuses remote fire requests.
 
 ## Reset in flight
 

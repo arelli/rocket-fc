@@ -16,8 +16,10 @@
 #include "fc/flight_computer.h"
 #include "fc/indicators.h"
 #include "fc/radio_budget.h"
+#include "fc/remote_fire.h"
 #include "fc/sim.h"
 #include "fc/telemetry.h"
+#include "fc/time_sync.h"
 #include "fc/uplink.h"
 #include "hal/bmp280.h"
 #include "hal/io.h"
@@ -55,12 +57,18 @@ class App {
   void update_indicators(uint32_t now);
   void update_radio(uint32_t now);
   void receive_uplink(uint32_t now);
+  void handle_remote_fire(const fc::tlm::Uplink& u, uint32_t now);
+  fc::RemoteFireEnd remote_conditions() const;
+  void check_remote_fire(uint32_t now);
   void update_log(uint32_t now);
   void pad_report(uint32_t now);
   [[noreturn]] void shutdown(const char* why);
 
   // --- telemetry -------------------------------------------------------------
   void event(fc::EventCode code, int32_t arg, uint32_t now);
+  void event_at(fc::EventCode code, int32_t arg, uint32_t t_ms);
+  void sync_time(uint64_t utc_ms, uint32_t now, const char* source);
+  void format_utc(uint32_t t_ms, char* buf, size_t cap) const;
   fc::tlm::Telemetry snapshot(uint32_t now) const;
   uint8_t flags() const;
   void add_sink(hal::LogSink* s);
@@ -97,6 +105,9 @@ class App {
   fc::BeepSequencer beeper_;
   fc::Ahrs ahrs_;               // attitude for telemetry/logging only
   fc::GroundLink ground_;       // ground station heartbeat (pad beeps only)
+  fc::TimeSync clock_;          // real time, from the ground station or USB
+  fc::RemoteFire remote_;       // remote test fire by radio (bench build only)
+  uint32_t airtime_up_ms_ = 0;
   bool ground_was_ = false;
   uint32_t t_ahrs_ = 0;
 

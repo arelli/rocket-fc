@@ -35,6 +35,10 @@ enum class EventCode : uint8_t {
   ApogeeNoDeploy = 15, // arg: max altitude AGL [cm] (below min deploy altitude)
   BenchFire = 16,      // arg: pulse length [ms] (bench build only)
   GroundLink = 17,     // arg: 1 = ground station heard, 0 = lost
+  TimeSync = 18,       // at this event's t_ms, real time was exactly `arg` (Unix seconds)
+  RemoteArmed = 19,    // arg: one-time nonce for the remote test fire (bench build)
+  RemoteDisarmed = 20, // arg: RemoteFireEnd reason
+  RemoteRefused = 21,  // arg: RemoteFireEnd reason
 };
 
 // Why the computer refuses to fly (FlightState::Fault). Beeped as N long beeps.

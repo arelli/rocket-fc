@@ -40,7 +40,7 @@ deployment, live LoRa telemetry and an onboard flight log.
 | Env | What |
 |---|---|
 | `flight` | Flight firmware |
-| `bench` | Flight firmware plus `sim` (simulated flight with fake sensors) and `fire <ms> CONFIRM` (test-fire the pyro output). **Never fly a bench build.** It announces itself at boot and in `status` (`[BENCH]`). |
+| `bench` | Flight firmware plus `sim` (simulated flight with fake sensors) and test firing of the pyro output over USB (`fire <ms> CONFIRM`) or by radio from the UI (ejection charge ground tests). **Never fly a bench build.** It announces itself at boot and in `status` (`[BENCH]`). |
 | `ground` | Ground station: receives telemetry, answers with heartbeats (pad beep period) |
 | `native` | Unit tests of the flight logic on your PC |
 

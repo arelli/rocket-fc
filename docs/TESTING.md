@@ -64,6 +64,23 @@ Flash `pio run -e bench -t upload`, open `pio device monitor`.
    1000 µF capacitor is missing.
 6. `sim live` with bare nichrome: burns at simulated apogee.
 
+## 3b. Ejection charge ground test (remote, bench build)
+
+Proves the charge size separates the rocket and deploys the parachute.
+
+1. Bench build on the flight computer, ground station kit connected to the
+   UI, rocket assembled with parachute and charge, restrained horizontally,
+   nose pointing away from people.
+2. Fit the arm link last; check "Continuity: yes" and "Rocket hears ground:
+   yes" in the UI's red **Remote test fire** panel. Everyone moves to a safe
+   distance.
+3. Tick the checklist, ARM, confirm; the rocket beeps. FIRE within 10 s,
+   confirm.
+4. After a misfire wait at least 60 s, then remove the arm link before
+   touching anything.
+5. Reflash the flight build before flying (the boot banner must not say
+   `[BENCH BUILD]`).
+
 ## 4. Before every flight
 
 At home:

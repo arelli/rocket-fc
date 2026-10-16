@@ -21,3 +21,9 @@ First version: not yet flown.
 - USB console; bench build with simulated flight and test fire.
 - Ground station firmware and `tools/ground_station.py`.
 - Native unit tests.
+- Attitude estimation (display/log only) and 3D view; ground station UI.
+- Ground station heartbeat: pad beeps only while heard, period set from the UI.
+- Real time: the rocket's clock is set from the laptop via the ground station
+  (TIME_SYNC event), so logs carry real timestamps.
+- Remote test fire by radio for ejection charge ground tests (bench build only,
+  two-step arm/fire with one-time code, PAD + continuity required).

@@ -21,6 +21,13 @@ constexpr uint16_t kPreambleLen = 8;
 constexpr int8_t kTxPowerDbm = 20;       // SX1262 max 22; legal limit here is 27 dBm ERP
 constexpr float kTcxoVolts = 1.8f;       // Wio-SX1262 TCXO supply
 
+// Remote test fire pairing key (bench build only, see fc/remote_fire.h): the
+// ground station and the flight computer must be built with the same value.
+// Change it to your own random number so another rocket-fc ground station
+// cannot fire your rocket. Not a cryptographic secret; the arm link is the
+// real safety.
+constexpr uint32_t kRemoteFireKey = 0x6B1D4F37u;
+
 // Duty cycle budget: 8 %/h long-term + 72 s burst  =>  <= 360 s (10 %) in any hour.
 constexpr float kDutyFraction = 0.08f;
 constexpr uint32_t kDutyBurstMs = 72000;

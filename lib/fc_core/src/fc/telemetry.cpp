@@ -84,8 +84,16 @@ size_t encode(const Event& e, uint8_t* out, size_t cap) {
 size_t encode(const Uplink& u, uint8_t* out, size_t cap) {
   ByteWriter w(out, cap);
   write_header(w, FrameType::Uplink, FlightState::Init, u.seq, u.t_ms);
-  w.u8(1);  // kind: heartbeat (room for other kinds later)
-  w.u8(u.beep_period_s);
+  w.u8(static_cast<uint8_t>(u.kind));
+  if (u.kind == UplinkKind::Heartbeat) {
+    w.u8(u.beep_period_s);
+    w.u64(u.utc_ms);
+  } else {  // same 9-byte payload area: code, pulse, 3 bytes padding
+    w.u32(u.code);
+    w.u16(u.pulse_ms);
+    w.u8(0);
+    w.u16(0);
+  }
   return finish(w, out);
 }
 
@@ -101,8 +109,16 @@ DecodeResult decode(const uint8_t* buf, size_t len, Uplink* out) {
   rd.u8();  // state (unused)
   out->seq = rd.u16();
   out->t_ms = rd.u32();
-  if (rd.u8() != 1) return DecodeResult::BadType;  // unknown kind
-  out->beep_period_s = rd.u8();
+  const uint8_t kind = rd.u8();
+  if (kind < 1 || kind > 4) return DecodeResult::BadType;  // unknown kind
+  out->kind = static_cast<UplinkKind>(kind);
+  if (out->kind == UplinkKind::Heartbeat) {
+    out->beep_period_s = rd.u8();
+    out->utc_ms = rd.u64();
+  } else {
+    out->code = rd.u32();
+    out->pulse_ms = rd.u16();
+  }
   return rd.ok() ? DecodeResult::Ok : DecodeResult::BadLength;
 }
 

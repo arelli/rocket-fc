@@ -56,6 +56,14 @@
   .pill.on.ok { background: var(--ok); color: var(--panel); }
   .pill.on.warn { background: var(--warn); color: var(--panel); }
   .pill.on.bad { background: var(--bad); color: var(--panel); }
+  .panel.danger-panel { border: 2px solid var(--bad); }
+  .panel.danger-panel h2 { color: var(--bad); }
+  .warnbox { border-left: 4px solid var(--bad); padding: 6px 10px; margin-bottom: 8px; background: var(--bg); }
+  .checklist { display: grid; gap: 4px; margin: 6px 0 10px; }
+  button.big { font-size: 16px; padding: 8px 18px; font-weight: 600; }
+  button.fire { background: var(--bad); color: #fff; border-color: var(--bad); }
+  button.fire:disabled { background: var(--panel); color: var(--bad); }
+  #rf-status { font: 600 15px var(--mono); }
   main { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 12px; padding: 12px 16px 24px; }
   .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; min-width: 0; }
   .panel h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 8px; }
@@ -161,6 +169,34 @@
     <div class="plots" id="plots"></div>
   </section>
 
+  <section class="panel c12 danger-panel" id="rf-panel">
+    <h2>Remote test fire by radio (ejection charge ground test)</h2>
+    <div class="warnbox">
+      <b>This fires the real ejection charge from a distance.</b> It works only when the flight computer runs
+      the <b>bench build</b>, is in PAD with igniter continuity (arm link fitted), and hears the ground station.
+      Arm, then fire within 10 s. While armed the rocket beeps continuously and its LED blinks fast.
+      The flight build always refuses. Follow your club's or national rules for ejection tests.
+    </div>
+    <div class="checklist">
+      <label><input type="checkbox" class="rf-check"> The rocket is held so the nose cone and parachute can eject freely, pointing away from people, buildings and dry grass.</label>
+      <label><input type="checkbox" class="rf-check"> Everyone is at a safe distance, has been told a test is about to happen, and wears eye protection.</label>
+      <label><input type="checkbox" class="rf-check"> A fire extinguisher or water is at hand.</label>
+      <label><input type="checkbox" class="rf-check"> I will not approach the rocket after a misfire for at least 60 s, and will remove the arm link first.</label>
+    </div>
+    <div class="row">
+      <span>Rocket: <b id="rf-state">—</b></span>
+      <span>Continuity: <b id="rf-cont">—</b></span>
+      <span>Rocket hears ground: <b id="rf-heard">—</b></span>
+    </div>
+    <div class="row">
+      <label>pulse <input type="number" id="rf-ms" min="1" max="2000" value="1000" style="width:80px"> ms</label>
+      <button id="btn-rf-arm" class="big danger" disabled>1. ARM</button>
+      <button id="btn-rf-fire" class="big fire" disabled>2. FIRE</button>
+      <button id="btn-rf-disarm" class="big" disabled>Disarm</button>
+    </div>
+    <div id="rf-status" class="muted">Not armed.</div>
+  </section>
+
   <section class="panel c5">
     <h2>Events</h2>
     <div id="events-wrap"><table class="list"><thead><tr><th>t [s]</th><th>state</th><th>event</th><th>value</th></tr></thead>
@@ -169,9 +205,11 @@
 
   <section class="panel c7">
     <h2>Flight computer (USB)</h2>
-    <div class="cmds" id="cmds"></div>
-    <fieldset>
-      <legend>Pyro test (bench build only)</legend>
+    <fieldset id="fire-box">
+      <legend>Test fire the pyro output (over USB, bench build only)</legend>
+      <div class="row">
+        <span>Igniter continuity: <b id="fire-cont">—</b></span>
+      </div>
       <div class="row">
         <label><input type="checkbox" id="fire-safe"> No charge fitted: dummy load or bare nichrome only</label>
       </div>
@@ -179,7 +217,10 @@
         <label>pulse <input type="number" id="fire-ms" min="1" max="2000" value="500" style="width:80px"> ms</label>
         <button id="btn-fire" class="danger" disabled>Fire pyro output</button>
       </div>
+      <div class="note">Needs the flight computer on USB running the bench build, in INIT, PAD, FAULT or LANDED.
+        The flight build has no test-fire command.</div>
     </fieldset>
+    <div class="cmds" id="cmds"></div>
     <pre id="console"></pre>
     <div class="row" style="margin-top:6px">
       <input type="text" id="cmd" placeholder="command (Enter to send, ↑ for history)" style="flex:1" autocomplete="off">
@@ -228,8 +269,16 @@ const EVENT_ARG = {
   SENSOR_LOST: a => ['IMU', 'MAG', 'BARO', 'RADIO'].filter((_, i) => a & (1 << i)).join(', '),
   BENCH_FIRE: a => a + ' ms pulse',
   GROUND_LINK: a => a ? 'rocket hears the ground station' : 'rocket lost the ground station',
+  TIME_SYNC: a => fmtTime((a >>> 0) * 1000) + ' (rocket clock set)',
+  REMOTE_ARMED: () => 'remote test fire ARMED (10 s window)',
+  REMOTE_DISARMED: a => 'remote test fire disarmed: ' + (RF_REASONS[a] || a),
+  REMOTE_REFUSED: a => 'remote test fire refused: ' + (RF_REASONS[a] || a),
   RESTART: () => 'flight computer restarted: plots start over (all data stays in the saved log)',
 };
+// fc::RemoteFireEnd (lib/fc_core/src/fc/remote_fire.h)
+const RF_REASONS = ['fired', 'flight build: remote fire disabled', 'not in PAD state',
+  'no igniter continuity (arm link out?)', 'pulse length out of range', 'not armed', 'wrong code (pairing key?)',
+  'fire window expired', 'cancelled', 'pyro output busy'];
 const WARN_BITS = ['IMU missing', 'no magnetometer', 'radio failed', 'battery low', 'up axis not ~1 g', 'no backup timer'];
 function warnNames(a) { return WARN_BITS.filter((_, i) => a & (1 << i)).join(', '); }
 
@@ -242,6 +291,7 @@ const READOUTS = [
   ['Battery', f => fmt(f.batt_v, 2) + ' V  (' + fmt(liionPercent(f.batt_v), 0) + ' %)'],
   ['Pressure', f => fmt(f.p_pa / 100, 1) + ' hPa'],
   ['Last frame', (f, t) => t.lastRx ? fmt((performance.now() - t.lastRx) / 1000, 1) + ' s ago  (#' + f.seq + ')' : 'from file'],
+  ['Rocket clock', (f, t) => t.utc0 ? fmtTime(t.utc0 + f.t_ms) : 'not synced'],
 ];
 
 // Gauges in the Sensors panel. auto: widen the range to fit the data.
@@ -324,6 +374,12 @@ function download(name, text) {
   a.href = URL.createObjectURL(new Blob([text], { type: 'text/csv' }));
   a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
+// Local date/time with ms, plus the UTC offset, from Unix ms.
+function fmtTime(ms) {
+  const d = new Date(ms), p = (n, w = 2) => String(n).padStart(w, '0');
+  const off = -d.getTimezoneOffset(), sign = off >= 0 ? '+' : '-';
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}.${p(d.getMilliseconds(), 3)} UTC${sign}${p(Math.floor(Math.abs(off) / 60))}:${p(Math.abs(off) % 60)}`;
+}
 function setMsg(text) { $('st-msg').textContent = text; }
 
 // Same curve as fc::liion_percent (lib/fc_core/src/fc/battery.cpp).
@@ -358,7 +414,7 @@ class Track {
   constructor(name) { this.name = name; this.reset(); }
   reset() {
     this.frames = []; this.events = []; this.lastSeq = null; this.received = 0; this.lost = 0;
-    this.maxAlt = NaN; this.lastRx = 0; this.rxTimes = []; this.bad = 0; this.noise = NaN; this.stats = ''; this.uplink = ''; this.sessions = 0; this.version++;
+    this.maxAlt = NaN; this.lastRx = 0; this.rxTimes = []; this.bad = 0; this.noise = NaN; this.stats = ''; this.uplink = ''; this.sessions = 0; this.utc0 = 0; this.version++;
   }
   // Telemetry and events share one sequence counter per link: gaps = lost frames.
   noteSeq(seq) {
@@ -372,7 +428,7 @@ class Track {
   // start a new session so plots do not mix two time bases. Everything stays
   // in the saved log; only the display starts over.
   newSession(t_ms, state) {
-    this.frames = []; this.maxAlt = NaN; this.lastSeq = null; this.sessions++;
+    this.frames = []; this.maxAlt = NaN; this.lastSeq = null; this.sessions++; this.utc0 = 0;
     this.events.push({ seq: -1, t_ms, state, event: 'RESTART', arg: this.sessions });
   }
   addFrame(f, live) {
@@ -386,6 +442,8 @@ class Track {
     this.version++;
   }
   addEvent(e) {
+    // TIME_SYNC: at e.t_ms it was exactly e.arg Unix seconds (unsigned).
+    if (e.event === 'TIME_SYNC') this.utc0 = (e.arg >>> 0) * 1000 - e.t_ms;
     if (e.event === 'BOOT' && this.frames.length) this.newSession(e.t_ms, e.state);
     this.noteSeq(e.seq); this.events.push(e); this.version++;
   }
@@ -490,12 +548,32 @@ class SerialLink {
 const radioLines = [];
 let radioUnsaved = false;
 // One line of ground station output (live, or from a saved log file).
+// --- remote test fire (UI side): follows the ground station's messages ---
+const rf = { state: 'idle', armedAt: 0, msg: 'Not armed.' };
+function rfSet(state, msg) { rf.state = state; rf.msg = msg; rf.since = performance.now(); if (state === 'armed') rf.armedAt = rf.since; }
+function rfOnLine(line) {
+  const p = line.split(',');
+  if (p[0] === 'E') {
+    const ev = p[4], arg = Number(p[5]);
+    if (ev === 'REMOTE_ARMED') rfSet('armed', '');
+    else if (ev === 'REMOTE_REFUSED') rfSet('idle', 'Refused by the rocket: ' + (RF_REASONS[arg] || arg));
+    else if (ev === 'REMOTE_DISARMED') rfSet('idle', 'Disarmed: ' + (RF_REASONS[arg] || arg));
+    else if (ev === 'BENCH_FIRE' && rf.state !== 'idle') rfSet('idle', 'FIRED: ' + arg + ' ms pulse. Wait 60 s before approaching; remove the arm link first.');
+    else if (ev === 'PYRO_OPEN') rf.msg += '  Bridge wire burned through after ' + arg + ' ms.';
+  } else if (line.startsWith('# rf error')) {
+    rfSet('idle', line.slice(2));
+  } else if (line.startsWith('# rf queued arm')) {
+    rfSet('arming', 'Arm request queued: waiting for the rocket…');
+  }
+}
 function handleGroundLine(track, line, live) {
+  if (live) rfOnLine(line);
   if (feed(track, line, live)) return;
   if (line.startsWith('# noise')) track.noise = Number(line.split(/\s+/)[2]);
   else if (line.startsWith('# bad frame')) track.bad++;
   else if (line.startsWith('# stats')) track.stats = line.slice(2);
   else if (line.startsWith('# uplink')) track.uplink = line.slice(2);
+  else if (line.startsWith('# clock utc0_ms')) track.utc0 = Number(line.split(/\s+/)[3]);
   else if (live && line.startsWith('# ERROR')) setMsg('Ground station: ' + line.slice(2));
 }
 const radioLink = new SerialLink('radio', line => {
@@ -512,7 +590,9 @@ function sendUplinkSettings() {
   $('up-beep').value = u.beep_s;
   try { localStorage.setItem('rocketfc.uplink', JSON.stringify(u)); } catch (_) { /* private window */ }
   if (!radioLink.open) { setMsg('Uplink settings saved; they are sent when the ground station is connected.'); return; }
-  radioLink.write('uplink ' + (u.on ? 'on' : 'off')).then(() => radioLink.write('beep ' + u.beep_s));
+  radioLink.write('time ' + Date.now())
+    .then(() => radioLink.write('uplink ' + (u.on ? 'on' : 'off')))
+    .then(() => radioLink.write('beep ' + u.beep_s));
 }
 
 // --- flight computer (USB console) port ---
@@ -527,7 +607,11 @@ const usbLink = new SerialLink('usb', line => {
   if (line.startsWith('# onboard log')) { dumpLines = [line]; setMsg('Downloading onboard log…'); return; }
   if (feed(tracks.usb, line, true)) return;         // "csv on" stream
   consoleAppend(line);
-}, s => setLinkState('usb', s));
+}, s => {
+  setLinkState('usb', s);
+  // Give the flight computer real time directly (ignored if it already has it).
+  if (s === 'connected') setTimeout(() => usbLink.write('time ' + Date.now()), 300);
+});
 
 function setLinkState(which, s) {
   const pill = $(which === 'radio' ? 'st-radio' : 'st-usb');
@@ -726,9 +810,31 @@ function buildUi() {
   for (const [label, id] of [['Tilt from vertical', 'att-tilt'], ['Nose leans toward', 'att-lean'], ['Roll rate', 'att-roll'], ['Quaternion (w x y z)', 'att-q']]) {
     const tr = el('tr'); tr.append(el('td', '', label), el('td', 'num', '—')); tr.lastChild.id = id; $('att-readouts').append(tr);
   }
-  for (const [label, id] of [['Rocket hears ground', 'lk-heard'], ['Pad beeps (rocket)', 'lk-beep'], ['Packets', 'lk-pkts'], ['Packet rate', 'lk-rate'], ['Lost (sequence gaps)', 'lk-lost'], ['Bad frames', 'lk-bad'], ['SNR margin (SF7)', 'lk-margin'], ['Last packet', 'lk-age'], ['Ground station', 'lk-stats'], ['Ground uplink', 'lk-uplink']]) {
+  for (const [label, id] of [['Rocket hears ground', 'lk-heard'], ['Rocket clock', 'lk-clock'], ['Pad beeps (rocket)', 'lk-beep'], ['Packets', 'lk-pkts'], ['Packet rate', 'lk-rate'], ['Lost (sequence gaps)', 'lk-lost'], ['Bad frames', 'lk-bad'], ['SNR margin (SF7)', 'lk-margin'], ['Last packet', 'lk-age'], ['Ground station', 'lk-stats'], ['Ground uplink', 'lk-uplink']]) {
     const tr = el('tr'); tr.append(el('td', '', label), el('td', 'num', '—')); tr.lastChild.id = id; $('link-readouts').append(tr);
   }
+}
+
+function renderRemoteFire(f, live) {
+  const ok = radioLink.open && live && f;
+  $('rf-state').textContent = f ? f.state + (live ? '' : ' (no recent data)') : '—';
+  $('rf-cont').textContent = !f ? '—' : (f.flags & 1) ? 'yes' : 'NO';
+  $('rf-heard').textContent = !f ? '—' : (f.link & 1) ? 'yes' : 'NO';
+  const checks = [...document.querySelectorAll('.rf-check')].every(c => c.checked);
+  const ready = ok && checks && f.state === 'PAD' && (f.flags & 1) && (f.link & 1);
+  let left = 0;
+  if ((rf.state === 'arming' || rf.state === 'firing') && performance.now() - rf.since > 8000)
+    rfSet('idle', 'No answer from the rocket (out of range, or not in PAD?). Check the events list.');
+  if (rf.state === 'armed') {
+    left = Math.max(0, 10 - (performance.now() - rf.armedAt) / 1000);
+    if (left <= 0) rfSet('idle', 'Fire window expired.');
+  }
+  $('btn-rf-arm').disabled = !(ready && rf.state === 'idle');
+  $('btn-rf-fire').disabled = !(ok && checks && rf.state === 'armed' && left > 0.5);
+  $('btn-rf-disarm').disabled = !(radioLink.open && rf.state !== 'idle');
+  const st = $('rf-status');
+  st.textContent = rf.state === 'armed' ? `ARMED: the rocket is beeping. FIRE within ${left.toFixed(1)} s, or Disarm.` : rf.msg;
+  st.style.color = rf.state === 'armed' ? css('--bad') : '';
 }
 
 function updateCommandButtons() {
@@ -759,6 +865,9 @@ function render() {
     uprssi: heard && f.up_rssi_dbm > -128 ? f.up_rssi_dbm : NaN };
   $('lk-heard').textContent = f ? (heard ? 'yes' : 'no') : '—';
   $('lk-heard').style.color = f ? (heard ? css('--ok') : css('--warn')) : '';
+  renderRemoteFire(tracks.radio.latest(), tracks.radio.lastRx && performance.now() - tracks.radio.lastRx < 3000);
+  $('lk-clock').textContent = !f ? '—' : (f.link & 2) ? 'synced' : 'not synced';
+  $('fire-cont').textContent = !f ? '—' : (f.flags & 1) ? 'yes (circuit closed)' : 'no (open or arm link out)';
   $('lk-beep').textContent = !f ? '—' : !heard ? 'off (no heartbeat)' : f.beep_s ? 'every ' + f.beep_s + ' s' : 'off (silent)';
   LINK_GAUGES.forEach(g => setGauge(g, g.get(s), stale));
   $('lk-pkts').textContent = t.received;
@@ -822,6 +931,20 @@ $('cmd').addEventListener('keydown', e => {
 $('btn-clear').onclick = () => { consoleLines.length = 0; $('console').textContent = ''; };
 $('fire-safe').onchange = updateCommandButtons;
 $('btn-up-apply').onclick = sendUplinkSettings;
+$('btn-rf-arm').onclick = () => {
+  const ms = Math.round(Number($('rf-ms').value));
+  if (!(ms >= 1 && ms <= 2000)) { rfSet('idle', 'Pulse must be 1–2000 ms.'); return; }
+  if (!confirm(`ARM the remote test fire (${ms} ms pulse)?\n\nThe rocket will beep for 10 s. Everyone must be at a safe distance.`)) return;
+  rfSet('arming', 'Sending arm request…');
+  radioLink.write('rf arm ' + ms);
+};
+$('btn-rf-fire').onclick = () => {
+  if (!confirm('FIRE THE EJECTION CHARGE NOW?\n\nLast check: area clear, everyone at a safe distance.')) return;
+  rfSet('firing', 'Fire command sent: waiting for the rocket…');
+  radioLink.write('rf fire');
+  document.querySelectorAll('.rf-check').forEach(c => { c.checked = false; });  // re-confirm next time
+};
+$('btn-rf-disarm').onclick = () => { radioLink.write('rf disarm'); rfSet('idle', 'Disarm sent.'); };
 { const u = loadUplinkSettings(); $('up-on').checked = u.on; $('up-beep').value = u.beep_s; }
 $('btn-fire').onclick = () => {
   const ms = Math.round(Number($('fire-ms').value));

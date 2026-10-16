@@ -15,6 +15,10 @@
 // USB commands (one per line):
 //   beep <0..255>   pad beep period in seconds (0 = rocket stays silent on the pad)
 //   uplink on|off   send heartbeats or not
+//   time <unix ms>  real time from the computer, passed to the rocket in heartbeats
+//   rf arm <ms>     remote test fire, step 1 (rocket must run the BENCH build)
+//   rf fire         step 2, after the rocket reported REMOTE_ARMED
+//   rf disarm       cancel
 //   (empty line)    re-print the CSV headers
 //
 // tools/ground_station.html shows and controls all of this.
@@ -25,6 +29,7 @@
 #include "board_pins.h"
 #include "fc/csv.h"
 #include "fc/radio_budget.h"
+#include "fc/remote_fire.h"
 #include "fc/telemetry.h"
 #include "fc/uplink.h"
 #include "hal/radio_link.h"
@@ -44,6 +49,19 @@ uint8_t beep_period_s = 10;
 uint16_t uplink_seq = 0;
 uint32_t uplink_sent = 0;
 bool reply_pending = false;
+int64_t utc_base_ms = 0;  // real time at millis() == 0; 0 = not set
+
+// Remote test fire: a command waits for the next rocket frame (the rocket
+// only listens right after transmitting), then replaces that heartbeat.
+constexpr uint32_t kRfCommandTimeoutMs = 5000;
+bool rf_pending = false;
+fc::tlm::UplinkKind rf_kind = fc::tlm::UplinkKind::FireDisarm;
+uint16_t rf_pulse_ms = 0;
+uint32_t rf_since = 0;
+bool rf_have_nonce = false;
+uint32_t rf_nonce = 0;
+uint32_t rf_nonce_at = 0;
+bool reply_is_rf = false;
 uint32_t reply_due = 0;
 
 uint32_t n_ok = 0, n_bad = 0, t_stats = 0, t_noise = 0;
@@ -61,9 +79,14 @@ void print_headers() {
   Serial.printf("%s,rssi_dbm,snr_db\n", fc::csv::event_header());
 }
 
+uint64_t utc_now_ms() {
+  return utc_base_ms ? static_cast<uint64_t>(utc_base_ms + static_cast<int64_t>(millis())) : 0;
+}
+
 void print_uplink() {
-  Serial.printf("# uplink %s beep=%u sent=%lu\n", policy.enabled() ? "on" : "off", beep_period_s,
-                static_cast<unsigned long>(uplink_sent));
+  Serial.printf("# uplink %s beep=%u sent=%lu time=%s\n", policy.enabled() ? "on" : "off",
+                beep_period_s, static_cast<unsigned long>(uplink_sent),
+                utc_base_ms ? "set" : "unset");
 }
 
 void exec(char* line) {
@@ -76,11 +99,72 @@ void exec(char* line) {
     const long v = strtol(a, nullptr, 10);
     beep_period_s = static_cast<uint8_t>(v < 0 ? 0 : v > 255 ? 255 : v);
     print_uplink();
+  } else if (!strcmp(c, "time") && a) {
+    const unsigned long long v = strtoull(a, nullptr, 10);
+    if (v > 1577836800000ull) {  // after 2020-01-01
+      utc_base_ms = static_cast<int64_t>(v) - static_cast<int64_t>(millis());
+      print_uplink();
+    }
+  } else if (!strcmp(c, "rf") && a) {
+    const char* b = strtok_r(nullptr, " \t", &save);
+    rf_since = millis();
+    if (!strcmp(a, "arm") && b) {
+      const long ms = strtol(b, nullptr, 10);
+      if (ms < 1 || ms > fc::RemoteFire::kMaxPulseMs) {
+        Serial.println("# rf error: pulse must be 1..2000 ms");
+        return;
+      }
+      rf_pulse_ms = static_cast<uint16_t>(ms);
+      rf_kind = fc::tlm::UplinkKind::FireArm;
+      rf_have_nonce = false;
+      rf_pending = true;
+      Serial.printf("# rf queued arm %u ms\n", rf_pulse_ms);
+    } else if (!strcmp(a, "fire")) {
+      if (!rf_have_nonce || millis() - rf_nonce_at >= fc::RemoteFire::kWindowMs) {
+        Serial.println("# rf error: rocket is not armed (no REMOTE_ARMED received)");
+        return;
+      }
+      rf_kind = fc::tlm::UplinkKind::Fire;
+      rf_pending = true;
+      Serial.println("# rf queued fire");
+    } else if (!strcmp(a, "disarm")) {
+      rf_kind = fc::tlm::UplinkKind::FireDisarm;
+      rf_have_nonce = false;
+      rf_pending = true;
+      Serial.println("# rf queued disarm");
+    }
   } else if (!strcmp(c, "uplink") && a) {
     policy.set_enabled(!strcmp(a, "on"));
     print_uplink();
   } else {
-    Serial.println("# commands: beep <0..255 s>, uplink on|off, empty line = headers");
+    Serial.println("# commands: beep <0..255 s>, uplink on|off, time <unix ms>, empty line = headers");
+  }
+}
+
+void send_rf(uint32_t now) {
+  if (!duty.try_consume(now, uplink_airtime_us)) {
+    Serial.println("# rf error: radio duty-cycle budget exhausted, try again later");
+    return;
+  }
+  fc::tlm::Uplink u;
+  u.seq = uplink_seq++;
+  u.t_ms = now;
+  u.kind = rf_kind;
+  u.pulse_ms = rf_pulse_ms;
+  if (rf_kind == fc::tlm::UplinkKind::Fire) {
+    u.code = fc::remote_fire_code(rf_nonce, radio_cfg::kRemoteFireKey);
+    rf_have_nonce = false;  // one use
+  }
+  uint8_t buf[fc::tlm::kUplinkLen];
+  const size_t n = fc::tlm::encode(u, buf, sizeof(buf));
+  const char* what = rf_kind == fc::tlm::UplinkKind::FireArm ? "arm"
+                     : rf_kind == fc::tlm::UplinkKind::Fire  ? "fire"
+                                                             : "disarm";
+  if (radio.send(buf, n)) {
+    ++uplink_sent;
+    Serial.printf("# rf sent %s\n", what);
+  } else {
+    Serial.printf("# rf error: %s not sent (radio busy)\n", what);
   }
 }
 
@@ -90,6 +174,7 @@ void send_heartbeat(uint32_t now) {
   u.seq = uplink_seq++;
   u.t_ms = now;
   u.beep_period_s = beep_period_s;
+  u.utc_ms = utc_now_ms();
   uint8_t buf[fc::tlm::kUplinkLen];
   const size_t n = fc::tlm::encode(u, buf, sizeof(buf));
   if (radio.send(buf, n)) ++uplink_sent;
@@ -133,7 +218,15 @@ void loop() {
 
   if (reply_pending && !radio.busy() && now - reply_due < 0x80000000u) {
     reply_pending = false;
-    send_heartbeat(now);
+    if (reply_is_rf) {
+      send_rf(now);
+    } else {
+      send_heartbeat(now);
+    }
+  }
+  if (rf_pending && now - rf_since > kRfCommandTimeoutMs) {
+    rf_pending = false;
+    Serial.println("# rf error: no rocket frame heard within 5 s, command dropped");
   }
 
   uint8_t buf[64];
@@ -147,8 +240,29 @@ void loop() {
     if (!crc_error && fc::csv::format_frame(buf, n, line, sizeof(line))) {
       ++n_ok;
       // Byte 3 of every rocket frame is its flight state.
-      if (policy.on_rocket_frame(static_cast<fc::FlightState>(buf[3]), now)) {
+      const fc::FlightState rocket_state = static_cast<fc::FlightState>(buf[3]);
+      fc::tlm::Event ev;
+      if (fc::tlm::decode(buf, n, &ev) == fc::tlm::DecodeResult::Ok &&
+          ev.code == fc::EventCode::RemoteArmed) {
+        rf_nonce = static_cast<uint32_t>(ev.arg);
+        rf_nonce_at = now;
+        rf_have_nonce = true;
+        Serial.println("# rf rocket armed: send 'rf fire' within 10 s");
+      }
+      if (rf_pending && !reply_pending) {
+        rf_pending = false;
+        if (rocket_state == fc::FlightState::Pad ||
+            rf_kind == fc::tlm::UplinkKind::FireDisarm) {
+          reply_pending = true;
+          reply_is_rf = true;
+          reply_due = now + kReplyDelayMs;
+        } else {
+          Serial.printf("# rf error: rocket is in %s, not PAD: command dropped\n",
+                        fc::to_string(rocket_state));
+        }
+      } else if (policy.on_rocket_frame(rocket_state, now)) {
         reply_pending = true;
+        reply_is_rf = false;
         reply_due = now + kReplyDelayMs;
       }
       Serial.printf("%s,%.1f,%.2f\n", line, static_cast<double>(rssi), static_cast<double>(snr));

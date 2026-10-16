@@ -1,4 +1,4 @@
-// Telemetry / log / uplink frame format, version 3. The authoritative description is
+// Telemetry / log / uplink frame format, version 4. The authoritative description is
 // docs/TELEMETRY.md; keep the two in sync. The same frames are sent over LoRa
 // and (in future) written to the SD card, so one decoder reads both.
 //
@@ -16,7 +16,7 @@ namespace fc {
 namespace tlm {
 
 constexpr uint8_t kMagic = 0xA5;
-constexpr uint8_t kVersion = 3;  // 2: attitude quaternion; 3: ground link fields, uplink frame
+constexpr uint8_t kVersion = 4;  // 2: attitude; 3: ground link, uplink; 4: UTC in the uplink
 
 // Telemetry and Event: rocket -> ground (and the onboard log). Uplink: ground -> rocket.
 enum class FrameType : uint8_t { Telemetry = 1, Event = 2, Uplink = 3 };
@@ -35,7 +35,7 @@ enum Flags : uint8_t {
 constexpr size_t kHeaderLen = 10;
 constexpr size_t kTelemetryLen = 56;
 constexpr size_t kEventLen = 17;
-constexpr size_t kUplinkLen = 14;
+constexpr size_t kUplinkLen = 22;
 constexpr size_t kMaxFrameLen = kTelemetryLen;
 
 // Engineering-unit view of a telemetry frame. Encoding quantizes to the units
@@ -61,14 +61,28 @@ struct Telemetry {
 
 enum LinkBits : uint8_t {
   kLinkGroundHeard = 1 << 0,  // a ground heartbeat arrived within the timeout
+  kLinkTimeSynced = 1 << 1,   // the rocket knows real time (TIME_SYNC event logged)
 };
 
-// Ground -> rocket heartbeat. It can only change the pad status beeps; the
-// rocket ignores it in flight. Header "state" byte is 0.
+// Ground -> rocket frames (fixed length, header "state" byte is 0). The rocket
+// ignores all of them in flight.
+enum class UplinkKind : uint8_t {
+  Heartbeat = 1,   // pad beep period + real time
+  FireArm = 2,     // remote test fire, step 1 (bench build only): pulse_ms
+  Fire = 3,        // step 2: code = fc::remote_fire_code(nonce, key), pulse_ms
+  FireDisarm = 4,  // cancel an armed remote test fire
+};
+
 struct Uplink {
   uint16_t seq = 0;
   uint32_t t_ms = 0;            // ground station clock
+  UplinkKind kind = UplinkKind::Heartbeat;
+  // Heartbeat
   uint8_t beep_period_s = 10;   // pad status beep period (0 = no pad beeps)
+  uint64_t utc_ms = 0;          // real time (Unix ms) when transmitted, 0 = unknown
+  // FireArm / Fire
+  uint32_t code = 0;
+  uint16_t pulse_ms = 0;
 };
 
 struct Event {

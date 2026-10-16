@@ -13,7 +13,7 @@ change must increment `kVersion`.
 | Modulation | LoRa SF7, BW 250 kHz, CR 4/5, 8-symbol preamble, explicit header, CRC on | |
 | Sync word | 0x12 (private; not LoRaWAN, not Meshtastic) | |
 | Power | 20 dBm | |
-| Airtime | telemetry 53.9 ms, event 25.7 ms, uplink heartbeat 23.2 ms | `fc::lora_airtime_us` |
+| Airtime | telemetry 53.9 ms, event 25.7 ms, uplink frame 28.3 ms | `fc::lora_airtime_us` |
 
 Both kits must be built from the same `radio_config.h`. Outside the EU change
 the frequency and duty limits to your local rules.
@@ -28,7 +28,7 @@ a 72 s burst allowance. Any one-hour window therefore contains at most
 72 s + 8 % × 3600 s = 360 s of transmission, the 10 % limit, while the
 flight itself can use the 5 Hz rate for about 6 minutes from a full bucket.
 The ground station applies the same limiter to its heartbeats (at most about
-one per second, 2.6 %).
+one per second, 3.1 %).
 When the budget is exhausted, telemetry is skipped (counted as "denied" in
 `status`) and queued events wait.
 
@@ -39,7 +39,7 @@ Header, 10 bytes, common to both frame types:
 | Offset | Type | Field |
 |---|---|---|
 | 0 | u8 | magic = 0xA5 |
-| 1 | u8 | version = 3 (2 added the attitude quaternion, 3 the ground link fields and the uplink frame) |
+| 1 | u8 | version = 4 (2: attitude quaternion; 3: ground link fields, uplink; 4: real time and remote fire in the uplink) |
 | 2 | u8 | type: 1 = telemetry, 2 = event (rocket → ground); 3 = uplink (ground → rocket) |
 | 3 | u8 | flight state (0 INIT, 1 FAULT, 2 PAD, 3 BOOST, 4 COAST, 5 DESCENT, 6 LANDED) |
 | 4 | u16 | sequence number (separate counters for radio and log; gaps on the radio = lost packets) |
@@ -66,7 +66,7 @@ Acceleration, rotation rate and magnetic field are in the **rocket frame**:
 | 40 | u16 | battery voltage | mV |
 | 42 | u8 | flags (below) | |
 | 43 | 4 × i16 | attitude quaternion w, x, y, z | 1/32767 |
-| 51 | u8 | link: bit 0 = ground station heartbeat heard within 5 s | |
+| 51 | u8 | link: bit 0 = ground station heartbeat heard within 5 s, bit 1 = real time known | |
 | 52 | i8 | heartbeat RSSI at the rocket (−128 = none) | dBm |
 | 53 | u8 | pad beep period in use (0 = silent) | s |
 | 54 | u16 | CRC | |
@@ -110,26 +110,68 @@ Flags: bit 0 igniter continuity, 1 pyro armed, 2 pyro fired, 3 IMU ok,
 | 15 | APOGEE_NO_DEPLOY | maximum altitude [cm] (below the minimum deploy altitude) |
 | 16 | BENCH_FIRE | pulse length [ms] (bench build only) |
 | 17 | GROUND_LINK | 1 = rocket hears the ground station, 0 = lost it |
+| 18 | TIME_SYNC | Unix seconds (unsigned) at exactly this event's t_ms |
+| 19 | REMOTE_ARMED | one-time nonce (remote test fire armed, bench build) |
+| 20 | REMOTE_DISARMED | reason (see Uplink) |
+| 21 | REMOTE_REFUSED | reason (see Uplink) |
 
-### Uplink frame (14 bytes, ground → rocket)
+### Uplink frames (22 bytes, ground → rocket)
 
-| Offset | Type | Field |
-|---|---|---|
-| 0–9 | | header; state byte = 0, time = ground station clock |
-| 10 | u8 | kind = 1 (heartbeat) |
-| 11 | u8 | pad beep period [s] (0 = silent) |
-| 12 | u16 | CRC |
+All uplink frames have the same length. Header state byte = 0, header time =
+ground station clock.
 
-The ground station answers a rocket frame with a heartbeat 15 ms after
-receiving it, at most once per 900 ms, and only while the rocket reports
-INIT, FAULT, PAD or LANDED (`fc::UplinkPolicy`). The rocket counts the
-ground station as heard for 5 s after each heartbeat (`fc::GroundLink`).
-The heartbeat only sets the pad beep period: it cannot arm, fire or change
-anything the flight logic uses, and the rocket ignores it in flight. It is not
-authenticated, which is acceptable for that reason.
+| Offset | Type | Heartbeat (kind 1) | Remote fire (kinds 2–4) |
+|---|---|---|---|
+| 10 | u8 | kind = 1 | 2 = arm, 3 = fire, 4 = disarm |
+| 11 | | u8 pad beep period [s] (0 = silent) | u32 code (fire only) |
+| 12 | | u64 real time when sent [Unix ms] (0 = unknown) | |
+| 15 | | | u16 pulse length [ms] |
+| 17 | | | 3 bytes zero |
+| 20 | u16 | CRC | CRC |
 
-Ground station USB commands: `beep <0..255>` (seconds), `uplink on|off`, an
-empty line re-prints the CSV headers. It reports `# uplink on beep=10 sent=N`.
+**Heartbeat.** The ground station answers a rocket frame with a heartbeat
+15 ms after receiving it, at most once per 900 ms, and only while the rocket
+reports INIT, FAULT, PAD or LANDED (`fc::UplinkPolicy`). The rocket counts the
+ground station as heard for 5 s after each heartbeat (`fc::GroundLink`). The
+heartbeat sets the pad beep period and gives the rocket real time; the rocket
+ignores it in flight.
+
+**Real time.** The UI sends the laptop clock to the ground kit (`time <ms>`),
+and to the flight computer when it is on USB. The first time the rocket
+receives in a boot (radio airtime compensated, a few ms accuracy) is logged as
+a TIME_SYNC event: at that event's `t_ms` it was exactly `arg` Unix seconds,
+so for every frame of that boot `utc_ms = arg × 1000 + (t_ms − event t_ms)`.
+Later times in the same boot are ignored, so timestamps never jump. The `dump`
+header also states it (`# clock utc0_ms N`: `utc_ms = N + t_ms`). Telemetry
+link bit 1 shows whether the rocket has real time.
+
+**Remote test fire (bench build only).** For ejection charge ground tests:
+
+1. ground → arm(pulse). The rocket checks: bench build, PAD state, igniter
+   continuity, output idle. If all hold, it picks a random 32-bit nonce, sends
+   REMOTE_ARMED(nonce), beeps continuously and blinks fast for 10 s;
+   otherwise REMOTE_REFUSED(reason).
+2. ground → fire(code, pulse) with `code = fc::remote_fire_code(nonce, key)`,
+   `key = radio_cfg::kRemoteFireKey`, within 10 s. The rocket checks the
+   conditions again, the code and the pulse length, then pulses the output once
+   (BENCH_FIRE event) or refuses. The nonce is used at most once.
+3. Timeout, disarm command, or a lost condition (arm link pulled, state
+   change) ends the arming (REMOTE_DISARMED(reason)).
+
+The flight build contains no remote firing code: it answers REMOTE_REFUSED(1).
+The code is a keyed hash, not cryptography: it stops accidental firing and
+other rocket-fc ground stations built with another key. The physical arm link
+remains the real safety. Change `kRemoteFireKey` in `include/radio_config.h`
+to your own number.
+
+Refusal / disarm reasons: 0 fired, 1 flight build, 2 not in PAD, 3 no
+continuity, 4 bad pulse length, 5 not armed, 6 wrong code, 7 window expired,
+8 cancelled, 9 output busy.
+
+Ground station USB commands: `beep <0..255>` (seconds), `uplink on|off`,
+`time <unix ms>`, `rf arm <ms>`, `rf fire`, `rf disarm`, an empty line
+re-prints the CSV headers. It reports `# uplink on beep=10 sent=N time=set`
+and `# rf ...` lines.
 
 ## CSV
 

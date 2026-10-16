@@ -34,6 +34,10 @@ const char* to_string(EventCode e) {
     case EventCode::ApogeeNoDeploy: return "APOGEE_NO_DEPLOY";
     case EventCode::BenchFire: return "BENCH_FIRE";
     case EventCode::GroundLink: return "GROUND_LINK";
+    case EventCode::TimeSync: return "TIME_SYNC";
+    case EventCode::RemoteArmed: return "REMOTE_ARMED";
+    case EventCode::RemoteDisarmed: return "REMOTE_DISARMED";
+    case EventCode::RemoteRefused: return "REMOTE_REFUSED";
   }
   return "?";
 }
