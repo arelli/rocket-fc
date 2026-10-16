@@ -102,11 +102,25 @@ void App::setup() {
 }
 
 void App::init_sensors() {
+  // List everything on the bus first: tells wiring faults from driver faults.
+  Serial.print("I2C bus:");
+  int found = 0;
+  for (uint8_t a = 1; a < 127; ++a) {
+    Wire.beginTransmission(a);
+    if (Wire.endTransmission() == 0) {
+      Serial.printf(" 0x%02X", a);
+      ++found;
+    }
+  }
+  Serial.println(found ? "  (MPU-9250 = 0x68/0x69, BMP280 = 0x76/0x77)" : " nothing (check SDA/SCL/3V3/GND)");
+
   if (imu_.begin(&Wire, 0x68) || imu_.begin(&Wire, 0x69)) {
     Serial.printf("IMU: %s (WHO_AM_I 0x%02X)%s\n", imu_.chip_name(), imu_.who_am_i(),
                   imu_.has_mag() ? " + AK8963 magnetometer" : ", no magnetometer");
+  } else if (imu_.who_am_i() != 0) {
+    Serial.printf("IMU: answered (WHO_AM_I 0x%02X) but could not be configured\n", imu_.who_am_i());
   } else {
-    Serial.println("IMU: not found");
+    Serial.println("IMU: not found at 0x68 or 0x69");
   }
   if (baro_.begin(&Wire)) {
     Serial.printf("Baro: %s at 0x%02X\n", baro_.chip_id() == 0x60 ? "BME280" : "BMP280",
