@@ -66,7 +66,7 @@ Acceleration, rotation rate and magnetic field are in the **rocket frame**:
 | 40 | u16 | battery voltage | mV |
 | 42 | u8 | flags (below) | |
 | 43 | 4 × i16 | attitude quaternion w, x, y, z | 1/32767 |
-| 51 | u8 | link: bit 0 = ground station heartbeat heard within 5 s, bit 1 = real time known | |
+| 51 | u8 | link: bit 0 = ground station heartbeat heard within 5 s, bit 1 = real time known, bit 2 = computer on USB (board powered and charging from USB) | |
 | 52 | i8 | heartbeat RSSI at the rocket (−128 = none) | dBm |
 | 53 | u8 | pad beep period in use (0 = silent) | s |
 | 54 | u16 | CRC | |

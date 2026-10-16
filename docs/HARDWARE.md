@@ -58,7 +58,9 @@ need D6/D7 (taken by the LED and SD CS) and shares the radio's reset line.
   built-in charger stops at 4.2 V. Seeed lists the charge current as 50 mA
   (XIAO ESP32-S3 spec) or 100 mA (kit page), so a full 700 mAh charge takes
   roughly 7–14 hours. The red LED on the XIAO shows charging. There is no
-  charge-status signal to the processor.
+  charge-status signal to the processor. The ground station UI infers charging from
+  telemetry: the USB-host flag (a computer is connected to the flight
+  computer's USB) and the voltage trend.
 - **While USB is connected**, the battery reading shows the charger voltage,
   not the cell's resting voltage.
 - **No over-discharge protection.** The XIAO has none, and the 18350 cell is

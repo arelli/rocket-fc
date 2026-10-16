@@ -27,3 +27,6 @@ First version: not yet flown.
   (TIME_SYNC event), so logs carry real timestamps.
 - Remote test fire by radio for ejection charge ground tests (bench build only,
   two-step arm/fire with one-time code, PAD + continuity required).
+- UI: warning when heartbeats are off (remote ARM needs them); battery panel
+  with charging indicator (USB-host flag in telemetry + voltage trend) and
+  voltage graph.

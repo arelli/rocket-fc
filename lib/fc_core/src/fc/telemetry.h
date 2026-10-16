@@ -62,6 +62,7 @@ struct Telemetry {
 enum LinkBits : uint8_t {
   kLinkGroundHeard = 1 << 0,  // a ground heartbeat arrived within the timeout
   kLinkTimeSynced = 1 << 1,   // the rocket knows real time (TIME_SYNC event logged)
+  kLinkUsbHost = 1 << 2,      // a computer is connected over USB (so it powers and charges)
 };
 
 // Ground -> rocket frames (fixed length, header "state" byte is 0). The rocket

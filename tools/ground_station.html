@@ -132,6 +132,7 @@
     <div id="state" class="state">—</div>
     <table class="kv" id="readouts"></table>
     <div class="flags" id="flags"></div>
+    <div class="flags"><span id="chg-pill" class="pill">battery: —</span></div>
   </section>
 
   <section class="panel c5">
@@ -151,14 +152,33 @@
         <label>pad beeps every <input type="number" id="up-beep" min="0" max="255" style="width:64px"> s (0 = silent)</label>
         <button id="btn-up-apply">Apply</button>
       </div>
-      <div class="note">The rocket gives its pad status beeps only while it hears these heartbeats.
-        Settings are sent to the ground station kit; nothing else is ever transmitted to the rocket.</div>
+      <div id="up-warn" class="warnbox" hidden></div>
+      <div class="note">Heartbeats carry the pad beep period and the laptop's time. The rocket gives its pad
+        status beeps, sets its clock and accepts remote test fire only while it hears them.</div>
     </fieldset>
   </section>
 
   <section class="panel c12">
     <h2>Sensors</h2>
     <div class="gauges" id="gauges"></div>
+  </section>
+
+  <section class="panel c12" id="batt-panel">
+    <h2>Battery and charging (flight computer)</h2>
+    <div class="row" style="align-items:flex-start; gap:24px">
+      <div style="min-width:260px; flex:1">
+        <div id="chg-state" class="state">—</div>
+        <table class="kv" id="batt-readouts"></table>
+        <div class="note" style="margin-top:6px">The XIAO has no charge-status signal. "Charging" means a computer is
+          connected to the flight computer's USB with a cell present; "charged" means the voltage has stopped rising at about 4.2 V.
+          While charging, the voltage reads higher than the resting voltage, so the percentage reads high.
+          Charge current is 50–100 mA: a 700 mAh cell takes roughly 7–14 h.</div>
+      </div>
+      <div class="plot" style="flex:2; min-width:320px">
+        <div class="p-title"><span>Battery voltage [V], whole session</span></div>
+        <canvas id="batt-plot" style="height:200px"></canvas>
+      </div>
+    </div>
   </section>
 
   <section class="panel c12">
@@ -353,6 +373,51 @@ const COMMANDS = [
   { label: 'Sim + live pyro (bench)', cmd: 'sim live', bench: true,
     confirm: 'The pyro output WILL pulse at simulated apogee.\nOnly with a dummy load or bare nichrome, never a charge. Continue?' },
 ];
+
+// Battery panel readouts: [label, f(frame, track, charge) -> text]
+const BATT_READOUTS = [
+  ['Voltage', f => fmt(f.batt_v, 3) + ' V'],
+  ['Estimated charge', f => fmt(liionPercent(f.batt_v), 0) + ' %'],
+  ['Trend (last 10 min)', (f, t, c) => isFinite(c.slope) ? (c.slope >= 0 ? '+' : '') + fmt(c.slope, 3) + ' V/h' : 'collecting…'],
+  ['Time to full (rough)', (f, t, c) => c.toFull],
+  ['USB (computer)', f => (f.link & 4) ? 'connected' : 'not connected'],
+  ['Low / critical', () => '3.60 V / 3.40 V'],
+];
+const FULL_V = 4.17;
+
+// Voltage trend [V/h] by least squares over the last `window_s` of frames.
+function battTrend(frames, window_s) {
+  if (!frames.length) return NaN;
+  const tEnd = frames[frames.length - 1].t_ms / 1000;
+  let n = 0, sx = 0, sy = 0, sxx = 0, sxy = 0, tFirst = tEnd;
+  for (let i = frames.length - 1; i >= 0; i--) {
+    const f = frames[i], x = f.t_ms / 1000;
+    if (x < tEnd - window_s) break;
+    if (!(f.batt_v > 2.5)) continue;
+    n++; sx += x; sy += f.batt_v; sxx += x * x; sxy += x * f.batt_v; tFirst = x;
+  }
+  if (n < 20 || tEnd - tFirst < 120) return NaN;   // need 2 min of data
+  const d = n * sxx - sx * sx;
+  return d > 0 ? (n * sxy - sx * sy) / d * 3600 : NaN;
+}
+
+// Charging status from the USB flag, the voltage and its trend.
+function chargeState(t) {
+  const f = t.latest();
+  if (!f) return { label: '—', cls: '', slope: NaN, toFull: '—' };
+  const v = f.batt_v, usb = (f.link & 4) !== 0, slope = battTrend(t.frames, 600);
+  const c = { slope, toFull: '—' };
+  if (!(v > 2.5)) return Object.assign(c, { label: usb ? 'NO BATTERY (USB power)' : 'NO BATTERY', cls: 'warn' });
+  if (usb) {
+    if (v >= FULL_V && !(slope > 0.02)) return Object.assign(c, { label: 'CHARGED (on USB)', cls: 'ok' });
+    if (slope > 0.005) c.toFull = fmt(Math.max(0, (FULL_V - v) / slope), 1) + ' h';
+    return Object.assign(c, { label: 'CHARGING (USB)', cls: 'info' });
+  }
+  if (slope > 0.05) return Object.assign(c, { label: 'CHARGING? (voltage rising)', cls: 'info' });
+  if (v < 3.4) return Object.assign(c, { label: 'ON BATTERY: CRITICAL', cls: 'bad' });
+  if (v < 3.6) return Object.assign(c, { label: 'ON BATTERY: LOW', cls: 'warn' });
+  return Object.assign(c, { label: 'ON BATTERY', cls: '' });
+}
 
 const BAUD = 115200;
 const CONSOLE_MAX_LINES = 3000;
@@ -807,6 +872,7 @@ function buildUi() {
     b.onclick = () => { if (!c.confirm || confirm(c.confirm)) sendCommand(c.cmd); };
     c.btn = b; cmds.append(b);
   });
+  BATT_READOUTS.forEach(r => { const tr = el('tr'); tr.append(el('td', '', r[0]), r.valEl = el('td', 'num', '—')); $('batt-readouts').append(tr); });
   for (const [label, id] of [['Tilt from vertical', 'att-tilt'], ['Nose leans toward', 'att-lean'], ['Roll rate', 'att-roll'], ['Quaternion (w x y z)', 'att-q']]) {
     const tr = el('tr'); tr.append(el('td', '', label), el('td', 'num', '—')); tr.lastChild.id = id; $('att-readouts').append(tr);
   }
@@ -815,7 +881,48 @@ function buildUi() {
   }
 }
 
+const BATT_PLOT = { title: 'Battery [V]', series: [{ label: 'battery', get: f => (f.batt_v > 2.5 ? f.batt_v : NaN) }] };
+function renderBattery(t, f) {
+  const c = chargeState(t);
+  $('chg-state').textContent = c.label;
+  $('chg-state').className = 'state ' + c.cls;
+  $('chg-pill').textContent = f ? 'battery: ' + c.label.toLowerCase() : 'battery: —';
+  $('chg-pill').className = 'pill ' + c.cls + (c.label.startsWith('CHARGING') ? ' on' : '');
+  BATT_READOUTS.forEach(r => { r.valEl.textContent = f ? r[1](f, t, c) : '—'; });
+  BATT_PLOT.canvas = $('batt-plot');
+  drawPlot(BATT_PLOT, t.frames, 0);
+}
+
+// Heartbeats on? The ground kit's own report wins; before it reports, the checkbox.
+function heartbeatsOn() {
+  const u = tracks.radio.uplink;
+  if (u) return u.startsWith('uplink on');
+  return $('up-on').checked;
+}
+
+// Why ARM is not possible right now, in the order to fix them.
+function armBlockers(f, live, checks) {
+  const why = [];
+  if (!radioLink.open) why.push('connect the ground station');
+  else if (!f || !live) why.push('no recent data from the rocket');
+  if (radioLink.open && !heartbeatsOn()) why.push('heartbeats are off: tick "Send heartbeats" in the Radio link panel and click Apply');
+  else if (f && live && !(f.link & 1)) why.push('the rocket does not hear the ground station');
+  if (f && live && f.state !== 'PAD') why.push('rocket is in ' + f.state + ', must be PAD');
+  if (f && live && !(f.flags & 1)) why.push('no igniter continuity (arm link fitted?)');
+  if (!checks) why.push('tick every item of the checklist');
+  return why;
+}
+
+function renderUplinkWarning() {
+  const w = $('up-warn');
+  const off = radioLink.open && !heartbeatsOn();
+  w.hidden = !off;
+  if (off) w.textContent = 'Heartbeats are OFF. The rocket will not give its pad status beeps, will not get the real time, ' +
+    'and remote test fire is unavailable. Tick "Send heartbeats" and click Apply.';
+}
+
 function renderRemoteFire(f, live) {
+  renderUplinkWarning();
   const ok = radioLink.open && live && f;
   $('rf-state').textContent = f ? f.state + (live ? '' : ' (no recent data)') : '—';
   $('rf-cont').textContent = !f ? '—' : (f.flags & 1) ? 'yes' : 'NO';
@@ -833,7 +940,13 @@ function renderRemoteFire(f, live) {
   $('btn-rf-fire').disabled = !(ok && checks && rf.state === 'armed' && left > 0.5);
   $('btn-rf-disarm').disabled = !(radioLink.open && rf.state !== 'idle');
   const st = $('rf-status');
-  st.textContent = rf.state === 'armed' ? `ARMED: the rocket is beeping. FIRE within ${left.toFixed(1)} s, or Disarm.` : rf.msg;
+  let text = rf.msg;
+  if (rf.state === 'armed') text = `ARMED: the rocket is beeping. FIRE within ${left.toFixed(1)} s, or Disarm.`;
+  else if (rf.state === 'idle' && !(ready)) {
+    const why = armBlockers(f, live, checks);
+    if (why.length) text = (rf.msg && rf.msg !== 'Not armed.' ? rf.msg + '  ' : '') + 'ARM unavailable: ' + why.join('; ') + '.';
+  }
+  st.textContent = text;
   st.style.color = rf.state === 'armed' ? css('--bad') : '';
 }
 
@@ -865,6 +978,7 @@ function render() {
     uprssi: heard && f.up_rssi_dbm > -128 ? f.up_rssi_dbm : NaN };
   $('lk-heard').textContent = f ? (heard ? 'yes' : 'no') : '—';
   $('lk-heard').style.color = f ? (heard ? css('--ok') : css('--warn')) : '';
+  renderBattery(t, f);
   renderRemoteFire(tracks.radio.latest(), tracks.radio.lastRx && performance.now() - tracks.radio.lastRx < 3000);
   $('lk-clock').textContent = !f ? '—' : (f.link & 2) ? 'synced' : 'not synced';
   $('fire-cont').textContent = !f ? '—' : (f.flags & 1) ? 'yes (circuit closed)' : 'no (open or arm link out)';

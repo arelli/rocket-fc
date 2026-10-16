@@ -627,7 +627,8 @@ fc::tlm::Telemetry App::snapshot(uint32_t now) const {
   t.mag_uT = fc::to_rocket_frame(imu_s_.mag_uT, cfg::kImuUpAxis);
   t.q = imu_ok_ ? ahrs_.q() : fc::Quat{};
   t.link = static_cast<uint8_t>((ground_.connected(now) ? fc::tlm::kLinkGroundHeard : 0) |
-                                (clock_.synced() ? fc::tlm::kLinkTimeSynced : 0));
+                                (clock_.synced() ? fc::tlm::kLinkTimeSynced : 0) |
+                                (static_cast<bool>(Serial) ? fc::tlm::kLinkUsbHost : 0));
   t.uplink_rssi_dbm = ground_.rssi_dbm(now);
   t.beep_period_s = ground_.pad_beep_period_s(now);
   t.pressure_pa = pressure_pa_;
