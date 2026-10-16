@@ -284,6 +284,18 @@
         in memory only: every boot starts in flight mode, and a detected launch ends it. Switch it here (USB) or by
         radio in the Remote test fire panel.</div>
     </fieldset>
+    <fieldset id="flog-box">
+      <legend>Flash log (kept after power-off)</legend>
+      <div class="row">
+        <button id="btn-flog-list">List sessions</button>
+        <button id="btn-flog-erase" class="danger">Erase flash log…</button>
+        <span id="flog-info" class="note"></span>
+      </div>
+      <table class="list" id="flog-table" hidden><thead><tr><th>session</th><th>duration</th><th>frames</th><th>size</th><th></th></tr></thead>
+        <tbody id="flog-rows"></tbody></table>
+      <div class="note">Every boot is a session. The newest is this boot; the one before it is usually the flight
+        (if the computer was switched off after landing). Downloads are saved as CSV and shown as "log file".</div>
+    </fieldset>
     <fieldset id="fire-box">
       <legend>Test fire the pyro output (over USB, bench mode only)</legend>
       <div class="row">
@@ -458,7 +470,7 @@ const COMMANDS = [
   { label: 'I²C scan', cmd: 'i2c' },
   { label: 'CSV stream on', cmd: 'csv on' },
   { label: 'CSV stream off', cmd: 'csv off' },
-  { label: 'Download onboard log', cmd: 'dump' },
+  { label: 'Download RAM log (this boot)', cmd: 'dump' },
   { label: 'Clear onboard log', cmd: 'logclear', confirm: 'Erase the onboard flight log?' },
   { label: 'Reboot', cmd: 'reboot', confirm: 'Restart the flight computer? (It recalibrates on the pad.)' },
   { label: 'Beep', cmd: 'beep' },
@@ -789,6 +801,7 @@ const usbLink = new SerialLink('usb', line => {
   }
   if (line.startsWith('# onboard log')) { dumpLines = [line]; setMsg('Downloading onboard log…'); return; }
   if (paramLine('fc', line)) return;                // settings listing (Settings panel)
+  if (flogLine(line)) return;                       // flash log session list
   if (feed(tracks.usb, line, true)) return;         // "csv on" stream
   benchFromConsole(line);
   consoleAppend(line);
@@ -814,7 +827,8 @@ function setLinkState(which, s) {
 
 function finishDump() {
   const lines = dumpLines; dumpLines = null;
-  const name = 'onboard_' + stamp() + '.csv';
+  const m = /flash session (\d+)/.exec(lines[0]) || (/flash, all sessions/.test(lines[0]) ? [0, 'all'] : null);
+  const name = (m ? 'flash_session' + m[1] + '_' : 'onboard_') + stamp() + '.csv';
   download(name, lines.join('\n') + '\n');
   tracks.file.reset();
   let n = 0;
@@ -1082,6 +1096,7 @@ function renderRemoteFire(f, live) {
 
 function updateCommandButtons() {
   COMMANDS.forEach(c => { c.btn.disabled = !usbLink.open; });
+  $('btn-flog-list').disabled = $('btn-flog-erase').disabled = !usbLink.open;
   $('btn-send').disabled = !usbLink.open;
   $('btn-fire').disabled = !(usbLink.open && $('fire-safe').checked);
 }
@@ -1230,6 +1245,36 @@ function drawGpsTrack(gps, ref) {
   ctx.fillText('pad', cx + 7, cy + 12);
   const lp = pts[pts.length - 1];
   ctx.fillStyle = css('--bad'); ctx.beginPath(); ctx.arc(cx + lp.e * s, cy - lp.n * s, 4, 0, 2 * Math.PI); ctx.fill();
+}
+
+// ===========================================================================
+// Flash log sessions ("flog list")
+// ===========================================================================
+
+let flogSessions = [], flogCollecting = false;
+function flogLine(line) {
+  if (line.startsWith('# flash log:')) { flogSessions = []; flogCollecting = true; $('flog-info').textContent = line.slice(14); return false; }
+  if (line.startsWith('FLOG,')) {
+    const p = line.split(',').map(Number);
+    flogSessions.push({ session: p[1], sectors: p[2], frames: p[3], first: p[4], last: p[5], bytes: p[6] });
+    return true;
+  }
+  if (line === '# end of flash log list') { flogCollecting = false; renderFlog(); return false; }
+  return false;
+}
+function renderFlog() {
+  const tb = $('flog-rows'); tb.textContent = '';
+  $('flog-table').hidden = !flogSessions.length;
+  for (const s of flogSessions.slice().reverse()) {
+    const tr = el('tr');
+    const b = el('button', '', 'Download');
+    b.onclick = () => sendCommand('flog dump ' + s.session);
+    const dur = (s.last - s.first) / 1000;
+    tr.append(el('td', 'num', String(s.session)), el('td', 'num', dur >= 60 ? fmt(dur / 60, 1) + ' min' : fmt(dur, 0) + ' s'),
+      el('td', 'num', String(s.frames)), el('td', 'num', fmt(s.bytes / 1024, 0) + ' KB'), el('td', '', ''));
+    tr.lastChild.append(b);
+    tb.append(tr);
+  }
 }
 
 // ===========================================================================
@@ -1594,6 +1639,10 @@ $('btn-rf-fire').onclick = () => {
   document.querySelectorAll('.rf-check').forEach(c => { c.checked = false; });  // re-confirm next time
 };
 $('btn-rf-disarm').onclick = () => { radioLink.write('rf disarm'); rfSet('idle', 'Disarm sent.'); };
+$('btn-flog-list').onclick = () => sendCommand('flog list');
+$('btn-flog-erase').onclick = () => {
+  if (confirm('Erase EVERY session in the flash log?\nDownload the flights you want to keep first. Takes about a minute.')) sendCommand('flog erase CONFIRM');
+};
 $('btn-bench-on-usb').onclick = () => benchSet(true, 'usb');
 $('btn-bench-off-usb').onclick = () => benchSet(false, 'usb');
 $('btn-bench-on-radio').onclick = () => benchSet(true, 'radio');

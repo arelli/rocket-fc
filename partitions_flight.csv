@@ -1,0 +1,10 @@
+# Flight computer flash layout (8 MB XIAO ESP32-S3).
+# Same nvs (settings) and app location as the Arduino default_8MB.csv, so
+# stored settings survive the change. The second app slot and SPIFFS are
+# replaced by "flog": the persistent flight log (lib/fc_core/src/fc/flash_log.h).
+# Name,   Type, SubType,  Offset,   Size
+nvs,      data, nvs,      0x9000,   0x5000,
+otadata,  data, ota,      0xe000,   0x2000,
+app0,     app,  ota_0,    0x10000,  0x330000,
+flog,     data, 0x40,     0x340000, 0x4B0000,
+coredump, data, coredump, 0x7F0000, 0x10000,

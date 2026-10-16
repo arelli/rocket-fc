@@ -61,7 +61,10 @@ void App::console_exec(char* line, uint32_t now) {
         "  status          sensors, estimate, battery, pyro, radio\n"
         "  config          flight configuration in this firmware\n"
         "  csv on|off      stream telemetry as CSV at 10 Hz\n"
-        "  dump            print the onboard log as CSV (not in flight)\n"
+        "  dump            print the RAM log of this boot as CSV (not in flight)\n"
+        "  flog [list]     flash log sessions (kept after power-off)\n"
+        "  flog dump <n|all>   print flash log session n as CSV\n"
+        "  flog erase CONFIRM  erase the whole flash log (about a minute)\n"
         "  logclear        erase the onboard log (not in flight)\n"
         "  i2c             scan the I2C bus (not in flight)\n"
         "  time <unix ms>  set real time for the log (once per boot; the UI sends it)\n"
@@ -99,6 +102,8 @@ void App::console_exec(char* line, uint32_t now) {
     Serial.println("refused: in flight");
   } else if (!strcmp(cmd, "dump")) {
     dump_log();
+  } else if (!strcmp(cmd, "flog")) {
+    flog_command(a1, a2, now);
   } else if (!strcmp(cmd, "logclear")) {
     ram_log_.ring().clear();
     Serial.println("onboard log cleared");
@@ -217,6 +222,14 @@ void App::print_status(uint32_t now) {
   } else {
     Serial.println("gps        off (gps_mode)");
   }
+  if (flog_ok_) {
+    Serial.printf("flash log  session %lu  %lu KB written this boot  backlog %u frames  lost %lu  errors %lu\n",
+                  static_cast<unsigned long>(flog_.log().session()),
+                  static_cast<unsigned long>(flog_.log().bytes_written() / 1024), static_cast<unsigned>(flog_.backlog()),
+                  static_cast<unsigned long>(flog_.dropped()), static_cast<unsigned long>(flog_.log().errors()));
+  } else {
+    Serial.printf("flash log  %s\n", set_.flog_on ? "NOT AVAILABLE" : "off (flog_on)");
+  }
   Serial.printf("log        %s  %u / %u frames  overwritten %lu\n", ram_log_.name(),
                 static_cast<unsigned>(ram_log_.ring().count()),
                 static_cast<unsigned>(ram_log_.ring().capacity()),
@@ -306,6 +319,83 @@ void App::dump_log() {
     }
   }
   Serial.println("# end of log");
+}
+
+namespace {
+struct DumpCtx {
+  uint32_t session = 0;
+  uint32_t n = 0;
+  App* app = nullptr;
+};
+}  // namespace
+
+// Flash log: list sessions, print one (or all) as CSV, erase.
+void App::flog_command(const char* sub, const char* arg, uint32_t now) {
+  (void)now;
+  if (!flog_ok_) {
+    Serial.println(set_.flog_on ? "flash log not available (partition missing?)" : "flash log off (setting flog_on)");
+    return;
+  }
+  fc::FlashLog& log = flog_.log();
+  if (!sub || !strcmp(sub, "list")) {
+    flash_log_drain();
+    static fc::FlashLog::Session s[64];
+    const size_t n = log.list(s, 64);
+    Serial.printf("# flash log: %u KB, this boot is session %lu, %u session(s) stored, errors %lu\n",
+                  static_cast<unsigned>(log.sectors() * 4), static_cast<unsigned long>(log.session()),
+                  static_cast<unsigned>(n), static_cast<unsigned long>(log.errors()));
+    for (size_t i = 0; i < (n < 64 ? n : 64); ++i) {
+      Serial.printf("FLOG,%lu,%lu,%lu,%lu,%lu,%lu\n", static_cast<unsigned long>(s[i].session),
+                    static_cast<unsigned long>(s[i].sectors), static_cast<unsigned long>(s[i].frames),
+                    static_cast<unsigned long>(s[i].first_t_ms), static_cast<unsigned long>(s[i].last_t_ms),
+                    static_cast<unsigned long>(s[i].bytes));
+    }
+    if (n > 64) Serial.println("# (only the oldest 64 sessions listed)");
+    Serial.println("# end of flash log list");
+  } else if (!strcmp(sub, "dump")) {
+    const bool all = arg && !strcmp(arg, "all");
+    const uint32_t session = all ? 0 : (arg ? strtoul(arg, nullptr, 10) : 0);
+    if (!all && session == 0) {
+      Serial.println("usage: flog dump <session number>|all   (see 'flog list')");
+      return;
+    }
+    flash_log_drain();
+    if (all) {
+      Serial.printf("# onboard log: flash, all sessions, firmware %s\n", FC_GIT_REV);
+    } else {
+      Serial.printf("# onboard log: flash session %lu, firmware %s\n", static_cast<unsigned long>(session), FC_GIT_REV);
+    }
+    Serial.println(fc::csv::telemetry_header());
+    Serial.println(fc::csv::event_header());
+    Serial.println(fc::csv::gps_header());
+    DumpCtx ctx;
+    ctx.app = this;
+    log.read(session, [](void* c, uint32_t sess, const uint8_t* fr, size_t len) {
+      DumpCtx* d = static_cast<DumpCtx*>(c);
+      if (sess != d->session) {
+        d->session = sess;
+        Serial.printf("# session %lu\n", static_cast<unsigned long>(sess));
+      }
+      char line[fc::csv::kLineMax];
+      if (fc::csv::format_frame(fr, len, line, sizeof(line))) Serial.println(line);
+      if ((++d->n & 31) == 0) hal::watchdog_feed();
+      return true;
+    }, &ctx);
+    Serial.println("# end of log");
+  } else if (!strcmp(sub, "erase")) {
+    if (!arg || strcmp(arg, "CONFIRM") != 0) {
+      Serial.println("usage: flog erase CONFIRM   (erases every stored session)");
+      return;
+    }
+    Serial.println("erasing the flash log (about a minute)...");
+    log.erase_all([](void* c) {
+      hal::watchdog_feed();
+      static_cast<App*>(c)->pyro_tick();
+    }, this);
+    Serial.println("flash log erased");
+  } else {
+    Serial.println("usage: flog [list] | flog dump <n>|all | flog erase CONFIRM");
+  }
 }
 
 void App::start_sim(bool live, uint32_t now) {

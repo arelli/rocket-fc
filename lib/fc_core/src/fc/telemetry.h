@@ -1,6 +1,6 @@
 // Telemetry / log / uplink frame format, version 4. The authoritative description is
 // docs/TELEMETRY.md; keep the two in sync. The same frames are sent over LoRa
-// and (in future) written to the SD card, so one decoder reads both.
+// and written to the onboard logs (RAM and flash), so one decoder reads both.
 //
 // Common header (10 bytes, little-endian):
 //   u8 magic=0xA5 | u8 version=1 | u8 type | u8 state | u16 seq | u32 t_ms

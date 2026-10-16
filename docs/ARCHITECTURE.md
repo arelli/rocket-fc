@@ -27,7 +27,7 @@ ignore `fc_hal`, so a core file that includes Arduino headers fails to build.
 
 ```
  MPU-9250 ─┐                           ┌─► PyroChannel (fire)
- BMP280  ──┼─► FlightComputer::tick ───┼─► events ─┬─► log sinks (PSRAM, later SD)
+ BMP280  ──┼─► FlightComputer::tick ───┼─► events ─┬─► log sinks (PSRAM, flash)
            │   (Estimator → SM)        │           └─► radio queue (priority)
            │                           └─► state ─► LED, beeps, RTC record
            └──────────────────────────────► snapshot ─► log (50 Hz in flight)
@@ -42,12 +42,12 @@ then resumes the flight.
 
 ## Extending
 
-**Add an SD card:** write `class SdLog : public hal::LogSink` (open a file
-in `begin`, buffer frames, write whole 512-byte blocks in `write_frame`, sync
-in `flush`), add it in `App::init_log()` with `add_sink()`. Frames are the
-same binary format; `fc::csv::format_frame` converts them. Keep writes
-short: `write_frame` runs in the 100 Hz loop (consider a FreeRTOS task with a
-queue if the card stalls).
+**Log storage:** every frame goes to each `hal::LogSink` (`App::init_log`).
+Two exist: `RamLog` (PSRAM ring, this boot) and `FlashLogSink` (queue in
+PSRAM + `fc::FlashLog` on the "flog" partition, written by
+`App::update_flash_log` only when a flash stall is harmless). Another store
+(e.g. an SD card, if a pin is freed) is one more `LogSink`. `write_frame` runs
+in the 100 Hz loop: it must only queue.
 
 **Add a sensor:** driver in `lib/fc_hal`, read it in `App::read_sensors`. If
 the flight logic should use it, extend `SmInput`/`Estimator` in `fc_core` with

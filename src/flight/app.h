@@ -32,6 +32,7 @@
 #include "hal/pyro_channel.h"
 #include "hal/radio_link.h"
 #include "hal/settings_store.h"
+#include "flash_log_sink.h"
 #include "ram_log.h"
 
 class App {
@@ -71,6 +72,9 @@ class App {
   void start_sag();
   void update_sag(uint32_t now);
   void init_gps();
+  void update_flash_log(uint32_t now);
+  void flash_log_drain();
+  void flog_command(const char* sub, const char* arg, uint32_t now);
   void poll_gps(uint32_t now);
   void update_gps(uint32_t now);
   fc::tlm::Gps gps_snapshot(uint32_t now) const;
@@ -99,6 +103,9 @@ class App {
   void i2c_scan();
   void dump_log();
   bool safe_to_interrupt() const;
+ public:
+  void pyro_tick() { pyro_.update(millis()); }  // keep pulse timing during long console work
+ private:
   void start_sim(bool live, uint32_t now);
 
   // --- hardware ----------------------------------------------------------------
@@ -150,8 +157,11 @@ class App {
   uint32_t t_ahrs_ = 0;
 
   // Log sinks: every telemetry/event frame goes to each of them.
-  // Onboard RAM log now; an SD card sink can be added next to it.
+  // RAM log (this boot) and flash log (kept after power-off).
   RamLog ram_log_;
+  FlashLogSink flog_;           // persistent copy in flash (flog_on)
+  bool flog_ok_ = false;
+  uint32_t t_flog_prep_ = 0;
   static constexpr size_t kMaxSinks = 4;
   hal::LogSink* sinks_[kMaxSinks] = {};
   size_t n_sinks_ = 0;

@@ -13,7 +13,7 @@ deployment, live LoRa telemetry and an onboard flight log.
 | Status LED, active buzzer | Continuous state and audible signals |
 | 1S Li-ion cell (18350) | Soldered to the XIAO battery pads, charged over the XIAO's USB-C |
 | L76K GPS (optional) | Recovery position, on D7; works with or without it |
-| SD card (future) | Software interface reserved; needs a free chip-select pin |
+| (no SD card) | Flights are logged to the XIAO's own flash, kept after power-off |
 
 > **Safety.** This drives a pyrotechnic charge. Read
 > [docs/FLIGHT_LOGIC.md](docs/FLIGHT_LOGIC.md) and run the whole bench
@@ -54,8 +54,10 @@ lib/fc_core/        hardware-independent logic (tested on the PC)
   fc/estimator      Kalman filter: altitude + velocity from baro + accel
   fc/telemetry      binary frame format (radio and log), CRC-16
   fc/settings       every tunable value: one table -> flash storage, "param" command, UI form
+  fc/flash_log      persistent flight log in the XIAO's flash (sessions, ring of sectors)
+  fc/gps            NMEA parser for the optional GPS
   fc/...            battery, radio duty cycle, LED/beep patterns, reset recovery, simulator
-lib/fc_hal/         drivers: MPU-9250, BMP280, SX1262, pyro channel, ADC, system
+lib/fc_hal/         drivers: MPU-9250, BMP280, SX1262, GPS UART, flash partition, pyro channel, ADC, system
 src/flight/         flight firmware (app.cpp = wiring of the above)
 src/ground/         ground station firmware
 test/               unit tests (pio test -e native)

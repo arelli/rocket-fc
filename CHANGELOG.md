@@ -47,3 +47,8 @@ First version: not yet flown.
   radio and in the log, link bits, GPS event, self-test warning or fault
   (gps_mode), clock from GPS time; UI GPS and recovery panel with distance
   and bearing from the pad and a track plot.
+- Persistent flight log in the XIAO's flash (4.8 MB "flog" partition, new
+  partition table; settings kept): sessions per boot, written only when a
+  flash stall is harmless (never between launch and deployment), sectors
+  erased ahead on the pad. Console `flog`; UI session list and download.
+  Replaces the SD card plan (D7 is the GPS input).

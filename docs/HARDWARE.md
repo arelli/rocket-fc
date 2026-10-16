@@ -15,7 +15,7 @@ If you change wiring, change that file and this document in the same commit.
 | D5 | 6 | I²C SCL | |
 | D6 | 43 | Status LED | Flickers briefly at boot (UART0 TX) |
 | D7 | 44 | GPS TX → UART1 RX | Optional L76K, receive only (below) |
-| D8 / D9 / D10 | 7 / 8 / 9 | SPI SCK / MISO / MOSI | Wio-SX1262 (an SD card could share it, but needs a free CS pin) |
+| D8 / D9 / D10 | 7 / 8 / 9 | SPI SCK / MISO / MOSI | Wio-SX1262 |
 | 3V3 | | Sensor supply | MPU-9250, BMP280 |
 | BAT+ / BAT− pads | | Battery | Underside of the XIAO |
 | B2B connector | 38–42 | Wio-SX1262 control | NSS 41, DIO1 39, RESET 42, BUSY 40, RF switch 38 |
@@ -46,7 +46,8 @@ the battery sense, the buzzer gate and the LED here. Wire it with four leads:
   wait for the fix on the pad.
 - The position is for recovery and the log only; the flight logic never uses it.
 - Console: `gps` (status), `gps raw on|off` (echo the NMEA sentences, for wiring checks).
-- With the GPS on D7 there is no pin left for an SD card's chip select.
+- With the GPS on D7 there is no pin left for an SD card's chip select: the
+  flight log is kept in the XIAO's flash instead.
 
 ## Power
 
@@ -179,14 +180,13 @@ The Wio-SX1262 plugs into the XIAO's B2B connector. Always attach the antenna
 before powering up: transmitting without an antenna can damage the radio.
 Settings: [docs/TELEMETRY.md](TELEMETRY.md).
 
-## SD card (future)
+## Flight log storage
 
-An SPI micro-SD module can share SCK/MISO/MOSI (D8–D10) with the radio, but
-needs its own CS pin: D7 is now the optional GPS input, so the GPS and an SD
-card exclude each other unless a pin is freed (e.g. the LED). In software: implement `hal::LogSink` (see
-[lib/fc_hal/src/hal/log_sink.h](../lib/fc_hal/src/hal/log_sink.h)) and register
-it in `App::init_log()`. Until then flights are logged to PSRAM (see
-[TELEMETRY.md](TELEMETRY.md#onboard-log)).
+Flights are logged to the XIAO's own flash (4.8 MB partition, kept after
+power-off) and to PSRAM; see [TELEMETRY.md](TELEMETRY.md#onboard-log). No SD
+card is needed. The flash layout is `partitions_flight.csv` (the settings in
+NVS stay where they were). An SD card would need a chip-select pin; with the
+GPS on D7 none is left.
 
 ## Parts list (besides the two kits and sensors)
 

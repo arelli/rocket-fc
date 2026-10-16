@@ -1,5 +1,6 @@
-// Fixed-slot ring buffer of telemetry/event frames: the onboard flight log
-// until an SD card is added. When full, the oldest frames are overwritten.
+// Fixed-slot ring buffer of telemetry/event/GPS frames: the onboard RAM log of
+// the current boot, and the queue in front of the flash log. When full, the
+// oldest frames are overwritten.
 // The memory is supplied by the caller (PSRAM on the XIAO ESP32-S3).
 #pragma once
 
@@ -20,6 +21,9 @@ class FrameRing {
 
   // Copies the i-th oldest frame; returns its length (0 if out of range).
   size_t get(size_t i, uint8_t* out, size_t cap) const;
+
+  // Removes the oldest frame and copies it out; returns its length (0 = empty).
+  size_t pop(uint8_t* out, size_t cap);
 
   void clear();
   size_t count() const { return count_; }

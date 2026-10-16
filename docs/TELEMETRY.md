@@ -221,15 +221,24 @@ every 2 s) and `# stats: ...` (every 10 s).
 
 ## Onboard log
 
-Until an SD card is fitted, every frame is also written to a 2 MB ring buffer
-in the XIAO's PSRAM: telemetry at 50 Hz in flight and 1 Hz otherwise, plus all
-events and (with the optional GPS) one GPS frame per position report. That holds about 11 minutes of flight-rate data; on the pad and after
-landing it lasts many hours before the oldest data is overwritten.
+Every frame (telemetry at 50 Hz in flight and 1 Hz otherwise, all events, and
+with the optional GPS one GPS frame per position report) goes to two logs:
 
-The log is lost when power is removed. After recovery: remove the arm link,
-**leave the main switch on**, connect USB and run
-`python tools/ground_station.py <port> --dump` (or type `dump` in the
-console).
+- **Flash log** (setting `flog_on`, default on): a 4.8 MB partition of the
+  XIAO's own flash, **kept after power-off**. Each boot is a session; when
+  full, the oldest sessions are overwritten. About 28 minutes of 50 Hz
+  flight data, or about a day at the pad rate. Writing flash stalls the
+  processor, so it never happens between launch and deployment: the flight
+  is queued in RAM (2.7 minutes at 50 Hz) and written under the parachute,
+  within a few seconds. On the pad, sectors are erased in advance.
+  Format: [lib/fc_core/src/fc/flash_log.h](../lib/fc_core/src/fc/flash_log.h).
+- **RAM log** (2 MB PSRAM, this boot only, lost at power-off): `dump`.
+
+After recovery: remove the arm link, then switch off whenever convenient.
+Connect USB; in the UI's Flight computer panel click **List sessions** and
+**Download** the flight session (usually the one before the current boot), or
+type `flog list` / `flog dump <session>` in the console. `flog erase CONFIRM`
+clears the flash log.
 
 ## Settings protocol (USB console, both kits)
 

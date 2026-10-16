@@ -1,9 +1,8 @@
-// Onboard flight log in PSRAM (until an SD card is fitted).
+// Onboard log of the current boot in PSRAM (the flash log keeps it after power-off).
 //
 // Keeps the most recent frames (2 MB = 32,768 frames: about 11 minutes at
-// the 50 Hz flight rate, or many hours at the 1 Hz pad rate). The contents
-// survive as long as the computer stays powered: after recovery, connect USB
-// WITHOUT switching off and type "dump" in the serial console.
+// the 50 Hz flight rate) while powered ("dump"). The flash log (flash_log_sink.h)
+// keeps them after power-off ("flog").
 #pragma once
 
 #include <Arduino.h>

@@ -40,4 +40,11 @@ size_t FrameRing::get(size_t i, uint8_t* out, size_t cap) const {
   return len;
 }
 
+size_t FrameRing::pop(uint8_t* out, size_t cap) {
+  if (count_ == 0) return 0;
+  const size_t len = get(0, out, cap);
+  --count_;
+  return len;
+}
+
 }  // namespace fc

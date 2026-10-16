@@ -231,7 +231,18 @@ void App::init_gps() {
 void App::init_log() {
   ram_log_.begin();
   add_sink(&ram_log_);
-  // Future: static SdLog sd_log_; if (sd_log_.begin(<free CS pin>)) add_sink(&sd_log_);
+  if (set_.flog_on) {
+    flog_ok_ = flog_.begin();
+    if (flog_ok_) {
+      add_sink(&flog_);
+      const size_t n = flog_.log().stored_sessions();
+      Serial.printf("Log: flash-log %u KB, session %lu, %u earlier session(s) stored ('flog')\n",
+                    static_cast<unsigned>(flog_.log().sectors() * 4), static_cast<unsigned long>(flog_.log().session()),
+                    static_cast<unsigned>(n));
+    } else {
+      Serial.println("Log: flash-log FAILED (no 'flog' partition: flash with this project's platformio.ini)");
+    }
+  }
   for (size_t i = 0; i < n_sinks_; ++i) {
     Serial.printf("Log: %s %s\n", sinks_[i]->name(), sinks_[i]->ok() ? "ok" : "FAILED");
   }
@@ -292,6 +303,7 @@ void App::loop() {
   }
 
   update_radio(now);
+  update_flash_log(now);
   update_indicators(now);
   console_poll(now);
   hal::watchdog_feed();
@@ -863,6 +875,34 @@ void App::handle_remote_fire(const fc::tlm::Uplink& u, uint32_t now) {
     }
     default:
       return;
+  }
+}
+
+// --- Persistent flash log -----------------------------------------------------------
+// Writing flash stalls the processor (page writes ~0.1-1 ms, a sector erase
+// tens of ms). It is done only when that cannot matter: never between launch
+// and deployment (BOOST, COAST, delayed charge pending), never during a pyro
+// pulse or its battery measurement. The queue (2.7 min at 50 Hz) holds the
+// flight meanwhile; it is written under the parachute. On the pad, sectors are
+// erased ahead so that writing in DESCENT rarely needs an erase.
+void App::update_flash_log(uint32_t now) {
+  if (!flog_ok_) return;
+  const FlightState s = fc_.state();
+  if (s == FlightState::Boost || s == FlightState::Coast || fc_.sm().deploy_pending() || pyro_.firing() ||
+      sag_active_)
+    return;
+  if (s == FlightState::Pad && now - t_flog_prep_ >= 1000) {
+    t_flog_prep_ = now;
+    if (flog_.prepare(64)) return;  // one erase per second at most; nothing more this round
+  }
+  flog_.service(2000, true);
+}
+
+void App::flash_log_drain() {
+  while (flog_ok_ && flog_.backlog() > 0) {
+    flog_.service(20000, true);
+    hal::watchdog_feed();
+    pyro_.update(millis());
   }
 }
 

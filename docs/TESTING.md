@@ -18,6 +18,8 @@ pio test -e native
 | `test_battery_indicators` | Battery thresholds and debounce, LED patterns, beep sequences |
 | `test_resume` | Flight record checksum and when to resume after a reset |
 | `test_log` | Onboard log ring buffer, CSV format, the default settings pass validation |
+| `test_flash_log` | Flash log on a simulated NOR flash: sessions, order, wrap-around, power loss mid-record, erase ahead |
+| `test_gps` | NMEA parsing (fix, no fix, corrupted data, midnight), GPS frame and CSV line |
 | `test_settings` | Settings table, ranges, text storage format, cross-checks, radio band rules, defaults = tested flight logic values |
 | `test_param_shell` | The `param` command: listing, editing, refusal in flight, saving |
 | `test_uplink` / `test_remote_fire` | Heartbeat, bench mode and remote fire frames, one-time codes |
@@ -111,6 +113,6 @@ At the pad (arm link OUT):
 
 After recovery:
 - [ ] Remove the arm link first (an unfired charge may still be live)
-- [ ] Listen to the altitude beeps; leave the main switch ON
-- [ ] Download the onboard log (`ground_station.py <port> --dump`), then switch off
+- [ ] Listen to the altitude beeps, then switch off
+- [ ] At home: UI → Flight computer → List sessions → Download the flight session (or `flog dump <n>`)
 - [ ] Recharge the cell

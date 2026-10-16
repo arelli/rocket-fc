@@ -141,6 +141,8 @@ enum ParamFlags : uint8_t {
     "Onboard log period in flight.") \
   X(U32, log_pad_ms,        "telemetry", 1000, 100, 60000, "ms", 0, "", \
     "Onboard log period on the ground.") \
+  X(Bool, flog_on,          "telemetry", 1, 0, 1, "", 0, "", \
+    "Keep the log in the XIAO's flash too (survives power-off). Never written between launch and deployment.") \
   X(Bool, buzzer_on,        "buzzer",   1, 0, 1, "", 0, "", \
     "Buzzer master switch. The remote test fire warning always sounds.") \
   X(Bool, beep_countdown,   "buzzer",   1, 0, 1, "", 0, "", \
