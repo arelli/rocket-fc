@@ -228,6 +228,7 @@ const EVENT_ARG = {
   SENSOR_LOST: a => ['IMU', 'MAG', 'BARO', 'RADIO'].filter((_, i) => a & (1 << i)).join(', '),
   BENCH_FIRE: a => a + ' ms pulse',
   GROUND_LINK: a => a ? 'rocket hears the ground station' : 'rocket lost the ground station',
+  RESTART: () => 'flight computer restarted: plots start over (all data stays in the saved log)',
 };
 const WARN_BITS = ['IMU missing', 'no magnetometer', 'radio failed', 'battery low', 'up axis not ~1 g', 'no backup timer'];
 function warnNames(a) { return WARN_BITS.filter((_, i) => a & (1 << i)).join(', '); }
@@ -357,7 +358,7 @@ class Track {
   constructor(name) { this.name = name; this.reset(); }
   reset() {
     this.frames = []; this.events = []; this.lastSeq = null; this.received = 0; this.lost = 0;
-    this.maxAlt = NaN; this.lastRx = 0; this.rxTimes = []; this.bad = 0; this.noise = NaN; this.stats = ''; this.uplink = ''; this.version++;
+    this.maxAlt = NaN; this.lastRx = 0; this.rxTimes = []; this.bad = 0; this.noise = NaN; this.stats = ''; this.uplink = ''; this.sessions = 0; this.version++;
   }
   // Telemetry and events share one sequence counter per link: gaps = lost frames.
   noteSeq(seq) {
@@ -367,7 +368,16 @@ class Track {
     }
     this.lastSeq = seq; this.received++;
   }
+  // The flight computer restarted (BOOT event, or its clock went backwards):
+  // start a new session so plots do not mix two time bases. Everything stays
+  // in the saved log; only the display starts over.
+  newSession(t_ms, state) {
+    this.frames = []; this.maxAlt = NaN; this.lastSeq = null; this.sessions++;
+    this.events.push({ seq: -1, t_ms, state, event: 'RESTART', arg: this.sessions });
+  }
   addFrame(f, live) {
+    const last = this.latest();
+    if (last && f.t_ms + 2000 < last.t_ms) this.newSession(f.t_ms, f.state);
     this.noteSeq(f.seq);
     if (!(f.alt_m <= this.maxAlt)) this.maxAlt = f.alt_m;
     this.frames.push(f);
@@ -375,7 +385,10 @@ class Track {
     if (live) { this.lastRx = performance.now(); this.rxTimes.push(this.lastRx); }
     this.version++;
   }
-  addEvent(e) { this.noteSeq(e.seq); this.events.push(e); this.version++; }
+  addEvent(e) {
+    if (e.event === 'BOOT' && this.frames.length) this.newSession(e.t_ms, e.state);
+    this.noteSeq(e.seq); this.events.push(e); this.version++;
+  }
   latest() { return this.frames[this.frames.length - 1]; }
   rateHz() {
     const now = performance.now();

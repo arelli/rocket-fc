@@ -392,6 +392,20 @@ static void test_config_validation() {
   TEST_ASSERT_NOT_NULL(validate(c));
 }
 
+// Before calibration (INIT) the estimate must stay at zero, whatever the IMU
+// reads: e.g. a board lying flat reads 0 g on the "up" axis, which integrated
+// would show a fast fall in telemetry.
+static void test_no_estimate_during_init() {
+  FlightComputer fc(default_config());
+  fc.begin(0);
+  for (uint32_t t = 10; t < 4000; t += kDt) {
+    fc.tick(t, true, 101325.0f, true, Vec3{0.0f, 0.0f, 1.0f});  // flat: up axis (X) reads 0 g
+    TEST_ASSERT_EQUAL_FLOAT(0.0f, fc.estimator().alt_m());
+    TEST_ASSERT_EQUAL_FLOAT(0.0f, fc.estimator().vel_mps());
+  }
+  TEST_ASSERT_FLOAT_WITHIN(1e-6f, 0.0f, fc.estimator().accel_up_g());
+}
+
 int main(int, char**) {
   UNITY_BEGIN();
   RUN_TEST(test_nominal_flight);
@@ -409,5 +423,6 @@ int main(int, char**) {
   RUN_TEST(test_reset_during_coast_resumes_and_deploys_once);
   RUN_TEST(test_reset_after_deploy_never_fires_again);
   RUN_TEST(test_config_validation);
+  RUN_TEST(test_no_estimate_during_init);
   return UNITY_END();
 }

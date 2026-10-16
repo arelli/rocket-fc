@@ -37,7 +37,9 @@ SmOutput FlightComputer::tick(uint32_t t_ms, bool baro_ok, float p, bool imu_ok,
   if (sm_.state() == FlightState::Init) {
     const uint32_t el = t_ms - t_begin_;
     if (baro_ok && el + cfg_.calib_ms >= cfg_.settle_ms) est_.add_calibration_sample(p);
-    est_.update(dt, false, p, imu_ok, accel_g);  // no altitude until calibrated
+    // No altitude or velocity until calibrated: dt = 0 skips the integration
+    // (only the axial acceleration is updated, for the self-test).
+    est_.update(0.0f, false, p, imu_ok, accel_g);
     return SmOutput{};
   }
 
