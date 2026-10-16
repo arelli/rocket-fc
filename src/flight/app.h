@@ -107,6 +107,7 @@ class App {
   uint16_t imu_fail_run_ = 0, baro_fail_run_ = 0;
   uint8_t lost_reported_ = 0;  // SensorBits already reported lost
   uint32_t baro_good_ = 0;     // successful baro reads since boot
+  uint32_t tick_n_ = 0;        // control ticks since boot
 
   // Calibration accumulators (INIT countdown)
   fc::Vec3 gyro_sum_;

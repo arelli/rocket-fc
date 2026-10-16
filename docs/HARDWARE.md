@@ -65,7 +65,7 @@ need D6/D7 (taken by the LED and SD CS) and shares the radio's reset line.
   most likely unprotected. The firmware is the only protection:
   - below 3.60 V: BATT_LOW event, LED low-battery pattern on the pad;
   - below 3.40 V for 3 s: BATT_CRITICAL event; if this persists for 30 s on
-    the pad, in FAULT or after landing (never in flight), the computer puts
+    the pad, in FAULT or after landing (never in flight, never while a computer is connected over USB), the computer puts
     the sensors and radio to sleep and enters deep sleep.
   - Deep sleep reduces the drain about 100-fold but does not stop it.
     **Switch off promptly after recovery** and recharge before storage.

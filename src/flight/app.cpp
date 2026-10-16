@@ -263,28 +263,40 @@ void App::read_sensors(uint32_t now) {
   (void)now;
 #endif
 
+  // Report a sensor as lost after 0.5 s of consecutive failures, once per
+  // outage. A lost sensor is retried only every 10th tick, so a disconnected
+  // device (I2C timeouts) cannot slow the control loop down.
+  constexpr uint16_t kLostTicks = 50;
+  ++tick_n_;
+  const bool retry_tick = (tick_n_ % 10) == 0;
+  auto bump = [](uint16_t run, bool ok) -> uint16_t {
+    return ok ? 0 : static_cast<uint16_t>(run < 0xFFFF ? run + 1 : run);
+  };
+
   if (imu_.chip() != hal::Mpu9250::Chip::None) {
-    imu_ok_ = imu_.read(&imu_s_);
-    imu_fail_run_ = imu_ok_ ? 0 : static_cast<uint16_t>(imu_fail_run_ + 1);
+    if (imu_fail_run_ < kLostTicks || retry_tick) {
+      imu_ok_ = imu_.read(&imu_s_);
+      imu_fail_run_ = bump(imu_fail_run_, imu_ok_);
+    }
   } else {
     imu_ok_ = false;
   }
 
   if (baro_.ok()) {
-    float p, t;
-    baro_ok_ = baro_.read(&p, &t);
-    if (baro_ok_) {
-      pressure_pa_ = p;
-      temp_c_ = t;
-      ++baro_good_;
+    if (baro_fail_run_ < kLostTicks || retry_tick) {
+      float p, t;
+      baro_ok_ = baro_.read(&p, &t);
+      if (baro_ok_) {
+        pressure_pa_ = p;
+        temp_c_ = t;
+        ++baro_good_;
+      }
+      baro_fail_run_ = bump(baro_fail_run_, baro_ok_);
     }
-    baro_fail_run_ = baro_ok_ ? 0 : static_cast<uint16_t>(baro_fail_run_ + 1);
   } else {
     baro_ok_ = false;
   }
 
-  // Report a sensor as lost after 0.5 s of consecutive failures, once per outage.
-  constexpr uint16_t kLostTicks = 50;
   auto check = [&](uint16_t run, uint8_t bit) {
     if (run >= kLostTicks && !(lost_reported_ & bit)) {
       lost_reported_ |= bit;
@@ -425,7 +437,10 @@ void App::update_battery(uint32_t now) {
   }
 
   // The XIAO has no over-discharge cutoff: protect the cell when it is safe to.
-  const bool safe = !in_flight(fc_.state()) && !pyro_.firing() && !simulating();
+  // Never while a computer is connected over USB: it is on the bench, and
+  // without a cell the charger output on BAT+ can read as a flat battery.
+  const bool usb_host = static_cast<bool>(Serial);
+  const bool safe = !in_flight(fc_.state()) && !pyro_.firing() && !simulating() && !usb_host;
   if (batt_.level() == fc::BatteryMonitor::Level::Critical && safe) {
     if (!critical_timing_) {
       critical_timing_ = true;
