@@ -128,9 +128,12 @@ Use any visible 3 mm/5 mm LED.
 
 | Board | VCC | GND | SDA | SCL | Other |
 |---|---|---|---|---|---|
-| MPU-9250 (GY-9250 style) | 3V3 | GND | D4 | D5 | AD0 → GND (address 0x68); NCS → 3V3 if the board leaves it floating |
-| BMP280 "5 V" board | **3V3** (not 5V: dead on battery) | GND | D4 | D5 | SDO → GND or open (0x76/0x77 both work) |
+| MPU-9250 (SparkFun breakout, no regulator) | 3V3 | GND | D4 | D5 | CS → 3V3, FSYNC → GND; AD0, INT open (0x68 via SJ2) |
+| GY-BMP280-5V (4 pins) | **3V3**, never 5V | GND | D4 | D5 | Nothing else: regulator, level shifter, pull-ups and address are on the board |
 
+- The GY-BMP280-5V board's 10k pull-ups go to its VCC pin. At VCC = 5 V they
+  would pull SDA/SCL to 5 V, above the ESP32-S3's 3.6 V limit; at 3V3 its
+  662K regulator simply passes ~3.2 V through to the sensor.
 - The firmware identifies the IMU chip from WHO_AM_I. Many "MPU-9250" boards
   carry an MPU-6500 (no magnetometer); the boot message and `status` say which
   you have. Everything works without the magnetometer.
