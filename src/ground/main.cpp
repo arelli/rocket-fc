@@ -23,7 +23,12 @@
 //   param ...       radio settings of this kit (same as the flight computer's
 //                   "param", radio group only); they apply after "reboot"
 //   reboot          restart this kit
+//   wifi [on|off | ssid <name> | pass <8..63 chars> | channel <1..13>]
+//                   WiFi access point serving the UI (src/ground/web.h); applies after reboot
 //   (empty line)    re-print the CSV headers
+//
+// Everything printed goes to USB and, when WiFi is on, to every browser
+// connected over WiFi; commands are accepted from both.
 //
 // tools/ground_station.html shows and controls all of this.
 #include <Arduino.h>
@@ -41,8 +46,37 @@
 #include "hal/radio_link.h"
 #include "hal/settings_store.h"
 #include "radio_config.h"
+#include "web.h"
 
 namespace {
+
+// Output to USB and to the WiFi browsers, line by line.
+class Tee : public Print {
+ public:
+  size_t write(uint8_t c) override {
+    Serial.write(c);
+    if (c == '\n') {
+      size_t n = len_;
+      while (n && line_[n - 1] == '\r') --n;
+      web::publish(line_, n);
+      len_ = 0;
+    } else if (len_ < sizeof(line_)) {
+      line_[len_++] = static_cast<char>(c);
+    }
+    return 1;
+  }
+  size_t write(const uint8_t* b, size_t n) override {
+    for (size_t i = 0; i < n; ++i) write(b[i]);
+    return n;
+  }
+
+ private:
+  char line_[256];
+  size_t len_ = 0;
+};
+Tee out;
+web::Config wifi;
+bool wifi_up = false;
 
 // Delay between receiving a rocket frame and replying, so the rocket has
 // certainly switched back to receive (it does so right after transmitting).
@@ -84,15 +118,59 @@ float last_rssi = 0, last_snr = 0;
 char cmd[112];
 size_t cmd_len = 0;
 
+// The password is printed only on request ("wifi"), so it does not end up in saved logs.
+void print_wifi(bool with_pass = false) {
+  if (!wifi.on) {
+    out.println("# wifi off");
+    return;
+  }
+  out.printf("# wifi %s ssid=%s%s%s channel=%u ip=192.168.4.1 url=http://rocketfc.local clients=%d\n",
+             wifi_up ? "on" : "failed", wifi.ssid, with_pass ? " pass=" : "", with_pass ? wifi.pass : "",
+             wifi.channel, web::clients());
+}
+
+void wifi_command(const char* a, const char* b) {
+  web::Config c = wifi;
+  const char* err = nullptr;
+  if (!a) {
+    print_wifi(true);
+    return;
+  } else if (!strcmp(a, "on") || !strcmp(a, "off")) {
+    c.on = !strcmp(a, "on");
+  } else if (!strcmp(a, "ssid")) {
+    err = web::check_ssid(b);
+    if (!err) strncpy(c.ssid, b, sizeof(c.ssid) - 1);
+  } else if (!strcmp(a, "pass")) {
+    err = web::check_pass(b);
+    if (!err) strncpy(c.pass, b, sizeof(c.pass) - 1);
+  } else if (!strcmp(a, "channel")) {
+    const long ch = b ? strtol(b, nullptr, 10) : 0;
+    if (ch < 1 || ch > 13) err = "channel must be 1..13";
+    else c.channel = static_cast<uint8_t>(ch);
+  } else {
+    err = "usage: wifi [on|off | ssid <name> | pass <8..63 chars> | channel <1..13>]";
+  }
+  if (err) {
+    out.printf("# wifi error: %s\n", err);
+    return;
+  }
+  if (!web::save_config(c)) {
+    out.println("# wifi error: could not save");
+    return;
+  }
+  out.printf("# wifi saved (on=%u ssid=%s channel=%u): applies after 'reboot'\n", c.on ? 1u : 0u, c.ssid, c.channel);
+}
+
 void print_headers() {
-  Serial.printf("# rocket-fc ground station %s  %.3f MHz SF%lu BW%.1f sync 0x%02lX %ld dBm  settings crc %08lX\n",
+  out.printf("# rocket-fc ground station %s  %.3f MHz SF%lu BW%.1f sync 0x%02lX %ld dBm  settings crc %08lX\n",
                 FC_GIT_REV, static_cast<double>(set.radio_freq_mhz), static_cast<unsigned long>(set.radio_sf),
                 static_cast<double>(fc::radio_bw_khz(set)), static_cast<unsigned long>(set.radio_sync),
                 static_cast<long>(set.radio_power_dbm), static_cast<unsigned long>(fc::settings_crc(set)));
-  if (!settings_ok) Serial.printf("# ERROR: radio settings invalid (%s): running on the defaults\n", settings_problem);
-  Serial.printf("%s,rssi_dbm,snr_db\n", fc::csv::telemetry_header());
-  Serial.printf("%s,rssi_dbm,snr_db\n", fc::csv::event_header());
-  Serial.printf("%s,rssi_dbm,snr_db\n", fc::csv::gps_header());
+  if (!settings_ok) out.printf("# ERROR: radio settings invalid (%s): running on the defaults\n", settings_problem);
+  out.printf("%s,rssi_dbm,snr_db\n", fc::csv::telemetry_header());
+  out.printf("%s,rssi_dbm,snr_db\n", fc::csv::event_header());
+  out.printf("%s,rssi_dbm,snr_db\n", fc::csv::gps_header());
+  print_wifi();
 }
 
 uint64_t utc_now_ms() {
@@ -100,12 +178,12 @@ uint64_t utc_now_ms() {
 }
 
 void print_uplink() {
-  Serial.printf("# uplink %s beep=%u sent=%lu time=%s\n", policy.enabled() ? "on" : "off",
+  out.printf("# uplink %s beep=%u sent=%lu time=%s\n", policy.enabled() ? "on" : "off",
                 beep_period_s, static_cast<unsigned long>(uplink_sent),
                 utc_base_ms ? "set" : "unset");
 }
 
-void serial_line(void*, const char* line) { Serial.println(line); }
+void serial_line(void*, const char* line) { out.println(line); }
 bool store_text(void* ctx, const char* text, size_t len) {
   return static_cast<hal::SettingsStore*>(ctx)->save(text, len);
 }
@@ -143,8 +221,10 @@ void exec(char* line) {
     print_headers();
   } else if (!strcmp(c, "param")) {
     params.exec(argc - 1, argv + 1, true, serial_line, store_text, &store);
+  } else if (!strcmp(c, "wifi")) {
+    wifi_command(a, argv[2]);
   } else if (!strcmp(c, "reboot")) {
-    Serial.println("# rebooting");
+    out.println("# rebooting");
     Serial.flush();
     ESP.restart();
   } else if (!strcmp(c, "bench") && a && (!strcmp(a, "on") || !strcmp(a, "off"))) {
@@ -152,7 +232,7 @@ void exec(char* line) {
     rf_kind = fc::tlm::UplinkKind::BenchMode;
     rf_pulse_ms = !strcmp(a, "on") ? 1 : 0;
     rf_pending = true;
-    Serial.printf("# rf queued bench %s\n", a);
+    out.printf("# rf queued bench %s\n", a);
   } else if (!strcmp(c, "beep") && a) {
     const long v = strtol(a, nullptr, 10);
     beep_period_s = static_cast<uint8_t>(v < 0 ? 0 : v > 255 ? 255 : v);
@@ -169,40 +249,40 @@ void exec(char* line) {
     if (!strcmp(a, "arm") && b) {
       const long ms = strtol(b, nullptr, 10);
       if (ms < 1 || ms > fc::RemoteFire::kMaxPulseMs) {
-        Serial.println("# rf error: pulse must be 1..2000 ms");
+        out.println("# rf error: pulse must be 1..2000 ms");
         return;
       }
       rf_pulse_ms = static_cast<uint16_t>(ms);
       rf_kind = fc::tlm::UplinkKind::FireArm;
       rf_have_nonce = false;
       rf_pending = true;
-      Serial.printf("# rf queued arm %u ms\n", rf_pulse_ms);
+      out.printf("# rf queued arm %u ms\n", rf_pulse_ms);
     } else if (!strcmp(a, "fire")) {
       if (!rf_have_nonce || millis() - rf_nonce_at >= fc::RemoteFire::kWindowMs) {
-        Serial.println("# rf error: rocket is not armed (no REMOTE_ARMED received)");
+        out.println("# rf error: rocket is not armed (no REMOTE_ARMED received)");
         return;
       }
       rf_kind = fc::tlm::UplinkKind::Fire;
       rf_pending = true;
-      Serial.println("# rf queued fire");
+      out.println("# rf queued fire");
     } else if (!strcmp(a, "disarm")) {
       rf_kind = fc::tlm::UplinkKind::FireDisarm;
       rf_have_nonce = false;
       rf_pending = true;
-      Serial.println("# rf queued disarm");
+      out.println("# rf queued disarm");
     }
   } else if (!strcmp(c, "uplink") && a) {
     policy.set_enabled(!strcmp(a, "on"));
     print_uplink();
   } else {
-    Serial.println("# commands: beep <0..255 s>, uplink on|off, time <unix ms>, rf arm <ms>|fire|disarm, "
-                   "bench on|off, param ..., reboot, empty line = headers");
+    out.println("# commands: beep <0..255 s>, uplink on|off, time <unix ms>, rf arm <ms>|fire|disarm, "
+                   "bench on|off, param ..., wifi ..., reboot, empty line = headers");
   }
 }
 
 void send_rf(uint32_t now) {
   if (!duty.try_consume(now, uplink_airtime_us)) {
-    Serial.println("# rf error: radio duty-cycle budget exhausted, try again later");
+    out.println("# rf error: radio duty-cycle budget exhausted, try again later");
     return;
   }
   fc::tlm::Uplink u;
@@ -224,9 +304,9 @@ void send_rf(uint32_t now) {
                                                                  : "disarm";
   if (radio.send(buf, n)) {
     ++uplink_sent;
-    Serial.printf("# rf sent %s\n", what);
+    out.printf("# rf sent %s\n", what);
   } else {
-    Serial.printf("# rf error: %s not sent (radio busy)\n", what);
+    out.printf("# rf error: %s not sent (radio busy)\n", what);
   }
 }
 
@@ -253,6 +333,8 @@ void setup() {
                                pins::kLoraNss,  pins::kLoraDio1,  pins::kLoraReset,
                                pins::kLoraBusy, pins::kLoraRfSw};
   load_settings();
+  wifi = web::load_config();
+  wifi_up = web::begin(wifi);
   const hal::RadioLink::Params r{set.radio_freq_mhz,
                                  fc::radio_bw_khz(set),
                                  static_cast<uint8_t>(set.radio_sf),
@@ -267,10 +349,10 @@ void setup() {
   uplink_airtime_us = fc::lora_airtime_us(fc::lora_modulation(set), fc::tlm::kUplinkLen);
   duty.reset(millis());
   if (!radio.begin(p, r) || !radio.start_receive()) {
-    Serial.printf("# ERROR: radio init failed (RadioLib error %d)\n", radio.last_error());
+    out.printf("# ERROR: radio init failed (RadioLib error %d)\n", radio.last_error());
   } else {
     radio.set_listen(true);
-    Serial.println("# listening");
+    out.println("# listening");
   }
   print_uplink();
 }
@@ -289,7 +371,7 @@ void loop() {
   }
   if (rf_pending && now - rf_since > kRfCommandTimeoutMs) {
     rf_pending = false;
-    Serial.println("# rf error: no rocket frame heard within 5 s, command dropped");
+    out.println("# rf error: no rocket frame heard within 5 s, command dropped");
   }
 
   uint8_t buf[64];
@@ -310,7 +392,7 @@ void loop() {
         rf_nonce = static_cast<uint32_t>(ev.arg);
         rf_nonce_at = now;
         rf_have_nonce = true;
-        Serial.println("# rf rocket armed: send 'rf fire' within 10 s");
+        out.println("# rf rocket armed: send 'rf fire' within 10 s");
       }
       if (rf_pending && !reply_pending) {
         rf_pending = false;
@@ -324,7 +406,7 @@ void loop() {
           reply_is_rf = true;
           reply_due = now + kReplyDelayMs;
         } else {
-          Serial.printf("# rf error: rocket is in %s: command dropped\n",
+          out.printf("# rf error: rocket is in %s: command dropped\n",
                         fc::to_string(rocket_state));
         }
       } else if (policy.on_rocket_frame(rocket_state, now)) {
@@ -332,10 +414,10 @@ void loop() {
         reply_is_rf = false;
         reply_due = now + kReplyDelayMs;
       }
-      Serial.printf("%s,%.1f,%.2f\n", line, static_cast<double>(rssi), static_cast<double>(snr));
+      out.printf("%s,%.1f,%.2f\n", line, static_cast<double>(rssi), static_cast<double>(snr));
     } else {
       ++n_bad;
-      Serial.printf("# bad frame: %u bytes, %s, rssi %.1f snr %.2f\n", static_cast<unsigned>(n),
+      out.printf("# bad frame: %u bytes, %s, rssi %.1f snr %.2f\n", static_cast<unsigned>(n),
                     crc_error ? "LoRa CRC error" : "not a rocket-fc frame",
                     static_cast<double>(rssi), static_cast<double>(snr));
     }
@@ -350,18 +432,23 @@ void loop() {
       ++noise_n;
     }
     if (noise_n >= 20) {
-      Serial.printf("# noise %.1f\n", static_cast<double>(noise_sum / noise_n));
+      out.printf("# noise %.1f\n", static_cast<double>(noise_sum / noise_n));
       noise_sum = 0;
       noise_n = 0;
     }
   }
   if (now - t_stats >= 10000) {
     t_stats = now;
-    Serial.printf("# stats: %lu ok, %lu bad, last rssi %.1f dBm snr %.2f dB\n",
+    if (wifi.on) print_wifi();
+    out.printf("# stats: %lu ok, %lu bad, last rssi %.1f dBm snr %.2f dB\n",
                   static_cast<unsigned long>(n_ok), static_cast<unsigned long>(n_bad),
                   static_cast<double>(last_rssi), static_cast<double>(last_snr));
     print_uplink();
   }
+
+  // Commands from WiFi browsers, same as USB.
+  char wcmd[sizeof(cmd)];
+  while (web::poll_command(wcmd, sizeof(wcmd))) exec(wcmd);
 
   while (Serial.available() > 0) {
     const int c = Serial.read();

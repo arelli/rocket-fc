@@ -6,6 +6,9 @@
   no install, no build step. It talks to:
     - the ground station kit over USB (live LoRa telemetry), and
     - the flight computer over USB (console commands, onboard log download).
+  The ground station also serves this same file over its WiFi access point
+  (http://192.168.4.1): opened that way, the page reaches the ground station
+  over WiFi (Server-Sent Events + HTTP POST) instead of USB.
   It can also open saved CSV logs (ground station recordings, onboard dumps).
 
   To extend: almost everything shown is driven by the CONFIG tables at the top
@@ -166,6 +169,22 @@
     <h2>Radio link</h2>
     <div class="gauges" id="link-gauges" style="grid-template-columns: 1fr"></div>
     <table class="kv" id="link-readouts" style="margin-top:8px"></table>
+    <fieldset style="margin-top:10px" id="wifi-box">
+      <legend>Ground station WiFi</legend>
+      <div class="row"><span id="wifi-status" class="note">—</span></div>
+      <div class="row">
+        <label><input type="checkbox" id="wifi-on"> on</label>
+        <label>name <input type="text" id="wifi-ssid" style="width:120px" spellcheck="false"></label>
+        <label>password <input type="text" id="wifi-pass" style="width:120px" placeholder="unchanged" spellcheck="false"></label>
+      </div>
+      <div class="row">
+        <button id="btn-wifi-show">Show password</button>
+        <button id="btn-wifi-apply">Save and reboot ground station…</button>
+      </div>
+      <div class="note">With a power bank on the ground station: join this network on a phone or laptop and open
+        http://192.168.4.1 (or http://rocketfc.local). Needs the 2.4 GHz antenna on the XIAO's own connector.
+        Over WiFi the flight computer's USB features are not available.</div>
+    </fieldset>
     <fieldset style="margin-top:10px">
       <legend>Uplink to the rocket (heartbeat)</legend>
       <div class="row">
@@ -764,9 +783,33 @@ function handleGroundLine(track, line, live) {
   else if (line.startsWith('# stats')) track.stats = line.slice(2);
   else if (line.startsWith('# uplink')) track.uplink = line.slice(2);
   else if (line.startsWith('# clock utc0_ms')) track.utc0 = Number(line.split(/\s+/)[3]);
+  else if (live && line.startsWith('# wifi')) wifiOnLine(line);
   else if (live && line.startsWith('# ERROR')) setMsg('Ground station: ' + line.slice(2));
 }
-const radioLink = new SerialLink('radio', line => {
+// Served by the ground station over WiFi (http://192.168.4.1/) instead of opened as a file:
+// reach the ground station over HTTP (Server-Sent Events down, POST up).
+const VIA_WIFI = location.protocol === 'http:' || location.protocol === 'https:';
+class HttpLink {
+  constructor(name, onLine, onState) { this.name = name; this.onLine = onLine; this.onState = onState; this.es = null; this.ok = false; }
+  get open() { return this.ok; }
+  async connect() {
+    if (this.es) this.es.close();
+    this.ok = false;
+    this.onState('connecting…');
+    const es = new EventSource('/events');
+    this.es = es;
+    es.onopen = () => { this.ok = true; this.onState('connected'); };   // also after every automatic reconnect
+    es.onmessage = e => this.onLine(e.data);
+    es.onerror = () => { if (this.ok) { this.ok = false; this.onState('reconnecting…'); } };  // EventSource retries by itself
+  }
+  async write(text) {
+    if (!this.ok) return false;
+    try { await fetch('/cmd', { method: 'POST', body: text + '\n' }); return true; } catch (_) { return false; }
+  }
+  async close() { if (this.es) this.es.close(); this.es = null; this.ok = false; this.onState('not connected'); }
+}
+
+const radioLink = new (VIA_WIFI ? HttpLink : SerialLink)('radio', line => {
   radioLines.push(line); radioUnsaved = true;
   if (paramLine('gs', line)) return;
   handleGroundLine(tracks.radio, line, true);
@@ -817,10 +860,10 @@ const usbLink = new SerialLink('usb', line => {
 
 function setLinkState(which, s) {
   const pill = $(which === 'radio' ? 'st-radio' : 'st-usb');
-  const label = which === 'radio' ? 'radio: ' : 'USB: ';
+  const label = which === 'radio' ? (VIA_WIFI ? 'ground station (WiFi): ' : 'radio: ') : 'USB: ';
   pill.textContent = label + s;
   pill.className = 'pill ' + (s === 'connected' ? 'ok' : s.startsWith('error') || s === 'disconnected' ? 'bad' : '');
-  $(which === 'radio' ? 'btn-radio' : 'btn-usb').textContent =
+  $(which === 'radio' ? 'btn-radio' : 'btn-usb').textContent = which === 'radio' && VIA_WIFI ? 'Reconnect ground station' :
     (s === 'connected' ? 'Disconnect ' : 'Connect ') + (which === 'radio' ? 'ground station' : 'flight computer') + (s === 'connected' ? '' : '…');
   updateCommandButtons();
 }
@@ -1097,6 +1140,7 @@ function renderRemoteFire(f, live) {
 function updateCommandButtons() {
   COMMANDS.forEach(c => { c.btn.disabled = !usbLink.open; });
   $('btn-flog-list').disabled = $('btn-flog-erase').disabled = !usbLink.open;
+  $('btn-wifi-show').disabled = $('btn-wifi-apply').disabled = !radioLink.open;
   $('btn-send').disabled = !usbLink.open;
   $('btn-fire').disabled = !(usbLink.open && $('fire-safe').checked);
 }
@@ -1216,7 +1260,11 @@ function renderGps(t) {
     const a = $(id); if (url) a.href = url; else a.removeAttribute('href');
   }
   $('btn-gps-copy').disabled = !g;
-  $('btn-gps-copy').onclick = () => navigator.clipboard.writeText(q).then(() => setMsg('Position copied: ' + q), () => setMsg(q));
+  $('btn-gps-copy').onclick = () => {
+    // The clipboard API needs a secure context, which http://192.168.4.1 is not.
+    if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(q).then(() => setMsg('Position copied: ' + q), () => prompt('Position:', q));
+    else prompt('Position (copy it):', q);
+  };
   drawGpsTrack(gps, pad || g);
 }
 let gpsDrawKey = '';
@@ -1275,6 +1323,39 @@ function renderFlog() {
     tr.lastChild.append(b);
     tb.append(tr);
   }
+}
+
+// ===========================================================================
+// Ground station WiFi ("# wifi ..." lines, "wifi" commands)
+// ===========================================================================
+
+const wifiState = { known: false };
+function wifiOnLine(line) {
+  if (line.startsWith('# wifi saved') || line.startsWith('# wifi error')) { setMsg('Ground station: ' + line.slice(2)); return; }
+  const m = /^# wifi (\w+)(.*)$/.exec(line);
+  if (!m) return;
+  const kv = {};
+  for (const [, k, v] of m[2].matchAll(/(\w+)=(\S+)/g)) kv[k] = v;
+  Object.assign(wifiState, { known: true, status: m[1], ssid: kv.ssid, clients: kv.clients, channel: kv.channel });
+  if (kv.pass) wifiState.pass = kv.pass;
+  const st = m[1] === 'off' ? 'off' : `${m[1]}: network "${kv.ssid}", channel ${kv.channel}, ${kv.clients} browser(s) connected` +
+    (wifiState.pass ? `, password ${wifiState.pass}` : '');
+  $('wifi-status').textContent = st;
+  if (document.activeElement !== $('wifi-ssid') && kv.ssid) $('wifi-ssid').value = kv.ssid;
+  if (document.activeElement !== $('wifi-on')) $('wifi-on').checked = m[1] !== 'off';
+}
+async function wifiApply() {
+  const ssid = $('wifi-ssid').value.trim(), pass = $('wifi-pass').value.trim(), on = $('wifi-on').checked;
+  if (ssid && !/^[\x21-\x7e]{1,32}$/.test(ssid)) { setMsg('WiFi name: 1–32 characters, no spaces.'); return; }
+  if (pass && !/^[\x21-\x7e]{8,63}$/.test(pass)) { setMsg('WiFi password: 8–63 characters, no spaces.'); return; }
+  const warn = VIA_WIFI ? '\n\nYou are connected over this WiFi: the page loses the connection; join the network again (with the new name/password) and reload.' : '';
+  if (!confirm(`Save the WiFi settings and reboot the ground station?\n\nWiFi ${on ? 'on' : 'OFF'}, name "${ssid || wifiState.ssid}"${pass ? ', new password' : ''}.` + warn)) return;
+  await radioLink.write('wifi ' + (on ? 'on' : 'off'));
+  if (ssid && ssid !== wifiState.ssid) await radioLink.write('wifi ssid ' + ssid);
+  if (pass) await radioLink.write('wifi pass ' + pass);
+  $('wifi-pass').value = '';
+  radioLink.reconnectUntil = performance.now() + 20000;
+  setTimeout(() => radioLink.write('reboot'), 300);
 }
 
 // ===========================================================================
@@ -1614,7 +1695,7 @@ async function sendCommand(cmd) {
 }
 
 // --- wiring ---
-$('btn-radio').onclick = () => (radioLink.open ? radioLink.close(false) : radioLink.connect().catch(e => setMsg(e.message)));
+$('btn-radio').onclick = () => (VIA_WIFI ? radioLink.connect() : radioLink.open ? radioLink.close(false) : radioLink.connect().catch(e => setMsg(e.message)));
 $('btn-usb').onclick = () => (usbLink.open ? usbLink.close(false) : usbLink.connect().catch(e => setMsg(e.message)));
 $('btn-send').onclick = () => { const v = $('cmd').value.trim(); if (v) { sendCommand(v); $('cmd').value = ''; } };
 $('cmd').addEventListener('keydown', e => {
@@ -1640,6 +1721,8 @@ $('btn-rf-fire').onclick = () => {
 };
 $('btn-rf-disarm').onclick = () => { radioLink.write('rf disarm'); rfSet('idle', 'Disarm sent.'); };
 $('btn-flog-list').onclick = () => sendCommand('flog list');
+$('btn-wifi-show').onclick = () => radioLink.write('wifi');
+$('btn-wifi-apply').onclick = wifiApply;
 $('btn-flog-erase').onclick = () => {
   if (confirm('Erase EVERY session in the flash log?\nDownload the flights you want to keep first. Takes about a minute.')) sendCommand('flog erase CONFIRM');
 };
@@ -1692,7 +1775,14 @@ buildUi();
 updateCommandButtons();
 render();
 setInterval(render, RENDER_MS);
-if (!('serial' in navigator)) setMsg('Web Serial is not available in this browser: use Chrome or Edge. Log files can still be opened.');
+if (VIA_WIFI) {
+  radioLink.connect();
+  $('btn-usb').disabled = true;
+  $('st-usb').textContent = 'USB: not available over WiFi';
+  $('btn-usb').title = 'The flight computer USB link needs this file opened on a laptop (Web Serial).';
+} else if (!('serial' in navigator)) {
+  setMsg('Web Serial is not available in this browser: use Chrome or Edge. Log files can still be opened.');
+}
 </script>
 </body>
 </html>

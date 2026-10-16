@@ -6,3 +6,4 @@
 __pycache__/
 *.pyc
 logs/
+src/ground/ui_html_gz.h

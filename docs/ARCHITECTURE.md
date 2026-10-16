@@ -6,7 +6,7 @@
  include/          pins and fixed constants (data only)
      │
  src/flight/       App: reads sensors, calls the core, drives outputs        (thin, untested on PC)
- src/ground/       receive and print
+ src/ground/       receive and print; WiFi access point serving the UI (web.cpp, own task on core 0)
      │
  lib/fc_hal/       drivers: Mpu9250, Bmp280, RadioLink, PyroChannel,       (hardware-specific)
                    DigitalOut/AnalogIn, system (reset cause, RTC record,

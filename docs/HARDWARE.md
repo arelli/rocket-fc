@@ -180,6 +180,37 @@ The Wio-SX1262 plugs into the XIAO's B2B connector. Always attach the antenna
 before powering up: transmitting without an antenna can damage the radio.
 Settings: [docs/TELEMETRY.md](TELEMETRY.md).
 
+## Ground station WiFi
+
+The ground station is also a WiFi access point that serves the UI, so it can
+run from a USB power bank with a phone as the display. USB to a laptop keeps
+working at the same time (both see the same data and can send commands).
+
+- **Antenna:** fit the small 2.4 GHz antenna that came with the XIAO on the
+  XIAO's own U.FL connector (not the Wio-SX1262's: that one is LoRa). Without
+  it the WiFi range is about a metre.
+- **Join:** network `rocketfc-XXXX` (WPA2). The password is random, made at
+  the first boot; read it with `wifi` on the USB console or the UI's
+  "Show password" (Radio link panel), and change it there or with
+  `wifi pass <8..63 characters>`. Other commands: `wifi on|off`,
+  `wifi ssid <name>`, `wifi channel <1..13>`; they apply after a reboot.
+- **Open:** http://192.168.4.1 (always), http://rocketfc.local, or any http
+  address (captive portal). The access point has no internet: if the phone
+  asks, choose to stay connected.
+- **Over WiFi** everything that goes through the ground station works
+  (telemetry, plots, heartbeats, remote test fire, bench mode by radio, the
+  ground station's radio settings). The flight computer's USB features
+  (console, settings, flash log download) need the laptop with the UI opened as
+  a file: browsers allow USB (Web Serial) only there.
+- **Security:** anyone on the WiFi has the full UI, including the remote test
+  fire (which still needs bench mode, PAD, continuity and the two-step
+  arm/fire). Keep the password private.
+- **Power:** about 100-150 mA with WiFi on. Some power banks switch off below
+  a minimum current; this load is normally above it.
+- The UI served is `tools/ground_station.html`, embedded when the ground
+  station firmware is built (`tools/embed_ui.py`): after changing the UI,
+  reflash the ground station to update the WiFi copy.
+
 ## Flight log storage
 
 Flights are logged to the XIAO's own flash (4.8 MB partition, kept after

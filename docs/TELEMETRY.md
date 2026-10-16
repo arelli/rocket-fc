@@ -201,7 +201,12 @@ continuity, 4 bad pulse length, 5 not armed, 6 wrong code, 7 window expired,
 
 Ground station USB commands: `beep <0..255>` (seconds), `uplink on|off`,
 `time <unix ms>`, `rf arm <ms>`, `rf fire`, `rf disarm`, `bench on|off`,
-`param ...` (radio settings), `reboot`; an empty line re-prints the CSV headers. It reports `# uplink on beep=10 sent=N time=set`
+`param ...` (radio settings), `wifi ...`, `reboot`; an empty line re-prints the
+CSV headers.
+
+The same lines and commands are available over the ground station's WiFi
+(src/ground/web.h): `GET /events` streams every output line as Server-Sent
+Events (`data: <line>`), `POST /cmd` takes command lines; `GET /` serves the UI. It reports `# uplink on beep=10 sent=N time=set`
 and `# rf ...` lines.
 
 ## CSV

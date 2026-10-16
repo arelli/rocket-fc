@@ -52,3 +52,8 @@ First version: not yet flown.
   flash stall is harmless (never between launch and deployment), sectors
   erased ahead on the pad. Console `flog`; UI session list and download.
   Replaces the SD card plan (D7 is the GPS input).
+- Ground station WiFi access point (WPA2, random password on first boot):
+  serves the UI (embedded at build time) at http://192.168.4.1 /
+  rocketfc.local with a captive portal; Server-Sent Events + POST bridge the
+  same line protocol as USB, in a separate task so the radio loop never
+  waits. UI auto-detects it; WiFi settings box. USB keeps working alongside.

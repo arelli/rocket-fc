@@ -34,6 +34,10 @@ deployment, live LoRa telemetry and an onboard flight log.
    and the flight computer for its console. It also opens saved logs.
    Command-line alternative: `pip install pyserial`, then
    `python tools/ground_station.py COM5`.
+   **Without a laptop:** power the ground station from a power bank, join its
+   WiFi (`rocketfc-XXXX`; the password is printed by the `wifi` command over
+   USB) and open http://192.168.4.1 on a phone. Same UI, radio features only
+   (docs/HARDWARE.md, "Ground station WiFi").
 7. Unit tests on your computer: `pio test -e native` (needs a C++ compiler:
    on Windows install one, e.g. `scoop install gcc` or MSYS2).
 
@@ -59,7 +63,7 @@ lib/fc_core/        hardware-independent logic (tested on the PC)
   fc/...            battery, radio duty cycle, LED/beep patterns, reset recovery, simulator
 lib/fc_hal/         drivers: MPU-9250, BMP280, SX1262, GPS UART, flash partition, pyro channel, ADC, system
 src/flight/         flight firmware (app.cpp = wiring of the above)
-src/ground/         ground station firmware
+src/ground/         ground station firmware (main.cpp) and its WiFi access point / web UI server (web.cpp)
 test/               unit tests (pio test -e native)
 tools/              ground_station.html (UI), ground_station.py (CLI recorder), build_info.py
 docs/               hardware, flight logic, telemetry, indicators, testing
