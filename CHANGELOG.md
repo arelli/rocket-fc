@@ -57,3 +57,6 @@ First version: not yet flown.
   rocketfc.local with a captive portal; Server-Sent Events + POST bridge the
   same line protocol as USB, in a separate task so the radio loop never
   waits. UI auto-detects it; WiFi settings box. USB keeps working alongside.
+- UI: GPS indicator next to the sensor flags; GPS, Battery, Remote test fire
+  and Settings panels collapsible (collapsed at start) and can open in their
+  own window; Google satellite map of the last GPS fix (panel or window).

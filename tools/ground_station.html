@@ -109,6 +109,14 @@
     border: 1px solid var(--line); border-radius: 4px; font: 12px/1.35 var(--mono); white-space: pre-wrap; }
   .cmds { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; margin-bottom: 8px; }
   fieldset { border: 1px solid var(--line); border-radius: 4px; margin: 0 0 8px; padding: 6px 10px; }
+  .panel-head { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; }
+  .panel-head h2 { margin: 0; flex: 1; cursor: pointer; user-select: none; }
+  .panel-head h2::before { content: '\25BE  '; }
+  .panel.collapsed .panel-head h2::before { content: '\25B8  '; }
+  .panel.collapsed > :not(.panel-head) { display: none !important; }
+  .panel.collapsed .panel-head { margin: 0; }
+  button.mini { font-size: 12px; padding: 1px 8px; }
+  .popped-note { grid-column: span 12; }
   .bench-banner { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; padding: 8px 16px;
     background: var(--warn); color: var(--panel); font-weight: 600; position: sticky; top: 0; z-index: 5; }
   .bench-banner[hidden] { display: none; }
@@ -221,6 +229,12 @@
       <div class="plot" style="flex:2; min-width:320px">
         <div class="p-title"><span>Track relative to the pad [m], north up</span></div>
         <canvas id="gps-plot" style="height:260px"></canvas>
+        <div class="row" style="margin-top:8px">
+          <label><input type="checkbox" id="gps-map-on"> Satellite map of the last fix (Google, needs internet)</label>
+          <button id="btn-gps-map-win">Map window ↗</button>
+        </div>
+        <iframe id="gps-map" hidden title="Satellite map" referrerpolicy="no-referrer"
+          style="width:100%; height:320px; border:1px solid var(--line); border-radius:4px"></iframe>
       </div>
     </div>
   </section>
@@ -556,7 +570,22 @@ const RENDER_MS = 200;
 // Helpers
 // ===========================================================================
 
-const $ = id => document.getElementById(id);
+// Panels can be moved into their own windows (popOut): look there too.
+const popups = {};  // panel id -> { win, holder, node }
+const $ = id => document.getElementById(id) || popupGet(id);
+function popupGet(id) {
+  for (const k in popups) {
+    const w = popups[k].win;
+    if (w && !w.closed) { const e = w.document.getElementById(id); if (e) return e; }
+  }
+  return null;
+}
+// Dialogs appear in the window the user is working in.
+function dlgWin() {
+  for (const k in popups) { const w = popups[k].win; if (w && !w.closed && w.document.hasFocus()) return w; }
+  return window;
+}
+const ask = m => dlgWin().confirm(m), tell = m => dlgWin().alert(m), askText = (m, v) => dlgWin().prompt(m, v);
 function fmt(v, digits) { return (v === undefined || v === null || !isFinite(v)) ? '—' : Number(v).toFixed(digits); }
 function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; }
 function css(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
@@ -702,7 +731,7 @@ class SerialLink {
   constructor(name, onLine, onState) { this.name = name; this.onLine = onLine; this.onState = onState; this.port = null; }
   get open() { return this.port !== null; }
   async connect(knownPort) {
-    if (!('serial' in navigator)) { alert('This browser has no Web Serial support. Use Chrome or Edge.'); return; }
+    if (!('serial' in navigator)) { tell('This browser has no Web Serial support. Use Chrome or Edge.'); return; }
     const port = knownPort || await navigator.serial.requestPort();
     await port.open({ baudRate: BAUD });
     // Keep RTS low: on the ESP32-S3 USB serial, RTS high with DTR low resets the chip.
@@ -1043,6 +1072,7 @@ function buildUi() {
   READOUTS.forEach(r => { const tr = el('tr'); tr.append(el('td', '', r[0]), r.valEl = el('td', 'num', '—')); ro.append(tr); });
   const fl = $('flags');
   FLAGS.forEach(fg => { fg.el = el('span', 'pill', fg.name); fl.append(fg.el); });
+  fl.append(gpsPill = el('span', 'pill', 'GPS'));  // optional module: from the link byte
   GAUGES.forEach(g => makeGauge(g, $('gauges')));
   LINK_GAUGES.forEach(g => makeGauge(g, $('link-gauges')));
   PLOTS.forEach(p => makePlot(p, $('plots')));
@@ -1050,7 +1080,7 @@ function buildUi() {
   COMMANDS.forEach(c => {
     const b = el('button', c.confirm ? 'danger' : '', c.label);
     b.title = c.cmd + (c.bench ? '  (bench mode only)' : '');
-    b.onclick = () => { if (!c.confirm || confirm(c.confirm)) sendCommand(c.cmd); };
+    b.onclick = () => { if (!c.confirm || ask(c.confirm)) sendCommand(c.cmd); };
     c.btn = b; cmds.append(b);
   });
   BATT_READOUTS.forEach(r => { const tr = el('tr'); tr.append(el('td', '', r[0]), r.valEl = el('td', 'num', '—')); $('batt-readouts').append(tr); });
@@ -1071,6 +1101,7 @@ function renderBattery(t, f) {
   $('chg-pill').textContent = f ? 'battery: ' + c.label.toLowerCase() : 'battery: —';
   $('chg-pill').className = 'pill ' + c.cls + (c.label.startsWith('CHARGING') ? ' on' : '');
   BATT_READOUTS.forEach(r => { r.valEl.textContent = f ? r[1](f, t, c) : '—'; });
+  if (!panelOpen('batt-panel')) return;  // collapsed: nothing to draw
   BATT_PLOT.canvas = $('batt-plot');
   drawPlot(BATT_PLOT, t.frames, 0);
 }
@@ -1146,7 +1177,9 @@ function updateCommandButtons() {
 }
 
 let lastEventsKey = '';
+let gpsPill = null;
 function render() {
+  for (const k in popups) if (popups[k].win.closed) restorePanel(k);  // window closed without pagehide
   const t = currentTrack(), f = t.latest();
   const live = t.lastRx && performance.now() - t.lastRx < 3000;
   // flight panel
@@ -1158,6 +1191,9 @@ function render() {
     const on = f && (f.flags & (1 << fg.bit)) !== 0, cls = on ? fg.set : (fg.clear || '');
     fg.el.className = 'pill ' + cls + (on ? ' on' : '');
   });
+  const gData = f && (f.link & 16), gFix = f && (f.link & 32);
+  gpsPill.className = 'pill ' + (gFix ? 'ok on' : gData ? 'warn' : '');
+  gpsPill.title = gFix ? 'GPS: position fix' : gData ? 'GPS: receiving, no fix yet' : 'GPS: no data (no module, or gps_mode off)';
   // gauges
   const stale = !(live || t.name === 'file');
   GAUGES.forEach(g => setGauge(g, f ? g.get(f) : NaN, stale));
@@ -1262,10 +1298,37 @@ function renderGps(t) {
   $('btn-gps-copy').disabled = !g;
   $('btn-gps-copy').onclick = () => {
     // The clipboard API needs a secure context, which http://192.168.4.1 is not.
-    if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(q).then(() => setMsg('Position copied: ' + q), () => prompt('Position:', q));
-    else prompt('Position (copy it):', q);
+    if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(q).then(() => setMsg('Position copied: ' + q), () => askText('Position:', q));
+    else askText('Position (copy it):', q);
   };
-  drawGpsTrack(gps, pad || g);
+  updateGpsMap(g);
+  if (panelOpen('gps-panel')) drawGpsTrack(gps, pad || g);
+}
+
+// Google Maps satellite view of the last fix: an embedded map (no API key),
+// in the panel and/or a small window. Reloaded only when the fix moved > 15 m.
+function gmapUrl(g) { return `https://maps.google.com/maps?q=${g.lat.toFixed(7)},${g.lon.toFixed(7)}&t=k&z=18&output=embed`; }
+let mapAt = null, mapUrl = '', mapWin = null;
+function updateGpsMap(g) {
+  if (g && (!mapAt || Math.hypot(enu(mapAt, g).e, enu(mapAt, g).n) > 15)) { mapAt = g; mapUrl = gmapUrl(g); }
+  const fr = $('gps-map'), show = $('gps-map-on').checked && panelOpen('gps-panel');
+  fr.hidden = !show;
+  if (show && mapUrl && fr.getAttribute('src') !== mapUrl) fr.setAttribute('src', mapUrl);
+  if (mapWin && !mapWin.closed && mapUrl) {
+    const f2 = mapWin.document.getElementById('map');
+    if (f2 && f2.getAttribute('src') !== mapUrl) { f2.setAttribute('src', mapUrl); mapWin.document.getElementById('none').hidden = true; }
+  }
+}
+function openMapWindow() {
+  if (mapWin && !mapWin.closed) { mapWin.focus(); return; }
+  mapWin = window.open('', 'rocketfc_map', 'width=520,height=560');
+  if (!mapWin) { setMsg('Pop-up blocked: allow pop-ups for this page.'); return; }
+  mapWin.document.write('<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">' +
+    '<title>Rocket position (satellite)</title><style>html,body{margin:0;height:100%;font:14px system-ui,sans-serif}' +
+    'iframe{border:0;width:100%;height:100%}#none{padding:16px}</style>' +
+    '<div id="none">No GPS fix yet. The map follows the last fix (needs internet).</div><iframe id="map" referrerpolicy="no-referrer"></iframe>');
+  mapWin.document.close();
+  updateGpsMap(null);
 }
 let gpsDrawKey = '';
 function drawGpsTrack(gps, ref) {
@@ -1349,7 +1412,7 @@ async function wifiApply() {
   if (ssid && !/^[\x21-\x7e]{1,32}$/.test(ssid)) { setMsg('WiFi name: 1–32 characters, no spaces.'); return; }
   if (pass && !/^[\x21-\x7e]{8,63}$/.test(pass)) { setMsg('WiFi password: 8–63 characters, no spaces.'); return; }
   const warn = VIA_WIFI ? '\n\nYou are connected over this WiFi: the page loses the connection; join the network again (with the new name/password) and reload.' : '';
-  if (!confirm(`Save the WiFi settings and reboot the ground station?\n\nWiFi ${on ? 'on' : 'OFF'}, name "${ssid || wifiState.ssid}"${pass ? ', new password' : ''}.` + warn)) return;
+  if (!ask(`Save the WiFi settings and reboot the ground station?\n\nWiFi ${on ? 'on' : 'OFF'}, name "${ssid || wifiState.ssid}"${pass ? ', new password' : ''}.` + warn)) return;
   await radioLink.write('wifi ' + (on ? 'on' : 'off'));
   if (ssid && ssid !== wifiState.ssid) await radioLink.write('wifi ssid ' + ssid);
   if (pass) await radioLink.write('wifi pass ' + pass);
@@ -1357,6 +1420,65 @@ async function wifiApply() {
   radioLink.reconnectUntil = performance.now() + 20000;
   setTimeout(() => radioLink.write('reboot'), 300);
 }
+
+// ===========================================================================
+// Collapsible panels and panels in their own window
+// ===========================================================================
+
+const POP_PANELS = ['gps-panel', 'batt-panel', 'rf-panel', 'set-panel'];
+function panelOpen(id) { const p = $(id); return !!p && !p.classList.contains('collapsed'); }
+function setCollapsed(id, c) { $(id).classList.toggle('collapsed', c); gpsDrawKey = ''; settingsKey = ''; render(); }
+function setupPanels() {
+  for (const id of POP_PANELS) {
+    const p = $(id), h = p.querySelector(':scope > h2');
+    const head = el('div', 'panel-head');
+    h.replaceWith(head);
+    head.append(h);
+    const b = el('button', 'mini', 'Open in window ↗');
+    b.title = 'Show this panel in its own window (it stays live)';
+    b.onclick = e => { e.stopPropagation(); if (popups[id]) popups[id].win.close(); else popOut(id); };
+    head.append(b);
+    h.title = 'Click to show or hide';
+    h.onclick = () => setCollapsed(id, !p.classList.contains('collapsed'));
+    p.classList.add('collapsed');  // collapsed by default
+  }
+}
+// Moves the panel (with its live controls) into a new window; closing the
+// window puts it back.
+function popOut(id) {
+  const p = $(id);
+  const title = p.querySelector('h2').textContent;
+  const w = window.open('', 'rocketfc_' + id, 'width=1000,height=760');
+  if (!w) { setMsg('Pop-up blocked: allow pop-ups for this page.'); return; }
+  w.document.open();
+  w.document.write('<!doctype html><html lang="en"><head><meta charset="utf-8">' +
+    '<meta name="viewport" content="width=device-width, initial-scale=1"><title></title><style>' +
+    document.querySelector('style').textContent + ' body{padding:12px} .panel{max-width:none}</style></head><body></body></html>');
+  w.document.close();
+  w.document.title = title + ' – rocket-fc';
+  const holder = el('div', 'panel popped-note note');
+  const back = el('button', 'mini', 'Bring back');
+  back.onclick = () => w.close();
+  holder.append(title + ': shown in a separate window. ', back);
+  p.replaceWith(holder);
+  p.classList.remove('collapsed');
+  w.document.body.append(w.document.adoptNode(p));
+  p.querySelector('.panel-head button.mini').textContent = 'Back to main window';
+  popups[id] = { win: w, holder, node: p };
+  w.addEventListener('pagehide', () => restorePanel(id));
+  gpsDrawKey = ''; settingsKey = '';
+  render();
+}
+function restorePanel(id) {
+  const e = popups[id];
+  if (!e) return;
+  delete popups[id];
+  e.holder.replaceWith(document.adoptNode(e.node));
+  e.node.querySelector('.panel-head button.mini').textContent = 'Open in window ↗';
+  gpsDrawKey = ''; settingsKey = '';
+  render();
+}
+window.addEventListener('pagehide', () => { for (const k in popups) popups[k].win.close(); if (mapWin) mapWin.close(); });
 
 // ===========================================================================
 // Bench mode (RAM-only test mode of the flight computer)
@@ -1387,7 +1509,7 @@ function renderBench() {
   $('btn-bench-banner-off').disabled = !(usbLink.open || radioLink.open);
 }
 async function benchSet(on, via) {
-  if (on && !confirm('Switch the flight computer to BENCH MODE?\n\nIt then accepts test commands: simulated flight, ' +
+  if (on && !ask('Switch the flight computer to BENCH MODE?\n\nIt then accepts test commands: simulated flight, ' +
     'test fire over USB and remote test fire by radio. It stays in bench mode until you switch it off, reboot it, ' +
     'or a launch is detected. Never fly in bench mode.')) return;
   if (via === 'usb') await sendCommand('bench ' + (on ? 'on' : 'off'));
@@ -1456,7 +1578,7 @@ async function paramSend(w, cmd) {
 async function setParam(key, value) {
   const a = params.fc.defs.get(key), b = params.gs.defs.get(key), d = a || b;
   if (!d) return;
-  if (key === 'radio_unlock' && value === '1' && d.value !== '1' && !confirm(UNLOCK_TEXT)) { settingsKey = ''; return; }
+  if (key === 'radio_unlock' && value === '1' && d.value !== '1' && !ask(UNLOCK_TEXT)) { settingsKey = ''; return; }
   params.fc.msg = params.gs.msg = '';
   if (a && usbLink.open) await paramSend('fc', `param set ${key} ${value}`);
   if (b && radioLink.open) await paramSend('gs', `param set ${key} ${value}`);
@@ -1529,7 +1651,7 @@ function radioPresetSelect() {
     sel.selectedIndex = 0;
     if (!p) return;
     const unlock = (params.fc.defs.get('radio_unlock') || params.gs.defs.get('radio_unlock') || {}).value === '1';
-    if (p.unlock && !unlock) { alert('This preset is outside the EU band: tick radio_unlock first (you accept responsibility for local rules).'); return; }
+    if (p.unlock && !unlock) { tell('This preset is outside the EU band: tick radio_unlock first (you accept responsibility for local rules).'); return; }
     for (const [k, v] of p.set) await setParam(k, v);
   };
   return sel;
@@ -1588,7 +1710,7 @@ function renderSettings() {
   // table: rebuilt only when something changed, never while the user edits a field
   const key = [fc.version, gs.version, usbLink.open, radioLink.open, $('set-filter').value, $('set-changed').checked].join('|');
   if (key === settingsKey) return;
-  const body = $('set-body'), act = document.activeElement;
+  const body = $('set-body'), act = body.ownerDocument.activeElement;
   if (body.contains(act) && act.tagName === 'INPUT' && act.type === 'text') return;
   settingsKey = key;
   body.textContent = '';
@@ -1621,7 +1743,7 @@ async function saveSettings() {
   const ws = ['fc', 'gs'].filter(w => linkOf(w).open && params[w].pe && params[w].pe.edit !== params[w].pe.saved);
   if (!ws.length) { setMsg('Nothing to save.'); return; }
   const safety = [...params.fc.defs.values()].filter(d => d.flags.includes('S') && d.value !== d.running);
-  if (safety.length && !confirm('These FLIGHT SAFETY settings change:\n\n' +
+  if (safety.length && !ask('These FLIGHT SAFETY settings change:\n\n' +
       safety.map(d => `  ${d.key}: ${d.running} → ${d.value} ${d.unit}`).join('\n') +
       '\n\nSave them? After rebooting, run a simulated flight (bench mode) before flying.')) return;
   for (const w of ws) { params[w].msg = ''; await paramSend(w, 'param save'); }
@@ -1629,7 +1751,7 @@ async function saveSettings() {
 
 function rebootKit(w) {
   const what = w === 'fc' ? 'the flight computer (it recalibrates: keep it still)' : 'the ground station';
-  if (!confirm(`Reboot ${what}?\nThe USB connection drops and reconnects by itself within a few seconds.`)) return;
+  if (!ask(`Reboot ${what}?\nThe USB connection drops and reconnects by itself within a few seconds.`)) return;
   linkOf(w).reconnectUntil = performance.now() + 20000;
   if (w === 'fc') sendCommand('reboot'); else radioLink.write('reboot');
 }
@@ -1709,12 +1831,12 @@ $('btn-up-apply').onclick = sendUplinkSettings;
 $('btn-rf-arm').onclick = () => {
   const ms = Math.round(Number($('rf-ms').value));
   if (!(ms >= 1 && ms <= 2000)) { rfSet('idle', 'Pulse must be 1–2000 ms.'); return; }
-  if (!confirm(`ARM the remote test fire (${ms} ms pulse)?\n\nThe rocket will beep for 10 s. Everyone must be at a safe distance.`)) return;
+  if (!ask(`ARM the remote test fire (${ms} ms pulse)?\n\nThe rocket will beep for 10 s. Everyone must be at a safe distance.`)) return;
   rfSet('arming', 'Sending arm request…');
   radioLink.write('rf arm ' + ms);
 };
 $('btn-rf-fire').onclick = () => {
-  if (!confirm('FIRE THE EJECTION CHARGE NOW?\n\nLast check: area clear, everyone at a safe distance.')) return;
+  if (!ask('FIRE THE EJECTION CHARGE NOW?\n\nLast check: area clear, everyone at a safe distance.')) return;
   rfSet('firing', 'Fire command sent: waiting for the rocket…');
   radioLink.write('rf fire');
   document.querySelectorAll('.rf-check').forEach(c => { c.checked = false; });  // re-confirm next time
@@ -1722,9 +1844,11 @@ $('btn-rf-fire').onclick = () => {
 $('btn-rf-disarm').onclick = () => { radioLink.write('rf disarm'); rfSet('idle', 'Disarm sent.'); };
 $('btn-flog-list').onclick = () => sendCommand('flog list');
 $('btn-wifi-show').onclick = () => radioLink.write('wifi');
+$('gps-map-on').onchange = () => updateGpsMap(null);
+$('btn-gps-map-win').onclick = openMapWindow;
 $('btn-wifi-apply').onclick = wifiApply;
 $('btn-flog-erase').onclick = () => {
-  if (confirm('Erase EVERY session in the flash log?\nDownload the flights you want to keep first. Takes about a minute.')) sendCommand('flog erase CONFIRM');
+  if (ask('Erase EVERY session in the flash log?\nDownload the flights you want to keep first. Takes about a minute.')) sendCommand('flog erase CONFIRM');
 };
 $('btn-bench-on-usb').onclick = () => benchSet(true, 'usb');
 $('btn-bench-off-usb').onclick = () => benchSet(false, 'usb');
@@ -1737,7 +1861,7 @@ $('btn-set-reboot').onclick = () => rebootKit('fc');
 $('btn-set-reboot-gs').onclick = () => rebootKit('gs');
 $('btn-set-revert').onclick = async () => { for (const w of ['fc', 'gs']) if (await paramSend(w, 'param revert')) await paramSend(w, 'param list'); };
 $('btn-set-defaults').onclick = async () => {
-  if (!confirm('Set ALL settings of the connected kit(s) back to the firmware defaults?\nNothing is stored until you click Save to flash.')) return;
+  if (!ask('Set ALL settings of the connected kit(s) back to the firmware defaults?\nNothing is stored until you click Save to flash.')) return;
   for (const w of ['fc', 'gs']) if (await paramSend(w, 'param reset all')) await paramSend(w, 'param list');
 };
 $('btn-set-export').onclick = exportSettings;
@@ -1749,7 +1873,7 @@ $('set-changed').onchange = () => renderSettings();
 $('btn-fire').onclick = () => {
   const ms = Math.round(Number($('fire-ms').value));
   if (!(ms >= 1 && ms <= 2000)) { setMsg('Pulse must be 1–2000 ms.'); return; }
-  if (confirm(`Pulse the pyro output for ${ms} ms now?\nOnly with a dummy load or bare nichrome fitted.`)) {
+  if (ask(`Pulse the pyro output for ${ms} ms now?\nOnly with a dummy load or bare nichrome fitted.`)) {
     sendCommand(`fire ${ms} CONFIRM`); $('fire-safe').checked = false; updateCommandButtons();
   }
 };
@@ -1772,6 +1896,7 @@ $('file').onchange = async () => {
 window.addEventListener('beforeunload', e => { if (radioUnsaved && radioLines.length > 50) { e.preventDefault(); e.returnValue = ''; } });
 
 buildUi();
+setupPanels();
 updateCommandButtons();
 render();
 setInterval(render, RENDER_MS);
