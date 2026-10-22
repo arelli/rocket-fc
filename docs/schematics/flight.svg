@@ -1,0 +1,409 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-2 -2 1244 1234" class="schem"><rect x="-2" y="-2" width="100%" height="100%" fill="#ffffff"/><style>
+.card{fill:#fbfcfc;stroke:#c9d2d6;stroke-width:1}
+.w{fill:none;stroke:#1e2a31;stroke-width:1.6;stroke-linejoin:round;stroke-linecap:round}
+.thick{stroke-width:4;stroke:#b4471f}
+.opt{stroke-dasharray:4 3}
+.sym{fill:none;stroke:#1e2a31;stroke-width:1.6;stroke-linejoin:round}
+.sym.thin{stroke-width:1}
+.hot{stroke:#b4471f;stroke-width:2}
+.fill,.dot{fill:#1e2a31}
+.term{fill:#fbfcfc;stroke:#1e2a31;stroke-width:1.6}
+.mod{fill:#eef2f3;stroke:#1e2a31;stroke-width:1.4}
+.mcu{fill:#e3ebee;stroke:#1e2a31;stroke-width:2}
+.usb{fill:#1e2a31}
+.net{fill:#e1eef0;stroke:#2b6f7a;stroke-width:1.2}
+.hotnet{fill:#f7e3da;stroke:#b4471f}
+text{font-family:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace}
+.ttl{font:600 15px "IBM Plex Sans Condensed","Arial Narrow",sans-serif;fill:#1e2a31}
+.sub{font-size:11px;fill:#5d6c74}
+.lbl{font-size:12px;fill:#1e2a31}
+.val{font-size:11px;fill:#5d6c74}
+.pin{font-size:11px;fill:#1e2a31;font-weight:600}
+.mname{font-size:13px;font-weight:600;fill:#1e2a31}
+.nett{font-size:11px;fill:#1b5862;font-weight:600}
+.nett2{font-size:11px;fill:#1b5862;font-weight:600}
+.note{font-size:11.5px;fill:#33434b}
+.warn{font-size:11px;fill:#b4471f;font-weight:600}
+</style><g transform="translate(0,0)">
+<rect class="card" x="0" y="0" width="610" height="460" rx="6"/>
+<text class="ttl" x="14" y="24">Flight computer: XIAO pin map</text>
+<text class="sub" x="14" y="41">net labels: same name = connected</text>
+<rect class="mcu" x="220" y="70" width="150" height="270" rx="6"/>
+<text class="mname" x="295" y="96" text-anchor="middle">XIAO</text>
+<text class="val" x="295" y="112" text-anchor="middle">ESP32-S3</text>
+<rect class="usb" x="273.0" y="60" width="44" height="14" rx="4"/>
+<text class="val" x="295" y="54" text-anchor="middle">USB-C</text>
+<text class="pin" x="228" y="144" text-anchor="start">D0</text>
+<polyline class="w" points="220,140 190,140"/>
+<path class="net" d="M190,140L183,131H106.9V149H183Z"/>
+<text class="nett" x="144.9" y="144" text-anchor="middle">SENSE_BAT</text>
+<text class="pin" x="228" y="172" text-anchor="start">D1</text>
+<polyline class="w" points="220,168 190,168"/>
+<path class="net" d="M190,168L183,159H100V177H183Z"/>
+<text class="nett" x="141.5" y="172" text-anchor="middle">SENSE_PYRO</text>
+<text class="pin" x="228" y="200" text-anchor="start">D2</text>
+<polyline class="w" points="220,196 190,196"/>
+<path class="net" d="M190,196L183,187H127.6V205H183Z"/>
+<text class="nett" x="155.3" y="200" text-anchor="middle">BUZZER</text>
+<text class="pin" x="228" y="228" text-anchor="start">D3</text>
+<polyline class="w" points="220,224 190,224"/>
+<path class="net hotnet" d="M190,224L183,215H106.9V233H183Z"/>
+<text class="nett" x="144.9" y="228" text-anchor="middle">PYRO_GATE</text>
+<text class="pin" x="228" y="256" text-anchor="start">D4</text>
+<polyline class="w" points="220,252 190,252"/>
+<path class="net" d="M190,252L183,243H148.3V261H183Z"/>
+<text class="nett" x="165.7" y="256" text-anchor="middle">SDA</text>
+<text class="pin" x="228" y="284" text-anchor="start">D5</text>
+<polyline class="w" points="220,280 190,280"/>
+<path class="net" d="M190,280L183,271H148.3V289H183Z"/>
+<text class="nett" x="165.7" y="284" text-anchor="middle">SCL</text>
+<text class="pin" x="228" y="312" text-anchor="start">D6</text>
+<polyline class="w" points="220,308 190,308"/>
+<path class="net" d="M190,308L183,299H148.3V317H183Z"/>
+<text class="nett" x="165.7" y="312" text-anchor="middle">LED</text>
+<text class="pin" x="362" y="144" text-anchor="end">5V</text>
+<polyline class="w" points="370,140 400,140"/>
+<text class="val" x="404" y="144" text-anchor="start">not connected</text>
+<text class="pin" x="362" y="172" text-anchor="end">GND</text>
+<polyline class="w" points="370,168 400,168"/>
+<polyline class="w" points="400,168 410,168"/>
+<polyline class="w" points="410,168 410,172"/>
+<path class="sym" d="M400,172H420M404,176H416M407.5,180H412.5"/>
+<text class="pin" x="362" y="200" text-anchor="end">3V3</text>
+<polyline class="w" points="370,196 400,196"/>
+<path class="net" d="M400,196L407,187H441.7V205H407Z"/>
+<text class="nett" x="424.4" y="200" text-anchor="middle">3V3</text>
+<text class="pin" x="362" y="228" text-anchor="end">D10</text>
+<polyline class="w" points="370,224 400,224"/>
+<text class="pin" x="362" y="256" text-anchor="end">D9</text>
+<polyline class="w" points="370,252 400,252"/>
+<text class="pin" x="362" y="284" text-anchor="end">D8</text>
+<polyline class="w" points="370,280 400,280"/>
+<text class="pin" x="362" y="312" text-anchor="end">D7</text>
+<polyline class="w" points="370,308 400,308"/>
+<path class="net" d="M400,308L407,299H462.4V317H407Z"/>
+<text class="nett" x="434.7" y="312" text-anchor="middle">GPS_TX</text>
+<rect class="mod opt" x="400" y="210" width="184" height="84" rx="4"/>
+<text class="mname" x="492" y="228" text-anchor="middle">Wio-SX1262</text>
+<text class="val" x="492" y="243" text-anchor="middle">plugs onto B2B + D8–D10</text>
+<text class="val" x="492" y="257" text-anchor="middle">GPIO 38–42: no wiring</text>
+<text class="pin" x="265" y="330" text-anchor="middle">BAT+</text>
+<polyline class="w" points="265,340 265,366"/>
+<path class="net" d="M265,366L258,357H195.7V375H258Z"/>
+<text class="nett" x="226.8" y="370" text-anchor="middle">BAT+ sw</text>
+<text class="pin" x="325" y="330" text-anchor="middle">BAT−</text>
+<polyline class="w" points="325,340 325,366"/>
+<polyline class="w" points="325,366 325,366"/>
+<path class="sym" d="M315,366H335M319,370H331M322.5,374H327.5"/>
+<text class="note" x="14" y="430" text-anchor="start">Wio-SX1262 U.FL: 868 MHz LoRa antenna.</text>
+<text class="note" x="14" y="446" text-anchor="start">XIAO U.FL (WiFi): unused in the rocket.</text>
+</g>
+<g transform="translate(630,0)">
+<rect class="card" x="0" y="0" width="610" height="460" rx="6"/>
+<text class="ttl" x="14" y="24">Power and battery sense</text>
+<text class="sub" x="14" y="41">cell on the XIAO BAT pads through the main switch</text>
+<polyline class="w" points="70,120 70,177"/>
+<polyline class="w" points="70,193 70,250"/>
+<path class="sym" d="M54,177H86M62,183H78M54,188H86M62,193H78"/>
+<text class="lbl" x="50" y="179" text-anchor="end">+</text>
+<text class="lbl" x="92" y="183" text-anchor="start">B1</text>
+<text class="val" x="92" y="197" text-anchor="start">18350 3.7 V</text>
+<polyline class="w" points="70,250 70,264"/>
+<path class="sym" d="M60,264H80M64,268H76M67.5,272H72.5"/>
+<polyline class="w" points="70,120 70,80 150,80"/>
+<circle class="dot" cx="110" cy="80" r="3"/>
+<polyline class="w" points="110,80 110,56"/>
+<path class="net hotnet" d="M110,56L117,47H165.5V65H117Z"/>
+<text class="nett" x="141.2" y="60" text-anchor="middle">CELL+</text>
+<text class="val" x="176" y="60" text-anchor="start">to the pyro channel (before the switch)</text>
+<circle class="sym" cx="150" cy="80" r="3"/><circle class="sym" cx="200" cy="80" r="3"/>
+<path class="sym" d="M153,79L198,66"/>
+<text class="lbl" x="175" y="98" text-anchor="middle">SW1</text>
+<text class="val" x="175" y="111" text-anchor="middle">main switch</text>
+<polyline class="w" points="203,80 560,80"/>
+<path class="net" d="M560,80L553,71H490.7V89H553Z"/>
+<text class="nett" x="521.9" y="84" text-anchor="middle">BAT+ sw</text>
+<text class="val" x="560" y="108" text-anchor="end">to XIAO BAT+ pad</text>
+<circle class="dot" cx="260" cy="80" r="3"/>
+<polyline class="w" points="260,80 260,136"/>
+<polyline class="w" points="260,144 260,200"/>
+<path class="sym" d="M248,136H272"/>
+<path class="sym" d="M248,146Q260,141 272,146"/>
+<text class="val" x="244" y="134" text-anchor="end">+</text>
+<text class="lbl" x="278" y="138" text-anchor="start">C1</text>
+<text class="val" x="278" y="152" text-anchor="start">1000 µF 16 V</text>
+<polyline class="w" points="260,200 260,214"/>
+<path class="sym" d="M250,214H270M254,218H266M257.5,222H262.5"/>
+<circle class="dot" cx="400" cy="80" r="3"/>
+<polyline class="w" points="400,80 400,109"/>
+<polyline class="w" points="400,141 400,170"/>
+<rect class="sym" x="394" y="109" width="12" height="32"/>
+<text class="lbl" x="412" y="123" text-anchor="start">R1</text>
+<text class="val" x="412" y="137" text-anchor="start">100k</text>
+<circle class="dot" cx="400" cy="170" r="3"/>
+<polyline class="w" points="400,170 400,199"/>
+<polyline class="w" points="400,231 400,260"/>
+<rect class="sym" x="394" y="199" width="12" height="32"/>
+<text class="lbl" x="412" y="213" text-anchor="start">R2</text>
+<text class="val" x="412" y="227" text-anchor="start">100k</text>
+<polyline class="w" points="400,260 400,274"/>
+<path class="sym" d="M390,274H410M394,278H406M397.5,282H402.5"/>
+<polyline class="w" points="400,170 470,170"/>
+<path class="net" d="M470,170L477,161H553.1V179H477Z"/>
+<text class="nett" x="515" y="174" text-anchor="middle">SENSE_BAT</text>
+<text class="note" x="14" y="330" text-anchor="start">BAT− is the pad nearest the USB connector. Check twice.</text>
+<text class="note" x="14" y="346" text-anchor="start">C1 rides through pyro and radio current peaks (mind the polarity).</text>
+<text class="note" x="14" y="362" text-anchor="start">Charge: USB-C with SW1 on. Divider ratio 2.0 = setting batt_divider.</text>
+</g>
+<g transform="translate(0,480)">
+<rect class="card" x="0" y="0" width="700" height="400" rx="6"/>
+<text class="ttl" x="14" y="24">Pyro channel (deployment charge)</text>
+<text class="sub" x="14" y="41">thick line = high-current loop, ≥ 22 AWG</text>
+<path class="net hotnet" d="M80,90L73,81H24.5V99H73Z"/>
+<text class="nett" x="48.8" y="94" text-anchor="middle">CELL+</text>
+<polyline class="w thick" points="80,90 120,90"/>
+<circle class="term" cx="124" cy="90" r="4.5"/>
+<circle class="term" cx="166" cy="90" r="4.5"/>
+<path class="sym opt" d="M124,84 Q145,62 166,84"/>
+<text class="lbl" x="145" y="60" text-anchor="middle">ARM link</text>
+<text class="val" x="145" y="116" text-anchor="middle">removable</text>
+<polyline class="w thick" points="170,90 205,90"/>
+<polyline class="w" points="205,90 224,90"/>
+<polyline class="w" points="256,90 275,90"/>
+<rect class="sym" x="224" y="84" width="32" height="12"/>
+<text class="lbl" x="240" y="78" text-anchor="middle">R3</text>
+<text class="val" x="240" y="112" text-anchor="middle">1 Ω 5 W</text>
+<polyline class="w thick" points="275,90 325,90"/>
+<circle class="term" cx="329" cy="90" r="4.5"/>
+<path class="sym hot" d="M334,90a6,6 0 0 1 12,0a6,6 0 0 1 12,0a6,6 0 0 1 12,0a6,6 0 0 1 12,0a6,6 0 0 1 12,0"/>
+<text class="lbl" x="364" y="72" text-anchor="middle">igniter</text>
+<text class="val" x="364" y="108" text-anchor="middle">nichrome</text>
+<circle class="term" cx="399" cy="90" r="4.5"/>
+<polyline class="w thick" points="403,90 450,90 450,200"/>
+<circle class="dot" cx="450" cy="120" r="3"/>
+<polyline class="w" points="450,120 620,120"/>
+<polyline class="w" points="620,120 620,144"/>
+<polyline class="w" points="620,176 620,200"/>
+<rect class="sym" x="614" y="144" width="12" height="32"/>
+<text class="lbl" x="632" y="158" text-anchor="start">R4</text>
+<text class="val" x="632" y="172" text-anchor="start">100k</text>
+<circle class="dot" cx="620" cy="200" r="3"/>
+<polyline class="w" points="620,200 620,224"/>
+<polyline class="w" points="620,256 620,280"/>
+<rect class="sym" x="614" y="224" width="12" height="32"/>
+<text class="lbl" x="632" y="238" text-anchor="start">R5</text>
+<text class="val" x="632" y="252" text-anchor="start">100k</text>
+<polyline class="w" points="620,280 620,292"/>
+<path class="sym" d="M610,292H630M614,296H626M617.5,300H622.5"/>
+<polyline class="w" points="600,200 620,200"/>
+<path class="net" d="M600,200L593,191H510V209H593Z"/>
+<text class="nett" x="551.5" y="204" text-anchor="middle">SENSE_PYRO</text>
+<circle class="sym thin" cx="442" cy="230" r="21"/>
+<polyline class="w" points="410,230 430,230"/>
+<path class="sym" d="M430,218V242M436,215V224M436,226V234M436,236V245"/>
+<polyline class="w" points="436,220 450,220 450,200"/>
+<polyline class="w" points="436,240 450,240 450,260"/>
+<polyline class="w" points="436,230 450,230 450,240"/>
+<path class="fill" d="M437,230L444,226L444,234Z"/>
+<text class="pin" x="456" y="214" text-anchor="start">D</text>
+<text class="pin" x="456" y="254" text-anchor="start">S</text>
+<text class="pin" x="412" y="225" text-anchor="start">G</text>
+<text class="lbl" x="470" y="228" text-anchor="start">Q1</text>
+<text class="val" x="470" y="242" text-anchor="start">IRLB8748</text>
+<polyline class="w thick" points="450,260 450,300"/>
+<polyline class="w" points="450,300 450,306"/>
+<path class="sym" d="M440,306H460M444,310H456M447.5,314H452.5"/>
+<text class="val" x="462" y="318" text-anchor="start">to cell − directly</text>
+<path class="net hotnet" d="M120,230L113,221H36.9V239H113Z"/>
+<text class="nett" x="75" y="234" text-anchor="middle">PYRO_GATE</text>
+<polyline class="w" points="120,230 144,230"/>
+<polyline class="w" points="176,230 200,230"/>
+<rect class="sym" x="144" y="224" width="32" height="12"/>
+<text class="lbl" x="160" y="218" text-anchor="middle">R6</text>
+<text class="val" x="160" y="252" text-anchor="middle">100 Ω</text>
+<polyline class="w" points="200,230 410,230"/>
+<circle class="dot" cx="330" cy="230" r="3"/>
+<polyline class="w" points="330,230 330,249"/>
+<polyline class="w" points="330,281 330,300"/>
+<rect class="sym" x="324" y="249" width="12" height="32"/>
+<text class="lbl" x="318" y="263" text-anchor="end">R7</text>
+<text class="val" x="318" y="277" text-anchor="end">100k</text>
+<polyline class="w" points="330,300 330,312"/>
+<path class="sym" d="M320,312H340M324,316H336M327.5,320H332.5"/>
+<text class="note" x="14" y="356" text-anchor="start">Fit the ARM link on the pad only, after the PAD state. R7 keeps Q1 off during boot/reset.</text>
+<text class="note" x="14" y="372" text-anchor="start">Continuity: the drain reads ≥ 60 % of the battery through the intact bridge.</text>
+</g>
+<g transform="translate(720,480)">
+<rect class="card" x="0" y="0" width="300" height="400" rx="6"/>
+<text class="ttl" x="14" y="24">Buzzer</text>
+<text class="sub" x="14" y="41">active buzzer, low-side switch</text>
+<path class="net" d="M200,70L193,61H130.7V79H193Z"/>
+<text class="nett" x="161.8" y="74" text-anchor="middle">BAT+ sw</text>
+<polyline class="w" points="200,70 200,100"/>
+<circle class="dot" cx="200" cy="100" r="3"/>
+<polyline class="w" points="200,100 200,121"/>
+<polyline class="w" points="200,149 200,170"/>
+<rect class="sym" x="186" y="121" width="28" height="28" rx="3"/>
+<path class="sym thin" d="M193,141Q200,125 207,141"/>
+<text class="lbl" x="182" y="129" text-anchor="end">+</text>
+<text class="lbl" x="220" y="133" text-anchor="start">BZ1</text>
+<text class="val" x="220" y="147" text-anchor="start"></text>
+<circle class="dot" cx="200" cy="170" r="3"/>
+<polyline class="w opt" points="200,100 150,100"/>
+<polyline class="w opt" points="150,100 150,127"/>
+<polyline class="w opt" points="150,143 150,170"/>
+<path class="sym opt" d="M141,143H159L150,127Z M141,127H159"/>
+<text class="lbl" x="164" y="133" text-anchor="start"></text>
+<text class="val" x="164" y="147" text-anchor="start"></text>
+<polyline class="w opt" points="150,170 200,170"/>
+<text class="val" x="138" y="132" text-anchor="end">1N4148</text>
+<text class="val" x="138" y="146" text-anchor="end">optional</text>
+<polyline class="w" points="200,170 200,210"/>
+<circle class="sym thin" cx="192" cy="240" r="21"/>
+<polyline class="w" points="160,240 180,240"/>
+<path class="sym" d="M180,228V252M186,225V234M186,236V244M186,246V255"/>
+<polyline class="w" points="186,230 200,230 200,210"/>
+<polyline class="w" points="186,250 200,250 200,270"/>
+<polyline class="w" points="186,240 200,240 200,250"/>
+<path class="fill" d="M187,240L194,236L194,244Z"/>
+<text class="pin" x="206" y="224" text-anchor="start">D</text>
+<text class="pin" x="206" y="264" text-anchor="start">S</text>
+<text class="pin" x="162" y="235" text-anchor="start">G</text>
+<text class="lbl" x="220" y="238" text-anchor="start">Q2</text>
+<text class="val" x="220" y="252" text-anchor="start">IRLB8748</text>
+<polyline class="w" points="200,270 200,284"/>
+<path class="sym" d="M190,284H210M194,288H206M197.5,292H202.5"/>
+<path class="net" d="M72,240L65,231H9.6V249H65Z"/>
+<text class="nett" x="37.3" y="244" text-anchor="middle">BUZZER</text>
+<polyline class="w" points="72,240 83.5,240"/>
+<polyline class="w" points="115.5,240 127,240"/>
+<rect class="sym" x="83.5" y="234" width="32" height="12"/>
+<text class="lbl" x="99.5" y="228" text-anchor="middle">R8</text>
+<text class="val" x="99.5" y="262" text-anchor="middle">100 Ω</text>
+<polyline class="w" points="127,240 160,240"/>
+<circle class="dot" cx="145" cy="240" r="3"/>
+<polyline class="w" points="145,240 145,264"/>
+<polyline class="w" points="145,296 145,320"/>
+<rect class="sym" x="139" y="264" width="12" height="32"/>
+<text class="lbl" x="133" y="278" text-anchor="end"></text>
+<text class="val" x="133" y="292" text-anchor="end"></text>
+<text class="val" x="135" y="296" text-anchor="end">R9 100k</text>
+<polyline class="w" points="145,320 145,330"/>
+<path class="sym" d="M135,330H155M139,334H151M142.5,338H147.5"/>
+<text class="note" x="14" y="372" text-anchor="start">D2 is a strapping pin: R9 is required.</text>
+</g>
+<g transform="translate(1040,480)">
+<rect class="card" x="0" y="0" width="200" height="400" rx="6"/>
+<text class="ttl" x="14" y="24">Status LED</text>
+<path class="net" d="M52,90L45,81H10.3V99H45Z"/>
+<text class="nett" x="27.6" y="94" text-anchor="middle">LED</text>
+<polyline class="w" points="52,90 61,90"/>
+<polyline class="w" points="93,90 102,90"/>
+<rect class="sym" x="61" y="84" width="32" height="12"/>
+<text class="lbl" x="77" y="78" text-anchor="middle">R10</text>
+<text class="val" x="77" y="112" text-anchor="middle">100 Ω</text>
+<polyline class="w" points="102,90 110,90 110,130"/>
+<polyline class="w" points="110,130 110,156"/>
+<polyline class="w" points="110,174 110,200"/>
+<path class="sym" d="M100,156H120L110,174Z M100,174H120"/>
+<path class="sym thin" d="M123,159l9,-7m-5,0h5v5"/>
+<path class="sym thin" d="M123,168l9,-7m-5,0h5v5"/>
+<text class="lbl" x="140" y="163" text-anchor="start">LED1</text>
+<text class="val" x="140" y="177" text-anchor="start">any</text>
+<polyline class="w" points="110,200 110,214"/>
+<path class="sym" d="M100,214H120M104,218H116M107.5,222H112.5"/>
+<text class="note" x="14" y="300" text-anchor="start">≈ 13 mA (red).</text>
+<text class="note" x="14" y="316" text-anchor="start">Patterns: see</text>
+<text class="note" x="14" y="332" text-anchor="start">docs/INDICATORS.md</text>
+</g>
+<g transform="translate(0,900)">
+<rect class="card" x="0" y="0" width="760" height="330" rx="6"/>
+<text class="ttl" x="14" y="24">Sensors (I²C 400 kHz)</text>
+<text class="sub" x="14" y="41">both boards on 3V3; pull-ups are on the BMP280 board</text>
+<rect class="mod" x="40" y="70" width="170" height="208" rx="4"/>
+<text class="mname" x="125" y="90" text-anchor="middle">MPU-9250</text>
+<text class="pin" x="202" y="118" text-anchor="end">VCC</text>
+<text class="pin" x="202" y="146" text-anchor="end">GND</text>
+<text class="pin" x="202" y="174" text-anchor="end">SDA</text>
+<text class="pin" x="202" y="202" text-anchor="end">SCL</text>
+<text class="pin" x="202" y="230" text-anchor="end">CS</text>
+<text class="pin" x="202" y="258" text-anchor="end">FSYNC</text>
+<polyline class="w" points="210,114 240,114"/>
+<path class="net" d="M240,114L247,105H281.7V123H247Z"/>
+<text class="nett" x="264.4" y="118" text-anchor="middle">3V3</text>
+<polyline class="w" points="210,142 240,142"/>
+<polyline class="w" points="240,142 250,142"/>
+<polyline class="w" points="250,142 250,146"/>
+<path class="sym" d="M240,146H260M244,150H256M247.5,154H252.5"/>
+<polyline class="w" points="210,170 240,170"/>
+<path class="net" d="M240,170L247,161H281.7V179H247Z"/>
+<text class="nett" x="264.4" y="174" text-anchor="middle">SDA</text>
+<polyline class="w" points="210,198 240,198"/>
+<path class="net" d="M240,198L247,189H281.7V207H247Z"/>
+<text class="nett" x="264.4" y="202" text-anchor="middle">SCL</text>
+<polyline class="w" points="210,226 240,226"/>
+<path class="net" d="M240,226L247,217H281.7V235H247Z"/>
+<text class="nett" x="264.4" y="230" text-anchor="middle">3V3</text>
+<polyline class="w" points="210,254 240,254"/>
+<polyline class="w" points="240,254 250,254"/>
+<polyline class="w" points="250,254 250,258"/>
+<path class="sym" d="M240,258H260M244,262H256M247.5,266H252.5"/>
+<text class="note" x="14" y="312" text-anchor="start">MPU-9250: SparkFun breakout, AD0 and INT open (address 0x68).</text>
+<rect class="mod" x="420" y="70" width="170" height="152" rx="4"/>
+<text class="mname" x="505" y="90" text-anchor="middle">GY-BMP280-5V</text>
+<text class="pin" x="582" y="118" text-anchor="end">VCC</text>
+<text class="pin" x="582" y="146" text-anchor="end">GND</text>
+<text class="pin" x="582" y="174" text-anchor="end">SCL</text>
+<text class="pin" x="582" y="202" text-anchor="end">SDA</text>
+<polyline class="w" points="590,114 620,114"/>
+<path class="net" d="M620,114L627,105H661.7V123H627Z"/>
+<text class="nett" x="644.4" y="118" text-anchor="middle">3V3</text>
+<polyline class="w" points="590,142 620,142"/>
+<polyline class="w" points="620,142 630,142"/>
+<polyline class="w" points="630,142 630,146"/>
+<path class="sym" d="M620,146H640M624,150H636M627.5,154H632.5"/>
+<polyline class="w" points="590,170 620,170"/>
+<path class="net" d="M620,170L627,161H661.7V179H627Z"/>
+<text class="nett" x="644.4" y="174" text-anchor="middle">SCL</text>
+<polyline class="w" points="590,198 620,198"/>
+<path class="net" d="M620,198L627,189H661.7V207H627Z"/>
+<text class="nett" x="644.4" y="202" text-anchor="middle">SDA</text>
+<text class="warn" x="505" y="250" text-anchor="middle">VCC on 3V3, never 5V</text>
+<text class="val" x="505" y="266" text-anchor="middle">(its pull-ups go to VCC)</text>
+</g>
+<g transform="translate(780,900)">
+<rect class="card" x="0" y="0" width="460" height="330" rx="6"/>
+<text class="ttl" x="14" y="24">GPS (optional): Seeed L76K</text>
+<text class="sub" x="14" y="41">four leads, not stacked on the XIAO</text>
+<rect class="mod" x="40" y="60" width="190" height="222" rx="4"/>
+<text class="mname" x="135" y="80" text-anchor="middle">L76K</text>
+<text class="pin" x="222" y="108" text-anchor="end">3V3</text>
+<text class="pin" x="222" y="134" text-anchor="end">GND</text>
+<text class="pin" x="222" y="160" text-anchor="end">TX</text>
+<text class="pin" x="222" y="186" text-anchor="end">RX</text>
+<text class="pin" x="222" y="212" text-anchor="end">D0 position</text>
+<text class="pin" x="222" y="238" text-anchor="end">D2 position</text>
+<text class="pin" x="222" y="264" text-anchor="end">D6 position</text>
+<polyline class="w" points="230,104 260,104"/>
+<path class="net" d="M260,104L267,95H301.7V113H267Z"/>
+<text class="nett" x="284.4" y="108" text-anchor="middle">3V3</text>
+<polyline class="w" points="230,130 260,130"/>
+<polyline class="w" points="260,130 270,130"/>
+<polyline class="w" points="270,130 270,134"/>
+<path class="sym" d="M260,134H280M264,138H276M267.5,142H272.5"/>
+<polyline class="w" points="230,156 260,156"/>
+<path class="net" d="M260,156L267,147H322.4V165H267Z"/>
+<text class="nett" x="294.7" y="160" text-anchor="middle">GPS_TX</text>
+<polyline class="w" points="230,182 260,182"/>
+<path class="net" d="M260,182L267,173H301.7V191H267Z"/>
+<text class="nett" x="284.4" y="186" text-anchor="middle">3V3</text>
+<polyline class="w" points="230,208 260,208"/>
+<path class="net" d="M260,208L267,199H301.7V217H267Z"/>
+<text class="nett" x="284.4" y="212" text-anchor="middle">3V3</text>
+<polyline class="w" points="230,234 260,234"/>
+<path class="net" d="M260,234L267,225H301.7V243H267Z"/>
+<text class="nett" x="284.4" y="238" text-anchor="middle">3V3</text>
+<polyline class="w" points="230,260 260,260"/>
+<text class="val" x="264" y="264" text-anchor="start">not connected</text>
+<text class="note" x="14" y="312" text-anchor="start">RX and the two control pins held high (Seeed); 9600 baud.</text>
+</g></svg>

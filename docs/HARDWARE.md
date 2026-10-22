@@ -1,7 +1,11 @@
 # Hardware
 
 All GPIO numbers live in [include/board_pins.h](../include/board_pins.h).
-If you change wiring, change that file and this document in the same commit.
+If you change wiring, change that file, this document and the schematics
+(`tools/schematics.py`) in the same commit.
+
+Schematics: [flight computer](schematics/flight.svg),
+[ground station](schematics/ground.svg).
 
 ## Pin map (XIAO ESP32-S3)
 
