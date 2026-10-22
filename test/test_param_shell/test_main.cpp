@@ -42,7 +42,10 @@ static void test_list_and_line_format() {
   sh.init(Settings{}, Settings{});
   Capture c;
   run(sh, c, {});
-  TEST_ASSERT_EQUAL_INT(static_cast<int>(param_count()), count_prefix(c, "P,"));
+  int flight = 0;  // the flight computer lists everything but the ground station settings
+  for (size_t i = 0; i < param_count(); ++i) flight += (param_def(i).flags & kParamGround) ? 0 : 1;
+  TEST_ASSERT_EQUAL_INT(flight, count_prefix(c, "P,"));
+  TEST_ASSERT_TRUE(flight < static_cast<int>(param_count()));
   TEST_ASSERT_EQUAL_INT(1, count_prefix(c, "PE,"));
   TEST_ASSERT_TRUE(c.lines.back().find(",ok") != std::string::npos);
   // P,key,group,type,value,running,default,min,max,unit,flags,options,help
@@ -55,7 +58,9 @@ static void test_list_and_line_format() {
   sh.format_line(*find_param("rf_key"), line, sizeof(line));
   TEST_ASSERT_EQUAL_INT(0, strncmp("P,rf_key,radio,u32,0x6B1D4F37,0x6B1D4F37,0x6B1D4F37,0,4294967295,,RH,,", line, 70));
   run(sh, c, {"list", "deploy"});
-  TEST_ASSERT_EQUAL_INT(8, count_prefix(c, "P,"));
+  TEST_ASSERT_EQUAL_INT(9, count_prefix(c, "P,"));
+  run(sh, c, {"get", "gs_buzzer_on"});
+  TEST_ASSERT_EQUAL_INT(1, count_prefix(c, "PERR,gs_buzzer_on,unknown"));
 }
 
 static void test_set_save_and_refusals() {
@@ -104,8 +109,14 @@ static void test_radio_only_shell() {
   Capture c;
   run(sh, c, {"list"});
   int shared = 0;
-  for (size_t i = 0; i < param_count(); ++i) shared += (param_def(i).flags & kParamShared) ? 1 : 0;
+  for (size_t i = 0; i < param_count(); ++i)
+    shared += (param_def(i).flags & (kParamShared | kParamGround)) ? 1 : 0;
   TEST_ASSERT_EQUAL_INT(shared, count_prefix(c, "P,"));
+  TEST_ASSERT_EQUAL_INT(1, count_prefix(c, "P,gs_buzzer_on,station,bool,1,1,1,0,1,,G,"));
+  run(sh, c, {"set", "gs_search_lo_dbm", "-40"});  // above gs_search_hi_dbm
+  run(sh, c, {"save"});
+  TEST_ASSERT_EQUAL_INT(1, count_prefix(c, "PERR,*,not saved"));
+  run(sh, c, {"reset", "gs_search_lo_dbm"});
   run(sh, c, {"set", "launch_alt_m", "40"});
   TEST_ASSERT_EQUAL_INT(1, count_prefix(c, "PERR,launch_alt_m,unknown"));
   run(sh, c, {"set", "radio_freq_mhz", "915"});

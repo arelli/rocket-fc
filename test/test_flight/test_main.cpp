@@ -437,6 +437,62 @@ static void test_reset_during_deploy_delay_fires_at_once() {
   TEST_ASSERT_TRUE(first_fire <= 2 * kDt);
 }
 
+// Manual ejection by radio (App, setting manual_eject): the charge is fired
+// outside the state machine during COAST. The logic must never fire again
+// (also not after a reset), still log apogee and detect landing.
+static void manual_eject_flight(uint32_t delay_ms, bool reset_after) {
+  const SimParams sp = nominal_sim();
+  FlightComputer::Config cfg = default_config();
+  cfg.flight.deploy_delay_ms = delay_ms;
+  FlightComputer fc(cfg);
+  SimFlight sim(sp);
+  fc.begin(0);
+  // Fly until COAST.
+  while (fc.state() != FlightState::Coast && sim.t_ms() < 60000) {
+    const SimSample s = sim.step(kDt);
+    if (fc.state() == FlightState::Init && fc.settle_done(s.t_ms)) fc.finish_init(true);
+    TEST_ASSERT_FALSE(fc.tick(s.t_ms, true, s.pressure_pa, true, s.accel_g).fire);
+  }
+  TEST_ASSERT_EQUAL(FlightState::Coast, fc.state());
+  TEST_ASSERT_TRUE(fc.sm().pyro_armed());
+  fc.note_manual_fire();  // the App fired the charge
+  sim.deploy();
+  TEST_ASSERT_FALSE(fc.sm().pyro_armed());
+  TEST_ASSERT_FALSE(fc.sm().deploy_pending());
+
+  FlightComputer fc2(cfg);
+  FlightComputer* f = &fc;
+  uint32_t offset = 0;
+  if (reset_after) {
+    const FlightRecord rec = fc.record(sim.t_ms());
+    sim.step(300);
+    TEST_ASSERT_TRUE(should_resume(rec, ResetCause::Watchdog));
+    offset = sim.t_ms();
+    fc2.resume(rec, 0);
+    f = &fc2;
+  }
+  bool apogee = false, landed = false;
+  while (sim.t_ms() < 300000 && !(landed && sim.landed())) {
+    const SimSample s = sim.step(kDt);
+    const SmOutput out = f->tick(s.t_ms - offset, true, s.pressure_pa, true, s.accel_g);
+    TEST_ASSERT_FALSE_MESSAGE(out.fire, "fired again after a manual ejection");
+    TEST_ASSERT_FALSE(f->sm().pyro_armed());
+    for (size_t i = 0; i < out.n_events; ++i) {
+      if (out.events[i].code == EventCode::Apogee) apogee = true;
+      if (out.events[i].code == EventCode::Landed) landed = true;
+      TEST_ASSERT_TRUE(out.events[i].code != EventCode::PyroFire &&
+                       out.events[i].code != EventCode::PyroBackupFire);
+    }
+  }
+  if (!reset_after) TEST_ASSERT_TRUE(apogee);
+  TEST_ASSERT_TRUE(landed);
+  TEST_ASSERT_EQUAL(FlightState::Landed, f->state());
+}
+
+static void test_manual_eject_in_coast_never_fires_again() { manual_eject_flight(0, false); }
+static void test_manual_eject_with_deploy_delay() { manual_eject_flight(2000, false); }
+static void test_reset_after_manual_eject_never_fires() { manual_eject_flight(0, true); }
+
 static void test_config_validation() {
   FlightConfig c;
   TEST_ASSERT_NULL(validate(c));
@@ -485,6 +541,9 @@ int main(int, char**) {
   RUN_TEST(test_reset_after_deploy_never_fires_again);
   RUN_TEST(test_deploy_delay_fires_once_after_delay);
   RUN_TEST(test_reset_during_deploy_delay_fires_at_once);
+  RUN_TEST(test_manual_eject_in_coast_never_fires_again);
+  RUN_TEST(test_manual_eject_with_deploy_delay);
+  RUN_TEST(test_reset_after_manual_eject_never_fires);
   RUN_TEST(test_config_validation);
   RUN_TEST(test_no_estimate_during_init);
   return UNITY_END();

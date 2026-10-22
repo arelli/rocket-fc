@@ -177,6 +177,15 @@
     <h2>Radio link</h2>
     <div class="gauges" id="link-gauges" style="grid-template-columns: 1fr"></div>
     <table class="kv" id="link-readouts" style="margin-top:8px"></table>
+    <fieldset style="margin-top:10px" id="gs-box">
+      <legend>Ground station</legend>
+      <div class="row"><span>Battery: <b id="gs-batt">—</b></span></div>
+      <div class="row"><button id="btn-ping">Ping rocket</button><span id="gs-ping" class="note">—</span></div>
+      <div class="row"><label><input type="checkbox" id="gs-search"> Search mode</label><span id="gs-search-rssi" class="note"></span></div>
+      <div class="note">Ping (or a short press of the station's button): the rocket beeps, answers, and the station beeps
+        0.5 s after the answer: two separate sounds = both directions work. Search mode (or a 1.5 s button hold):
+        the station beeps faster the stronger the rocket's signal.</div>
+    </fieldset>
     <fieldset style="margin-top:10px" id="wifi-box">
       <legend>Ground station WiFi</legend>
       <div class="row"><span id="wifi-status" class="note">—</span></div>
@@ -296,6 +305,33 @@
       <button id="btn-rf-disarm" class="big" disabled>Disarm</button>
     </div>
     <div id="rf-status" class="muted">Not armed.</div>
+  </section>
+
+  <section class="panel c12 danger-panel" id="eject-panel">
+    <h2>Manual parachute ejection by radio</h2>
+    <div class="warnbox">
+      <b>This fires the ejection charge at once and overrides the flight logic</b> (no apogee, altitude or
+      continuity checks). After launch the rocket accepts it only if <b>manual_eject</b> was enabled in its settings
+      before the flight; on the pad only in <b>bench mode</b> with continuity (a test pulse). Ejecting while the
+      rocket is still climbing fast can strip or tear the parachute. Use it when the automatic deployment has not
+      happened, or to fire an unfired charge after landing before anyone approaches.
+    </div>
+    <div class="row">
+      <span>Rocket: <b id="ej-state">—</b></span>
+      <span>Manual eject on the rocket: <b id="ej-enabled">—</b></span>
+      <span>Charge: <b id="ej-fired">—</b></span>
+    </div>
+    <div class="checklist">
+      <label><input type="checkbox" id="ej-ack"> I understand this fires the charge immediately, and the area around
+        the rocket's path is clear.</label>
+    </div>
+    <div class="row">
+      <button id="btn-eject" class="big fire" disabled>EJECT NOW</button>
+      <button id="btn-eject-button" class="danger" disabled>Enable station button (60 s)</button>
+      <button id="btn-eject-cancel">Cancel</button>
+    </div>
+    <div id="ej-why" class="note"></div>
+    <div id="ej-status" class="muted">—</div>
   </section>
 
   <section class="panel c5">
@@ -431,13 +467,18 @@ const EVENT_ARG = {
   PYRO_SAG: a => { const s = sagValues(a); return `battery ${fmt(s.pre, 3)} V before, min ${fmt(s.min, 3)} V during the pulse (drop ${fmt(s.pre - s.min, 3)} V)`; },
   BENCH_MODE: a => ['flight mode (bench mode off)', 'BENCH MODE ON', 'bench mode off: launch detected'][a] || String(a),
   GPS: a => ['GPS: no data (lost or not connected)', 'GPS: receiving, no fix', 'GPS: position fix'][a] || String(a),
+  PONG: a => 'answered ping ' + a,
+  EJECT_ARMED: () => 'manual ejection ARMED (10 s window)',
+  MANUAL_EJECT: a => 'MANUAL EJECTION fired at ' + cm(a),
 };
 // fc::RemoteFireEnd (lib/fc_core/src/fc/remote_fire.h)
 function sagValues(a) { a = a >>> 0; return { pre: (a >>> 16) / 1000, min: (a & 0xFFFF) / 1000 }; }
 const RF_REASONS = ['fired', 'not in bench mode', 'not in PAD state',
   'no igniter continuity (arm link out?)', 'pulse length out of range', 'not armed', 'wrong code (pairing key?)',
-  'fire window expired', 'cancelled', 'pyro output busy'];
-const WARN_BITS = ['IMU missing', 'no magnetometer', 'radio failed', 'battery low', 'up axis not ~1 g', 'no backup timer', 'no GPS data'];
+  'fire window expired', 'cancelled', 'pyro output busy', 'manual eject not enabled (manual_eject)',
+  'charge already fired', 'no launch detected'];
+const WARN_BITS = ['IMU missing', 'no magnetometer', 'radio failed', 'battery low', 'up axis not ~1 g', 'no backup timer',
+  'no GPS data', 'MANUAL EJECTION ENABLED'];
 function warnNames(a) { return WARN_BITS.filter((_, i) => a & (1 << i)).join(', '); }
 
 // Readouts in the Flight panel: [label, f(frame, track) -> text]
@@ -791,6 +832,7 @@ const rf = { state: 'idle', armedAt: 0, msg: 'Not armed.' };
 function rfSet(state, msg) { rf.state = state; rf.msg = msg; rf.since = performance.now(); if (state === 'armed') rf.armedAt = rf.since; }
 function rfOnLine(line) {
   const p = line.split(',');
+  if (p[0] === 'E' && gs.ejecting && (p[4] === 'REMOTE_REFUSED' || p[4] === 'REMOTE_DISARMED')) return;  // ours
   if (p[0] === 'E') {
     const ev = p[4], arg = Number(p[5]);
     if (ev === 'REMOTE_ARMED') rfSet('armed', '');
@@ -804,8 +846,32 @@ function rfOnLine(line) {
     rfSet('arming', 'Arm request queued: waiting for the rocket…');
   }
 }
+// --- ground station panel: battery, ping, search, manual ejection ("# ..." lines) ---
+const gs = { batt: '—', battLow: false, ping: '—', search: false, ejectBtn: 0, ejecting: false, eject: '—', t: 0 };
+function gsOnLine(line) {
+  let m;
+  if (line.startsWith('# battery')) {
+    gs.batt = line === '# battery none' ? 'no cell (USB power)' : (m = /^# battery ([\d.]+) V (\d+) %( LOW)?/.exec(line)) ?
+      `${m[1]} V, ${m[2]} %${m[3] ? ' LOW' : ''}` : gs.batt;
+    gs.battLow = !!(m && m[3]);
+  } else if ((m = /^# panel search=(\w+) eject_button=(\d+)/.exec(line))) {
+    gs.search = m[1] === 'on'; gs.ejectBtn = Number(m[2]); gs.t = performance.now();
+  } else if (line.startsWith('# ping')) {
+    if ((m = /^# ping reply id=(\d+) rtt=(\d+) ms rssi=([-\d.]+) snr=([-\d.]+)/.exec(line)))
+      gs.ping = `answered in ${m[2]} ms (signal ${m[3]} dBm, SNR ${m[4]} dB)`;
+    else if (line.startsWith('# ping no reply')) gs.ping = 'NO ANSWER: ' + line.replace(/^# ping no reply id=\d+ /, '');
+    else if (line.startsWith('# ping queued')) gs.ping = 'waiting for a rocket frame…';
+    else if (line.startsWith('# ping sent')) gs.ping = 'sent, waiting for the answer…';
+    else if (line.startsWith('# ping error')) gs.ping = line.slice(14);
+  } else if (line.startsWith('# eject')) {
+    const t = line.slice(8);
+    if (/^queued|^rocket armed|^sent/.test(t)) gs.ejecting = true;
+    if (/^FIRED|^refused|^FAILED|^cancelled/.test(t)) gs.ejecting = false;
+    if (!/^button/.test(t) || /ENABLED|disabled/.test(t)) gs.eject = t;
+  }
+}
 function handleGroundLine(track, line, live) {
-  if (live) rfOnLine(line);
+  if (live) { gsOnLine(line); rfOnLine(line); }
   if (feed(track, line, live)) return;
   if (line.startsWith('# noise')) track.noise = Number(line.split(/\s+/)[2]);
   else if (line.startsWith('# bad frame')) track.bad++;
@@ -1073,6 +1139,8 @@ function buildUi() {
   const fl = $('flags');
   FLAGS.forEach(fg => { fg.el = el('span', 'pill', fg.name); fl.append(fg.el); });
   fl.append(gpsPill = el('span', 'pill', 'GPS'));  // optional module: from the link byte
+  fl.append(ejectPill = el('span', 'pill', 'MANUAL EJECT'));
+  ejectPill.title = 'Manual ejection by radio enabled on the rocket (setting manual_eject)';
   GAUGES.forEach(g => makeGauge(g, $('gauges')));
   LINK_GAUGES.forEach(g => makeGauge(g, $('link-gauges')));
   PLOTS.forEach(p => makePlot(p, $('plots')));
@@ -1177,7 +1245,35 @@ function updateCommandButtons() {
 }
 
 let lastEventsKey = '';
-let gpsPill = null;
+let gpsPill = null, ejectPill = null;
+function renderGs(t, f) {
+  $('gs-batt').textContent = gs.batt;
+  $('gs-batt').className = gs.battLow ? 'bad' : '';
+  $('gs-ping').textContent = gs.ping;
+  $('btn-ping').disabled = !radioLink.open;
+  $('gs-search').disabled = !radioLink.open;
+  $('gs-search').checked = gs.search;
+  const rssi = f && t.name === 'radio' ? f.rssi : NaN;
+  $('gs-search-rssi').textContent = gs.search ? 'last signal ' + (isFinite(rssi) ? fmt(rssi, 0) + ' dBm' : '—') : '';
+  if (!panelOpen('eject-panel')) return;
+  const flying = f && ['BOOST', 'COAST', 'DESCENT'].includes(f.state);
+  const enabled = f && (f.link & 64), bench = f && (f.link & 8), fired = f && (f.flags & 4);
+  $('ej-state').textContent = f ? f.state : '—';
+  $('ej-enabled').textContent = !f ? '—' : enabled ? 'ENABLED' : bench ? 'off (bench mode: pad test only)' : 'off';
+  $('ej-fired').textContent = !f ? '—' : fired ? 'fired' : 'not fired';
+  const why = [];
+  if (!radioLink.open) why.push('ground station not connected');
+  if (f && !enabled && !bench) why.push('the rocket will refuse: manual_eject is off');
+  if (f && bench && !enabled && f.state === 'PAD' && !(f.flags & 1)) why.push('no igniter continuity');
+  if (f && fired) why.push('the charge has already fired');
+  if (flying && !enabled && !bench) why.push('in flight the rocket does not listen');
+  $('ej-why').textContent = why.join('; ');
+  const left = gs.ejectBtn ? Math.max(0, gs.ejectBtn - Math.floor((performance.now() - gs.t) / 1000)) : 0;
+  $('btn-eject').disabled = !radioLink.open || !$('ej-ack').checked || gs.ejecting;
+  $('btn-eject-button').disabled = !radioLink.open || !$('ej-ack').checked;
+  $('btn-eject-button').textContent = left ? `Station button enabled (${left} s)` : 'Enable station button (60 s)';
+  $('ej-status').textContent = gs.eject;
+}
 function render() {
   for (const k in popups) if (popups[k].win.closed) restorePanel(k);  // window closed without pagehide
   const t = currentTrack(), f = t.latest();
@@ -1194,6 +1290,9 @@ function render() {
   const gData = f && (f.link & 16), gFix = f && (f.link & 32);
   gpsPill.className = 'pill ' + (gFix ? 'ok on' : gData ? 'warn' : '');
   gpsPill.title = gFix ? 'GPS: position fix' : gData ? 'GPS: receiving, no fix yet' : 'GPS: no data (no module, or gps_mode off)';
+  ejectPill.className = 'pill ' + (f && (f.link & 64) ? 'bad on' : '');
+  ejectPill.hidden = !(f && (f.link & 64));
+  renderGs(t, f);
   // gauges
   const stale = !(live || t.name === 'file');
   GAUGES.forEach(g => setGauge(g, f ? g.get(f) : NaN, stale));
@@ -1425,7 +1524,7 @@ async function wifiApply() {
 // Collapsible panels and panels in their own window
 // ===========================================================================
 
-const POP_PANELS = ['gps-panel', 'batt-panel', 'rf-panel', 'set-panel'];
+const POP_PANELS = ['gps-panel', 'batt-panel', 'rf-panel', 'eject-panel', 'set-panel'];
 function panelOpen(id) { const p = $(id); return !!p && !p.classList.contains('collapsed'); }
 function setCollapsed(id, c) { $(id).classList.toggle('collapsed', c); gpsDrawKey = ''; settingsKey = ''; render(); }
 function setupPanels() {
@@ -1530,6 +1629,13 @@ const UNLOCK_TEXT = 'Allow radio settings outside the EU 869.40–869.65 MHz ban
   'You are responsible for using a frequency, power and duty cycle that are legal where you operate, with a suitable ' +
   'antenna. The setting is stored, printed at every boot and part of the logged settings CRC.';
 
+const EJECT_TEXT = 'ENABLE MANUAL EJECTION IN FLIGHT?\n\n' +
+  'With manual_eject = 1 the ground station can fire the ejection charge at any moment after launch detection, ' +
+  'overriding the apogee logic. A wrong button press during the climb ejects at high speed (torn or stripped ' +
+  'parachute). The rocket also listens after every transmission in flight (slightly lower telemetry rate).\n\n' +
+  'Enable only if you intend to use it, keep the station button disabled until needed, and set it back to 0 ' +
+  'afterwards. Takes effect after save and reboot; the rocket reports it at boot (MANUAL EJECT pill).';
+
 function newParamSet(name) { return { name, defs: new Map(), pe: null, errors: {}, msg: '', version: 0 }; }
 const params = { fc: newParamSet('Flight computer'), gs: newParamSet('Ground station') };
 function linkOf(w) { return w === 'fc' ? usbLink : radioLink; }
@@ -1579,6 +1685,7 @@ async function setParam(key, value) {
   const a = params.fc.defs.get(key), b = params.gs.defs.get(key), d = a || b;
   if (!d) return;
   if (key === 'radio_unlock' && value === '1' && d.value !== '1' && !ask(UNLOCK_TEXT)) { settingsKey = ''; return; }
+  if (key === 'manual_eject' && value === '1' && d.value !== '1' && !ask(EJECT_TEXT)) { settingsKey = ''; return; }
   params.fc.msg = params.gs.msg = '';
   if (a && usbLink.open) await paramSend('fc', `param set ${key} ${value}`);
   if (b && radioLink.open) await paramSend('gs', `param set ${key} ${value}`);
@@ -1612,6 +1719,7 @@ function paramRow(k, a, b) {
   const tags = el('div', 'flags');
   if (d.flags.includes('S')) tags.append(el('span', 'pill bad', 'flight safety'));
   if (d.flags.includes('R')) tags.append(el('span', 'pill info', 'both kits'));
+  if (d.flags.includes('G')) tags.append(el('span', 'pill info', 'ground station'));
   if (tags.childNodes.length) name.append(tags);
   name.append(el('div', 'p-help', d.help));
 
@@ -1621,7 +1729,7 @@ function paramRow(k, a, b) {
   if (a && b && a.value !== b.value) {
     tr.className = 'mismatch';
     val.append(el('div', 'p-err', `ground station has ${b.value} (flight computer ${a.value})`));
-  } else if (!a && b) {
+  } else if (!a && b && !d.flags.includes('G')) {
     val.append(el('div', 'p-help', 'ground station value (flight computer not connected)'));
   } else if (a && !b && d.flags.includes('R')) {
     val.append(el('div', 'p-help', 'ground station not connected: set the same value there'));
@@ -1828,6 +1936,22 @@ $('cmd').addEventListener('keydown', e => {
 $('btn-clear').onclick = () => { consoleLines.length = 0; $('console').textContent = ''; };
 $('fire-safe').onchange = updateCommandButtons;
 $('btn-up-apply').onclick = sendUplinkSettings;
+$('btn-ping').onclick = () => { gs.ping = 'queued…'; radioLink.write('ping'); };
+$('gs-search').onchange = e => radioLink.write('search ' + (e.target.checked ? 'on' : 'off'));
+$('btn-eject').onclick = () => {
+  const f = currentTrack().latest();
+  if (!ask('MANUAL EJECTION: FIRE THE EJECTION CHARGE NOW?\n\nRocket: ' + (f ? f.state : 'unknown') +
+    '\nThis overrides the flight logic. The ground station arms and fires in one go.')) return;
+  gs.ejecting = true; gs.eject = 'sending…';
+  radioLink.write('eject');
+};
+$('btn-eject-button').onclick = () => {
+  if (!ask('Enable the ground station button for manual ejection for 60 s?\n\nHolding the button 3 s will then fire ' +
+    'the charge (the station chirps during the hold and its LEDs alternate while enabled).')) return;
+  radioLink.write('eject button');
+};
+$('btn-eject-cancel').onclick = () => radioLink.write('eject cancel');
+$('ej-ack').onchange = () => render();
 $('btn-rf-arm').onclick = () => {
   const ms = Math.round(Number($('rf-ms').value));
   if (!(ms >= 1 && ms <= 2000)) { rfSet('idle', 'Pulse must be 1–2000 ms.'); return; }

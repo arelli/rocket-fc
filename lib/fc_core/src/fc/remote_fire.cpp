@@ -14,6 +14,9 @@ const char* to_string(RemoteFireEnd r) {
     case RemoteFireEnd::Timeout: return "fire window expired";
     case RemoteFireEnd::Cancelled: return "cancelled";
     case RemoteFireEnd::Busy: return "pyro output busy";
+    case RemoteFireEnd::ManualEjectOff: return "manual eject not enabled (manual_eject)";
+    case RemoteFireEnd::AlreadyFired: return "charge already fired";
+    case RemoteFireEnd::NotLaunched: return "no launch detected";
   }
   return "?";
 }

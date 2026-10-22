@@ -39,7 +39,8 @@ App::App()
       batt_(fc::battery_params(fc::Settings{})),
       duty_(0.08f, 72000),
       ground_(5000),
-      remote_(0) {}
+      remote_(0),
+      eject_(0) {}
 
 bool App::simulating() const { return sim_ != nullptr; }
 
@@ -61,6 +62,9 @@ void App::setup() {
   apply_settings();
   led_.begin(pins::kStatusLed, 0, static_cast<uint8_t>(set_.led_bright_pct));
   Serial.println("mode: FLIGHT (bench mode off: 'bench on' enables the test commands until reboot)");
+  if (set_.manual_eject)
+    Serial.println("WARNING: manual_eject = 1: the ground station can fire the ejection charge IN FLIGHT "
+                   "(two-step coded command). Set manual_eject = 0 if you do not intend to use it.");
 
   batt_adc_.begin(pins::kBattSense, set_.batt_divider);
   pyro_adc_.begin(pins::kPyroSense, set_.pyro_divider);
@@ -145,6 +149,7 @@ void App::apply_settings() {
   duty_ = fc::DutyCycleLimiter(set_.radio_duty_pct / 100.0f, set_.radio_burst_s * 1000u);
   ground_ = fc::GroundLink(set_.uplink_timeout_ms);
   remote_ = fc::RemoteFire(set_.rf_key);
+  eject_ = fc::RemoteFire(set_.rf_key);
   ahrs_ = fc::Ahrs(fc::ahrs_params(set_));
 }
 
@@ -465,6 +470,7 @@ void App::run_selftest(uint32_t now) {
   if (have_battery_ && vbat_ < set_.batt_low_v) warnings_ |= fc::kWarnBattLow;
   if (set_.st_warn_backup && set_.backup_deploy_ms == 0) warnings_ |= fc::kWarnNoBackupTimer;
   if (set_.gps_mode == 1 && gps_state_ == 0) warnings_ |= fc::kWarnGpsMissing;
+  if (set_.manual_eject) warnings_ |= fc::kWarnManualEject;
 
   const bool cal_ok = fc_.finish_init(fault_ == fc::FaultCode::None);
   if (!cal_ok && fault_ == fc::FaultCode::None) fault_ = fc::FaultCode::BaroMissing;
@@ -492,6 +498,9 @@ void App::run_selftest(uint32_t now) {
     Serial.println("  note: backup deployment timer disabled (backup_deploy_ms = 0)");
   if (warnings_ & fc::kWarnGpsMissing)
     Serial.println("  note: no GPS data on D7 (no module? set gps_mode = off to silence this)");
+  if (warnings_ & fc::kWarnManualEject)
+    Serial.println("  WARNING: manual ejection by radio ENABLED (manual_eject = 1): the ground station "
+                   "can fire the charge in flight");
   t_report_ = now;
 }
 
@@ -539,6 +548,7 @@ void App::on_state_change(FlightState from, FlightState to, uint32_t now) {
 
 void App::slow_tick(uint32_t now) {
   check_remote_fire(now);
+  check_eject(now);
   update_gps(now);
   const bool heard = ground_.connected(now);
   if (heard != ground_was_) {
@@ -656,17 +666,18 @@ void App::update_indicators(uint32_t now) {
     case FlightState::Descent: m = set_.led_flight ? fc::LedMode::Flight : fc::LedMode::Off; break;
     case FlightState::Landed: m = fc::LedMode::Landed; break;
   }
-  if (remote_.armed()) m = fc::LedMode::Init;  // fast blink: remote test fire armed
+  if (warning_armed()) m = fc::LedMode::Init;  // fast blink: remote fire / manual eject armed
   const bool low = batt_.level() == fc::BatteryMonitor::Level::Low ||
                    batt_.level() == fc::BatteryMonitor::Level::Critical;
-  if (low && set_.led_low_batt && !remote_.armed() &&
+  if (low && set_.led_low_batt && !warning_armed() &&
       (fc_.state() == FlightState::Pad || fc_.state() == FlightState::Landed)) {
     m = fc::LedMode::LowBattery;
   }
   led_.set(set_.led_on && fc::led_on(m, now));
-  // The remote test fire warning sounds even with the buzzer switched off.
+  // Fire warnings and the ping answer sound even with the buzzer switched off.
   const bool sound = beeper_.update(now);
-  buzzer_.set(sound && (set_.buzzer_on || remote_.armed()));
+  buzzer_.set(sound && (set_.buzzer_on || warning_armed() ||
+                        static_cast<int32_t>(sound_until_ - now) > 0));
 }
 
 void App::shutdown(const char* why) {
@@ -719,7 +730,8 @@ fc::tlm::Telemetry App::snapshot(uint32_t now) const {
                                 (static_cast<bool>(Serial) ? fc::tlm::kLinkUsbHost : 0) |
                                 (bench_ ? fc::tlm::kLinkBenchMode : 0) |
                                 (gps_state_ >= 1 ? fc::tlm::kLinkGpsData : 0) |
-                                (gps_state_ == 2 ? fc::tlm::kLinkGpsFix : 0));
+                                (gps_state_ == 2 ? fc::tlm::kLinkGpsFix : 0) |
+                                (set_.manual_eject ? fc::tlm::kLinkManualEject : 0));
   t.uplink_rssi_dbm = ground_.rssi_dbm(now);
   t.beep_period_s = static_cast<uint8_t>(set_.pad_beeps == 0   ? ground_.pad_beep_period_s(now)
                                          : set_.pad_beeps == 1 ? set_.pad_beep_s
@@ -775,7 +787,8 @@ void App::update_log(uint32_t now) {
 }
 
 uint32_t App::telemetry_period_ms() const {
-  if (remote_.armed()) return 500;  // faster round trips during a remote test fire
+  // Faster round trips during a remote test fire / manual ejection on the ground.
+  if (warning_armed() && !in_flight(fc_.state())) return 500;
   switch (fc_.state()) {
     case FlightState::Boost:
     case FlightState::Coast:
@@ -793,8 +806,19 @@ void App::receive_uplink(uint32_t now) {
   if (n == 0 || crc_error) return;
   fc::tlm::Uplink u;
   if (fc::tlm::decode(buf, n, &u) != fc::tlm::DecodeResult::Ok) return;
-  if (in_flight(fc_.state())) return;  // never act on the uplink in flight
-  if (u.kind != fc::tlm::UplinkKind::Heartbeat) {
+  using K = fc::tlm::UplinkKind;
+  const bool ping_or_eject = u.kind == K::Ping || u.kind == K::EjectArm || u.kind == K::Eject;
+  // In flight only a ping or the manual ejection, and only if enabled.
+  if (in_flight(fc_.state()) && !(ping_or_eject && listen_in_flight())) return;
+  if (u.kind == K::Ping) {
+    handle_ping(u, now);
+    return;
+  }
+  if (u.kind == K::EjectArm || u.kind == K::Eject) {
+    handle_eject(u, now);
+    return;
+  }
+  if (u.kind != K::Heartbeat) {
     handle_remote_fire(u, now);
     return;
   }
@@ -982,6 +1006,11 @@ void App::set_bench(bool on, int32_t why, uint32_t now, const char* source) {
     beeper_.clear();
     event(EventCode::RemoteDisarmed, static_cast<int32_t>(fc::RemoteFireEnd::Cancelled), now);
   }
+  if (!on && eject_.armed() && eject_conditions() != fc::RemoteFireEnd::Fired) {
+    eject_.disarm();
+    beeper_.clear();
+    event(EventCode::RemoteDisarmed, static_cast<int32_t>(fc::RemoteFireEnd::Cancelled), now);
+  }
   event(EventCode::BenchMode, why, now);
   Serial.printf("[%lu] BENCH MODE %s (%s)%s\n", static_cast<unsigned long>(now), on ? "ON" : "OFF", source,
                 on ? ": test commands enabled until reboot, 'bench off' or launch" : "");
@@ -1039,6 +1068,121 @@ void App::check_remote_fire(uint32_t now) {
   Serial.printf("REMOTE FIRE: disarmed: %s\n", fc::to_string(why));
 }
 
+// --- Connectivity check (ground station button / 'ping') ---------------------
+// Answers with a PONG event (sent at once, before telemetry) and beeps once,
+// except in flight. The ground station beeps 0.5 s after the answer arrives:
+// two separate sounds = both directions of the link work.
+void App::handle_ping(const fc::tlm::Uplink& u, uint32_t now) {
+  event(EventCode::Pong, u.pulse_ms, now);
+  if (in_flight(fc_.state()) || warning_armed()) return;
+  beeper_.clear();
+  beeper_.push(150, 0);
+  sound_until_ = now + 200;
+  t_report_ = now;  // no pad beeps right on top of it
+}
+
+// --- Manual ejection by radio ------------------------------------------------
+// Same two-step scheme as the remote test fire (EjectArm -> EJECT_ARMED with a
+// one-time nonce -> Eject with the code from nonce and rf_key, within 10 s).
+//  - On the pad: bench mode only, continuity required, a test pulse (like the
+//    remote test fire, does not use the flight shot).
+//  - After launch detection: only with manual_eject = 1 (set before the
+//    flight; settings cannot change in flight) or in a simulated flight in
+//    bench mode. Overrides the flight logic: no altitude, apogee or
+//    continuity checks. Fires once; the flight logic then never fires.
+fc::RemoteFireEnd App::eject_conditions() const {
+  using fc::RemoteFireEnd;
+  const FlightState s = fc_.state();
+  if (pyro_.firing()) return RemoteFireEnd::Busy;
+  if (s == FlightState::Pad) {
+    if (!bench_) return RemoteFireEnd::NotLaunched;
+    if (simulating()) return RemoteFireEnd::NotOnPad;
+    if (!continuity_) return RemoteFireEnd::NoContinuity;
+    return RemoteFireEnd::Fired;
+  }
+  if (!fc_.sm().launched()) return RemoteFireEnd::NotLaunched;
+  if (!set_.manual_eject && !bench_) return RemoteFireEnd::ManualEjectOff;
+  if (fc_.sm().fired() || pyro_.fired()) return RemoteFireEnd::AlreadyFired;
+  return RemoteFireEnd::Fired;  // = all conditions met
+}
+
+void App::handle_eject(const fc::tlm::Uplink& u, uint32_t now) {
+  using fc::RemoteFireEnd;
+  // 0 = the configured flight pulse.
+  const uint16_t pulse = u.pulse_ms ? u.pulse_ms : static_cast<uint16_t>(set_.pyro_pulse_ms);
+  const bool flying = in_flight(fc_.state());
+  if (u.kind == fc::tlm::UplinkKind::EjectArm) {
+    const RemoteFireEnd r = eject_.arm(now, pulse, esp_random(), eject_conditions());
+    if (r != RemoteFireEnd::Fired) {
+      event(EventCode::RemoteRefused, static_cast<int32_t>(r), now);
+      Serial.printf("MANUAL EJECT: arm refused: %s\n", fc::to_string(r));
+      return;
+    }
+    event(EventCode::EjectArmed, static_cast<int32_t>(eject_.nonce()), now);
+    Serial.printf("MANUAL EJECT: ARMED (%u ms pulse), fire window %lu s\n", eject_.pulse_ms(),
+                  static_cast<unsigned long>(fc::RemoteFire::kWindowMs / 1000));
+    if (!flying) {  // warning to anyone near the rocket
+      beeper_.clear();
+      for (uint32_t i = 0; i < fc::RemoteFire::kWindowMs / 200; ++i) beeper_.push(100, 100);
+    }
+    return;
+  }
+
+  const RemoteFireEnd r = eject_.fire(now, u.code, pulse, eject_conditions());
+  if (!flying) beeper_.clear();
+  if (r != RemoteFireEnd::Fired) {
+    event(EventCode::RemoteRefused, static_cast<int32_t>(r), now);
+    Serial.printf("MANUAL EJECT: refused: %s\n", fc::to_string(r));
+    return;
+  }
+  const int32_t alt_cm = static_cast<int32_t>(fc_.estimator().alt_m() * 100.0f);
+  if (fc_.state() == FlightState::Pad) {  // bench test of the command path
+    watch_open_ = continuity_;
+    start_sag();
+    if (pyro_.bench_fire(now, pulse)) {
+      event(EventCode::ManualEject, alt_cm, now);
+      Serial.printf("MANUAL EJECT: test pulse FIRED %u ms (bench mode, on the pad)\n", pulse);
+    } else {
+      sag_active_ = false;
+    }
+    return;
+  }
+  // After launch: the flight logic must never fire again.
+  fc_.note_manual_fire();
+  event(EventCode::ManualEject, alt_cm, now);
+  if (sim_) {
+    sim_->deploy();
+    if (!sim_live_) {
+      Serial.println("MANUAL EJECT: [sim] fire (pyro output not driven; use 'sim live' to drive it)");
+      return;
+    }
+  }
+  start_sag();
+  pyro_.set_armed(true);  // the override: the state machine's arming is not consulted
+  const bool ok = pyro_.fire(now, pulse);
+  pyro_.set_armed(fc_.sm().pyro_armed());
+  if (ok) {
+    watch_open_ = continuity_;
+    Serial.printf("[%lu] MANUAL EJECT: PYRO FIRED (%u ms pulse)\n", static_cast<unsigned long>(now), pulse);
+  } else {
+    sag_active_ = false;
+    Serial.printf("[%lu] MANUAL EJECT: pyro driver refused (fired before)\n", static_cast<unsigned long>(now));
+  }
+}
+
+void App::check_eject(uint32_t now) {
+  if (!eject_.armed()) return;
+  fc::RemoteFireEnd why = fc::RemoteFireEnd::Timeout;
+  if (!eject_.expired(now)) {
+    why = eject_conditions();
+    if (why == fc::RemoteFireEnd::Fired || why == fc::RemoteFireEnd::Busy) return;
+  }
+  eject_.disarm();
+  if (!in_flight(fc_.state())) beeper_.clear();
+  event(EventCode::RemoteDisarmed, static_cast<int32_t>(why), now);
+  Serial.printf("MANUAL EJECT: disarmed: %s\n", fc::to_string(why));
+}
+
 void App::sync_time(uint64_t utc_ms, uint32_t now, const char* source) {
   if (!clock_.apply(utc_ms, now)) return;
   uint32_t t_ms;
@@ -1067,9 +1211,9 @@ void App::update_radio(uint32_t now) {
   radio_.poll();
   if (!radio_.ok() || radio_.busy()) return;
   receive_uplink(now);
-  // On the ground, leave a short receive window after each transmission for
-  // the ground station's heartbeat reply. In flight, transmit freely.
-  if (!in_flight(fc_.state()) && radio_.tx_done_ms() != 0 &&
+  // Leave a short receive window after each transmission for the ground
+  // station's reply. In flight only when it may send a manual ejection.
+  if ((!in_flight(fc_.state()) || listen_in_flight()) && radio_.tx_done_ms() != 0 &&
       now - radio_.tx_done_ms() < rx_window_ms_)
     return;
 

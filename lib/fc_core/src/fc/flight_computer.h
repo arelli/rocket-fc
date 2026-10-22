@@ -46,6 +46,9 @@ class FlightComputer {
   // Snapshot for the RTC-RAM flight record.
   FlightRecord record(uint32_t now_ms) const;
 
+  // The charge was fired by a manual command (see FlightStateMachine).
+  void note_manual_fire() { sm_.note_manual_fire(); }
+
   const Estimator& estimator() const { return est_; }
   const FlightStateMachine& sm() const { return sm_; }
   FlightState state() const { return sm_.state(); }

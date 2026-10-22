@@ -13,8 +13,10 @@ Patterns: [lib/fc_core/src/fc/indicators.cpp](../lib/fc_core/src/fc/indicators.c
 | 3 flashes, pause | FAULT: will not fly |
 | Solid on | In flight (BOOST, COAST, DESCENT) |
 | Short flash every 2 s | LANDED |
-| Fast blink | PAD, remote test fire armed (bench mode) |
+| Fast blink | Remote test fire or manual ejection armed (on the ground) |
 | Slow 50 % blink (1 Hz) | Battery low (on the pad or after landing; overrides the above) |
+
+Ground station panel LEDs and beeps: docs/HARDWARE.md, "Ground station".
 
 ## Buzzer
 
@@ -27,6 +29,8 @@ Patterns: [lib/fc_core/src/fc/indicators.cpp](../lib/fc_core/src/fc/indicators.c
 | 1 long beep, every N s | PAD, ground station heard | No continuity |
 | Silent | PAD, no ground station (or N = 0) | |
 | Continuous beeping for 10 s | PAD (bench mode) | Remote test fire ARMED: stay clear (sounds even with the buzzer switched off) |
+| 1 short beep (150 ms) | On the ground | Ping from the ground station received (it beeps 0.5 s after the answer reaches it) |
+| Rapid beeping for 10 s | On the ground | Manual ejection ARMED: stay clear (always sounds) |
 | Silent | In flight | |
 | 1 long beep, then digits, every 10 s | LANDED | Maximum altitude in metres: each digit is that many short beeps, 0 = one long beep. E.g. 152 m = ▪ · ▪▪▪▪▪ · ▪▪ |
 

@@ -6,7 +6,8 @@
  include/          pins and fixed constants (data only)
      │
  src/flight/       App: reads sensors, calls the core, drives outputs        (thin, untested on PC)
- src/ground/       receive and print; WiFi access point serving the UI (web.cpp, own task on core 0)
+ src/ground/       receive and print; panel (button, buzzer, LEDs, battery); WiFi access
+                   point serving the UI (web.cpp, own task on core 0)
      │
  lib/fc_hal/       drivers: Mpu9250, Bmp280, RadioLink, PyroChannel,       (hardware-specific)
                    DigitalOut/AnalogIn, system (reset cause, RTC record,
@@ -16,7 +17,8 @@
                    Estimator + FlightStateMachine, telemetry frames, CSV,
                    battery monitor, duty-cycle limiter, LED/beep patterns,
                    resume logic, log ring buffer, flight simulator,
-                   settings table + "param" command (ParamShell)
+                   settings table + "param" command (ParamShell),
+                   remote fire / manual eject codes, station panel logic
 ```
 
 Rule: anything that decides something lives in `fc_core` and has a test.

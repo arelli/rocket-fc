@@ -92,6 +92,14 @@ PAD with continuity; see docs/TELEMETRY.md). Bench mode is kept in RAM only:
 every boot starts in flight mode, and a detected launch ends it. In flight
 mode test pulses and remote fire requests are refused (docs/SETTINGS.md).
 
+**Manual ejection by radio** (setting `manual_eject`, off by default) is the
+one deliberate bypass of layers 4, 5 and 8: after launch detection a two-step
+coded command from the ground station fires the charge at once. Layers 1-3, 6
+and 7 still hold (it is the flight's one shot; afterwards the state machine
+never fires, also across a reset, while APOGEE and LANDED are still logged).
+Off, the rocket ignores the uplink in flight as before. On the pad it works
+only in bench mode as a test pulse. Details: docs/TELEMETRY.md.
+
 ## Reset in flight
 
 If the processor resets during flight (watchdog after a 2 s stall, crash,

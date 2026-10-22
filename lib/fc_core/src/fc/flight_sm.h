@@ -97,6 +97,12 @@ class FlightStateMachine {
   bool fired() const { return fired_; }
   // Apogee decided, charge waiting for deploy_delay_ms.
   bool deploy_pending() const { return deploy_pending_; }
+  // The charge was fired outside this logic (manual ejection by radio): never
+  // fire again; apogee and landing are still detected and logged.
+  void note_manual_fire() {
+    fired_ = true;
+    deploy_pending_ = false;
+  }
   float max_alt_m() const { return max_alt_; }
   bool launched() const { return launched_; }
   uint32_t ms_since_launch(uint32_t now_ms) const {

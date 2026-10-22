@@ -111,7 +111,7 @@ DecodeResult decode(const uint8_t* buf, size_t len, Uplink* out) {
   out->seq = rd.u16();
   out->t_ms = rd.u32();
   const uint8_t kind = rd.u8();
-  if (kind < 1 || kind > 5) return DecodeResult::BadType;  // unknown kind
+  if (kind < 1 || kind > 8) return DecodeResult::BadType;  // unknown kind
   out->kind = static_cast<UplinkKind>(kind);
   if (out->kind == UplinkKind::Heartbeat) {
     out->beep_period_s = rd.u8();

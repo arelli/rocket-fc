@@ -14,6 +14,7 @@ void flags_text(uint8_t f, char* buf) {
   if (f & kParamSafety) buf[n++] = 'S';
   if (f & kParamShared) buf[n++] = 'R';
   if (f & kParamHex) buf[n++] = 'H';
+  if (f & kParamGround) buf[n++] = 'G';
   buf[n] = '\0';
 }
 
@@ -30,7 +31,7 @@ bool ParamShell::check(const Settings& s, char* why, size_t cap) const {
 }
 
 void ParamShell::format_line(const ParamDef& d, char* buf, size_t cap) const {
-  char v[32], r[32], def[32], fl[4];
+  char v[32], r[32], def[32], fl[6];
   format_param(edit_, d, v, sizeof(v));
   format_param(running_, d, r, sizeof(r));
   format_param(kDefaults, d, def, sizeof(def));

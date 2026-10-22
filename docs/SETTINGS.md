@@ -8,7 +8,9 @@ pyro pulse length, self-test checks, estimator and attitude filter tuning,
 IMU and barometer filters, battery thresholds and divider calibration,
 telemetry and log rates, buzzer and LED behaviour, radio (frequency,
 bandwidth, spreading factor, power, receive boost, duty cycle, pairing key),
-the optional GPS (off / auto / required, baud rate, radio period, clock).
+the optional GPS (off / auto / required, baud rate, radio period, clock),
+manual ejection by radio, and the ground station's panel (search mode
+range, buzzer, battery divider and low warning).
 
 **One table defines them all:** `FC_SETTINGS` in
 [lib/fc_core/src/fc/settings.h](../lib/fc_core/src/fc/settings.h): name,
@@ -54,12 +56,31 @@ checks this).
   changing any of them, run a simulated flight (`bench on`, `sim`) and re-read
   docs/FLIGHT_LOGIC.md.
 
+### Manual ejection (`manual_eject`, flight safety)
+
+Off by default. When on, the ground station can fire the ejection charge at
+any moment after launch detection (UI: "Manual parachute ejection" panel,
+`eject` on the ground station, or a 3 s hold of its button after
+`eject button`). It overrides the apogee logic, so a mistaken command during
+the climb ejects at full speed. The UI asks for confirmation when you switch
+it on; the rocket prints a warning at boot, sets self-test warning bit 7 and
+telemetry link bit 6 (UI: MANUAL EJECT pill). Set it back to 0 when you do
+not need it. Without it, manual ejection works only on the pad in bench mode
+(test pulse).
+
+### Ground station settings (`G`)
+
+`gs_*` settings exist only on the ground station (its `param` command and
+the UI's Settings panel, marked "ground station"): search mode signal range,
+buzzer on/off, battery divider and low-battery threshold. Like all settings
+they apply after save and reboot.
+
 ### Radio settings (both kits)
 
 Radio settings (`R`) exist on the flight computer and the ground station and
 must be identical, or there is no link. The UI sends each radio change to
 every connected kit and warns when they differ; save and reboot both. The
-ground station's `param` command has only these settings.
+ground station's `param` command has only these and its own `gs_*` settings.
 
 Without `radio_unlock` the channel must lie within the EU 869.40–869.65 MHz
 band (centre ± bandwidth/2) and the duty limit must not exceed 10 % per hour

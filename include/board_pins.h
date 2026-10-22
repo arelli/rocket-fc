@@ -45,4 +45,14 @@ constexpr int kStatusLed = 43;  // D6 (flickers briefly at boot: ROM log on UART
 // would need another chip-select pin (none left on the header).
 constexpr int kGpsRx = 44;  // D7
 
+// Ground station panel (second kit only; docs/HARDWARE.md "Ground station").
+// The flight computer's pin map above does not apply to it (no sensors).
+namespace ground {
+constexpr int kBattSense = 1; // D0 / A0: 100k/100k divider from BAT+ (same as the flight kit)
+constexpr int kBuzzer = 2;    // D1: buzzer MOSFET gate (100k pull-down), buzzer from 5V
+constexpr int kButton = 3;    // D2: push button to GND (internal pull-up)
+constexpr int kLedPower = 4;  // D3: "on" LED (330R)
+constexpr int kLedLink = 5;   // D4: "rocket connected" LED (330R)
+}  // namespace ground
+
 }  // namespace pins

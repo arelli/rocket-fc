@@ -272,12 +272,14 @@ bool radio_within_eu_rules(const Settings& s) {
 
 bool validate_radio(const Settings& s, char* why, size_t cap) {
   for (const ParamDef& d : kDefs) {
-    if (!(d.flags & kParamShared)) continue;
+    if (!(d.flags & (kParamShared | kParamGround))) continue;
     if (!in_range(s, d)) {
       say(why, cap, "%s out of range", d.key);
       return false;
     }
   }
+  if (!(s.gs_search_lo_dbm < s.gs_search_hi_dbm))
+    return say(why, cap, "gs_search_lo_dbm must be below gs_search_hi_dbm"), false;
   if (!s.radio_unlock && !radio_within_eu_rules(s)) {
     say(why, cap,
         "radio outside the EU 869.40-869.65 MHz band / 10 %% duty per hour: "

@@ -32,6 +32,7 @@ enum ParamFlags : uint8_t {
   kParamSafety = 1 << 0,  // decides when the charge fires: change with care, re-test
   kParamShared = 1 << 1,  // radio: must be identical on the ground station kit
   kParamHex = 1 << 2,     // shown in hexadecimal
+  kParamGround = 1 << 3,  // ground station only (its buzzer, LEDs, button)
 };
 
 // X(type, name, group, default, min, max, unit, flags, enum options, help)
@@ -89,6 +90,8 @@ enum ParamFlags : uint8_t {
     "Backup: fire this long after launch if apogee was not detected. 0 = off. Use simulated apogee time + 1-2 s.") \
   X(U32, pyro_pulse_ms,     "deploy",   1000, 10, 2000, "ms", kParamSafety, "", \
     "Igniter on-time at deployment (the driver caps any pulse at 2000 ms).") \
+  X(Bool, manual_eject,      "deploy",   0, 0, 1, "", kParamSafety, "", \
+    "Allow a manual parachute ejection command from the ground station IN FLIGHT. The rocket then listens after every transmission in flight, and a command fires the charge at once after launch detection, overriding the apogee logic. Off unless you need it.") \
   X(F32, continuity_frac,   "deploy",   0.6, 0.1, 0.95, "", 0, "", \
     "Continuity: drain voltage above this fraction of the battery voltage means the igniter is connected.") \
   X(U32, landed_ms,         "landing",  5000, 1000, 120000, "ms", 0, "", \
@@ -204,7 +207,17 @@ enum ParamFlags : uint8_t {
   X(U32, uplink_timeout_ms, "uplink",   5000, 1000, 60000, "ms", 0, "", \
     "The ground station counts as lost after this long without a heartbeat.") \
   X(U32, uplink_rx_ms,      "uplink",   150, 50, 3000, "ms", 0, "", \
-    "On the ground: listen this long after each transmission (raised automatically for slow radio settings).")
+    "On the ground: listen this long after each transmission (raised automatically for slow radio settings).") \
+  X(I32, gs_search_lo_dbm,  "station",  -125, -140, -30, "dBm", kParamGround, "", \
+    "Ground station search mode: at or below this signal strength it beeps slowest.") \
+  X(I32, gs_search_hi_dbm,  "station",  -50, -140, -10, "dBm", kParamGround, "", \
+    "Search mode: at or above this signal strength it beeps fastest. Must be above gs_search_lo_dbm.") \
+  X(Bool, gs_buzzer_on,     "station",  1, 0, 1, "", kParamGround, "", \
+    "Ground station buzzer (ping, search mode, button feedback). Eject warnings always sound.") \
+  X(F32, gs_batt_divider,   "station",  2, 1, 10, "", kParamGround, "", \
+    "Ground station battery sense divider ratio (100k/100k = 2). Calibrate: measured cell voltage / reported voltage x this.") \
+  X(F32, gs_batt_low_v,     "station",  3.5, 3.0, 4.1, "V", kParamGround, "", \
+    "Ground station battery low warning (ON LED double-blinks, '# battery' line says LOW).")
 // clang-format on
 
 template <ParamType> struct ParamCType;
@@ -266,7 +279,7 @@ void settings_from_text(Settings& s, const char* text, size_t len, LoadReport* r
 // Ranges, cross-checks between settings, the flight logic's own validation
 // and the radio rules. Returns true if usable; otherwise writes why.
 bool validate(const Settings& s, char* why, size_t cap);
-// Only the radio settings (the ground station uses these).
+// Only the radio and ground station settings (the ground station uses these).
 bool validate_radio(const Settings& s, char* why, size_t cap);
 // Inside the EU 869.40-869.65 MHz band, within 10 % duty per hour?
 bool radio_within_eu_rules(const Settings& s);

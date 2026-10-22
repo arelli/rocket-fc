@@ -163,6 +163,8 @@ void App::print_status(uint32_t now) {
   Serial.printf("firmware   %s, reset: %s%s\n", FC_GIT_REV, hal::reset_reason_name(),
                 resumed_ ? " (flight RESUMED)" : "");
   Serial.printf("mode       %s\n", bench_ ? "BENCH (test commands enabled; not for flight)" : "flight");
+  Serial.printf("man. eject %s\n", set_.manual_eject ? "ENABLED: the ground station can fire the charge in flight"
+                                                     : "off (manual_eject = 0)");
   Serial.printf("settings   crc %08lX%s\n", static_cast<unsigned long>(set_crc_),
                 config_ok_ ? "" : "  INVALID (running on defaults, will not fly): see 'param'");
   {

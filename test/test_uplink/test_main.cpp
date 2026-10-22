@@ -139,6 +139,32 @@ static void test_time_sync() {
   TEST_ASSERT_TRUE(static_cast<uint64_t>(unix_s) * 1000 + (t - t_ms) == ts.utc_ms(t));
 }
 
+static void test_ping_and_eject_uplinks() {
+  const tlm::UplinkKind kinds[] = {tlm::UplinkKind::Ping, tlm::UplinkKind::EjectArm,
+                                   tlm::UplinkKind::Eject};
+  for (const auto k : kinds) {
+    tlm::Uplink u;
+    u.kind = k;
+    u.pulse_ms = 1234;
+    u.code = 0xA5A5A5A5u;
+    uint8_t buf[32];
+    const size_t n = tlm::encode(u, buf, sizeof(buf));
+    tlm::Uplink out;
+    TEST_ASSERT_EQUAL(tlm::DecodeResult::Ok, tlm::decode(buf, n, &out));
+    TEST_ASSERT_EQUAL(k, out.kind);
+    TEST_ASSERT_EQUAL_UINT16(1234, out.pulse_ms);
+    TEST_ASSERT_EQUAL_HEX32(0xA5A5A5A5u, out.code);
+  }
+  tlm::Uplink u;
+  u.kind = static_cast<tlm::UplinkKind>(9);  // unknown kind
+  uint8_t buf[32];
+  const size_t n = tlm::encode(u, buf, sizeof(buf));
+  tlm::Uplink out;
+  TEST_ASSERT_EQUAL(tlm::DecodeResult::BadType, tlm::decode(buf, n, &out));
+  TEST_ASSERT_EQUAL_STRING("PONG", to_string(EventCode::Pong));
+  TEST_ASSERT_EQUAL_STRING("MANUAL_EJECT", to_string(EventCode::ManualEject));
+}
+
 int main() {
   UNITY_BEGIN();
   RUN_TEST(test_uplink_roundtrip);
@@ -148,5 +174,6 @@ int main() {
   RUN_TEST(test_uplink_policy_rate_and_flight);
   RUN_TEST(test_uplink_airtime_budget);
   RUN_TEST(test_time_sync);
+  RUN_TEST(test_ping_and_eject_uplinks);
   return UNITY_END();
 }

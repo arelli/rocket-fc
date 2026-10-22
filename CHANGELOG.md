@@ -60,3 +60,18 @@ First version: not yet flown.
 - UI: GPS indicator next to the sensor flags; GPS, Battery, Remote test fire
   and Settings panels collapsible (collapsed at start) and can open in their
   own window; Google satellite map of the last GPS fix (panel or window).
+- Ground station panel (optional): push button (short = ping, 1.5 s hold =
+  search mode, 3 s hold = manual ejection when enabled for 60 s), buzzer,
+  ON and "rocket connected" LEDs, battery voltage/percentage on D0 (same
+  divider as the flight kit). `ping`, `search`, `eject` commands; `# panel`,
+  `# battery`, `# ping`, `# eject` status lines. Station settings `gs_*`
+  (flag G, ground station only).
+- Connectivity check: uplink kind 6 (ping) → PONG event; the rocket beeps,
+  the station beeps 0.5 s after the answer.
+- Manual parachute ejection by radio (uplink kinds 7/8, EJECT_ARMED and
+  MANUAL_EJECT events, refusal reasons 10-12): after launch only with the
+  new flight-safety setting `manual_eject` (link bit 6, self-test warning
+  bit 7, boot warning); on the pad only in bench mode as a test pulse. The
+  flight logic never fires after a manual ejection (tested, also across a
+  reset). UI: Manual ejection panel, MANUAL EJECT pill, ground station box
+  (battery, ping, search mode).

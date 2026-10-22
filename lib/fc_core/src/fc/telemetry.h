@@ -68,6 +68,7 @@ enum LinkBits : uint8_t {
   kLinkBenchMode = 1 << 3,    // bench mode on: test commands enabled (RAM only, off at boot)
   kLinkGpsData = 1 << 4,      // a GPS module is sending valid NMEA data
   kLinkGpsFix = 1 << 5,       // ...and has a position fix
+  kLinkManualEject = 1 << 6,  // manual ejection by radio enabled (setting manual_eject): listens in flight
 };
 
 // Ground -> rocket frames (fixed length, header "state" byte is 0). The rocket
@@ -78,6 +79,9 @@ enum class UplinkKind : uint8_t {
   Fire = 3,        // step 2: code = fc::remote_fire_code(nonce, key), pulse_ms
   FireDisarm = 4,  // cancel an armed remote test fire
   BenchMode = 5,   // pulse_ms = 1 on / 0 off, code = fc::bench_mode_code(on, key)
+  Ping = 6,        // connectivity check: pulse_ms = ping id; the rocket beeps and answers PONG(id)
+  EjectArm = 7,    // manual ejection, step 1: pulse_ms (0 = the rocket's pyro_pulse_ms)
+  Eject = 8,       // step 2: code = fc::remote_fire_code(nonce from EJECT_ARMED, key), same pulse_ms
 };
 
 struct Uplink {

@@ -43,6 +43,9 @@ enum class EventCode : uint8_t {
   PyroSag = 23,        // arg: battery during a pyro pulse: (before_mV << 16) | min_mV
   BenchMode = 24,      // arg: 1 = bench mode on, 0 = off, 2 = off because launch was detected
   GpsStatus = 25,      // arg: 0 = no GPS data (lost), 1 = data but no fix, 2 = position fix
+  Pong = 26,           // arg: ping id (answer to a ground station connectivity check)
+  EjectArmed = 27,     // arg: one-time nonce for the manual ejection command
+  ManualEject = 28,    // arg: altitude AGL [cm] when the charge was fired by the ground command
 };
 
 // Why the computer refuses to fly (FlightState::Fault). Beeped as N long beeps.
@@ -67,6 +70,7 @@ enum WarnBits : uint8_t {
   kWarnImuAxis = 1 << 4,  // "up" axis does not read ~+1 g on the pad
   kWarnNoBackupTimer = 1 << 5,
   kWarnGpsMissing = 1 << 6,  // gps_mode = auto and no GPS data at self-test
+  kWarnManualEject = 1 << 7, // manual ejection by radio is enabled for this flight
 };
 
 enum SensorBits : uint8_t {

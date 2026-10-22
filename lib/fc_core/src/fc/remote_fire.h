@@ -29,6 +29,9 @@ enum class RemoteFireEnd : uint8_t {
   Timeout = 7,
   Cancelled = 8,
   Busy = 9,
+  ManualEjectOff = 10,  // manual ejection in flight is not enabled (setting manual_eject)
+  AlreadyFired = 11,    // the charge has already been fired
+  NotLaunched = 12,     // no launch detected (and not a bench test on the pad)
 };
 
 const char* to_string(RemoteFireEnd r);

@@ -180,6 +180,68 @@ The Wio-SX1262 plugs into the XIAO's B2B connector. Always attach the antenna
 before powering up: transmitting without an antenna can damage the radio.
 Settings: [docs/TELEMETRY.md](TELEMETRY.md).
 
+## Ground station (second kit)
+
+The ground station is the second XIAO ESP32-S3 + Wio-SX1262 kit. Everything
+below is optional: without it the station works over USB/WiFi as before.
+Pins: `pins::ground` in [include/board_pins.h](../include/board_pins.h).
+
+| XIAO pin | GPIO | Function | Part |
+|---|---|---|---|
+| D0 / A0 | 1 | Battery voltage sense | 100k/100k divider from BAT+ (as on the flight kit) |
+| D1 | 2 | Buzzer MOSFET gate | 100 Ω series, 100k pull-down, IRLB8748 (or 2N7000) |
+| D2 | 3 | Push button | to GND, internal pull-up (no resistor) |
+| D3 | 4 | ON LED | 330 Ω, green |
+| D4 | 5 | "Rocket connected" LED | 330 Ω, blue or yellow |
+| U.FL on the XIAO | | WiFi antenna | 2.4 GHz (D-Link) |
+| U.FL on the Wio-SX1262 | | LoRa antenna | 868 MHz only |
+
+```
+ cell + ──o/ o── switch ──┬─────────────┬──────────────┬──────── XIAO BAT+ pad
+ (18350 or                │             │              │
+  1S LiPo)              100k        buzzer (+)          │
+                          ├── D0     buzzer (−)          │
+                        100k            │              │
+                          │          Q drain           │
+ cell − ──────────────────┴──── GND ── Q source        └─ (USB-C: power bank or laptop)
+                                        │
+                     D1 ── 100 Ω ──┬── Q gate
+                                  100k
+                                   │
+                                  GND
+
+ D2 ── push button ── GND          D3 ── 330 Ω ── LED ON (anode→cathode) ── GND
+                                   D4 ── 330 Ω ── LED CONNECTED ──────────── GND
+```
+
+- **Battery (optional):** any protected 1S Li-ion/LiPo (another MXJO 18350
+  works) on the BAT pads through a slide switch, like the flight kit. The XIAO
+  charges it from USB-C (power bank or laptop) and it carries the station when
+  the power bank switches off. The firmware reports `# battery 3.95 V 78 %`
+  every 10 s (UI: Radio link → Ground station), `LOW` below `gs_batt_low_v`
+  (ON LED double-blinks), or `# battery none` below 2.5 V. While USB powers
+  the station the reading is the charger's voltage (higher than the resting
+  cell). Calibrate `gs_batt_divider` with a multimeter. Without a cell, leave
+  the divider out (the station reports "none" or a meaningless voltage).
+- **Buzzer:** active buzzer, low-side MOSFET from BAT+ (works on battery and
+  on USB). Without a cell, take buzzer (+) from the 5V pin instead (USB
+  only, louder). Do not drive it from the GPIO directly.
+- **Button:** momentary, normally open, between D2 and GND. D2 is a strapping
+  pin of the ESP32-S3 only for an eFuse-selected JTAG mode (not used): holding
+  the button during power-up is harmless.
+- **LEDs:** 330 Ω gives about 4 mA (bright enough in an enclosure).
+
+| Panel | Behaviour |
+|---|---|
+| Short press (< 1 s) | Ping: the rocket beeps, answers; the station beeps 0.5 s after the answer. Three short beeps = no answer |
+| Hold 1.5 s | Search mode on (2 beeps) / off (1 long). Beeps faster the stronger the rocket's signal (`gs_search_lo_dbm` → 1.5 s, `gs_search_hi_dbm` → 0.08 s); two faint ticks every 3 s while nothing is heard |
+| Hold 3 s, only within 60 s after `eject button` (UI) | Manual ejection: chirps during the hold, then arms and fires. Both LEDs alternate while enabled |
+| ON LED | Steady = running. Double blink = battery low. Fast blink = radio failed. Both LEDs blink together = ejection in progress |
+| CONNECTED LED | On while rocket frames arrive (< 3 s old), off for an instant at every frame |
+| Buzzer at power-up | One short beep = radio OK; five = radio failed |
+
+`gs_buzzer_on` = 0 silences everything except the ejection warnings.
+
 ## Ground station WiFi
 
 The ground station is also a WiFi access point that serves the UI, so it can

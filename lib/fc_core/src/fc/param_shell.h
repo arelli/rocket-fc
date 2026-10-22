@@ -8,7 +8,7 @@
 //
 // Output lines (machine-readable, parsed by tools/ground_station.html):
 //   P,<key>,<group>,<type>,<value>,<running>,<default>,<min>,<max>,<unit>,<flags>,<options>,<help>
-//       value = edit copy; flags: S safety, R radio (both kits), H hex;
+//       value = edit copy; flags: S safety, R radio (both kits), H hex, G ground station only;
 //       options: enum names separated by '|'; help is last and may contain commas
 //   PE,<count>,<edit crc>,<running crc>,<saved crc>,<ok | invalid: reason>
 //   PERR,<key or *>,<reason>
@@ -44,7 +44,11 @@ class ParamShell {
   const Settings& edit() const { return edit_; }
   const Settings& saved() const { return saved_; }
   const Settings& running() const { return running_; }
-  bool visible(const ParamDef& d) const { return !radio_only_ || (d.flags & kParamShared); }
+  // Flight computer: everything but the ground station's own settings.
+  // Ground station: the radio settings (shared) and its own.
+  bool visible(const ParamDef& d) const {
+    return radio_only_ ? (d.flags & (kParamShared | kParamGround)) != 0 : (d.flags & kParamGround) == 0;
+  }
   bool check(const Settings& s, char* why, size_t cap) const;
 
   // One P line for `d` (NUL-terminated, truncated to cap).

@@ -68,7 +68,7 @@ Acceleration, rotation rate and magnetic field are in the **rocket frame**:
 | 40 | u16 | battery voltage | mV |
 | 42 | u8 | flags (below) | |
 | 43 | 4 × i16 | attitude quaternion w, x, y, z | 1/32767 |
-| 51 | u8 | link: bit 0 = ground station heartbeat heard within 5 s, bit 1 = real time known, bit 2 = computer on USB (board powered and charging from USB), bit 3 = bench mode on, bit 4 = GPS sending data, bit 5 = GPS fix | |
+| 51 | u8 | link: bit 0 = ground station heartbeat heard within 5 s, bit 1 = real time known, bit 2 = computer on USB (board powered and charging from USB), bit 3 = bench mode on, bit 4 = GPS sending data, bit 5 = GPS fix, bit 6 = manual ejection by radio enabled (`manual_eject`) | |
 | 52 | i8 | heartbeat RSSI at the rocket (−128 = none) | dBm |
 | 53 | u8 | pad beep period in use (0 = silent) | s |
 | 54 | u16 | CRC | |
@@ -96,7 +96,7 @@ Flags: bit 0 igniter continuity, 1 pyro armed, 2 pyro fired, 3 IMU ok,
 | Code | Event | Argument |
 |---|---|---|
 | 1 | BOOT | firmware git hash (first 8 hex digits) |
-| 2 | SELFTEST_OK | warning bits: 0 IMU missing, 1 no magnetometer, 2 radio failed, 3 battery low, 4 up axis not ~+1 g, 5 no backup timer, 6 no GPS data (gps_mode auto) |
+| 2 | SELFTEST_OK | warning bits: 0 IMU missing, 1 no magnetometer, 2 radio failed, 3 battery low, 4 up axis not ~+1 g, 5 no backup timer, 6 no GPS data (gps_mode auto), 7 manual ejection enabled |
 | 3 | SELFTEST_FAIL | fault code (1 baro missing, 2 pressure implausible, 3 settings invalid, 4 IMU missing, 5 radio failed, 6 battery below minimum, 7 no GPS data with gps_mode required) |
 | 4 | LAUNCH | altitude [cm] |
 | 5 | BURNOUT | altitude [cm] |
@@ -120,6 +120,9 @@ Flags: bit 0 igniter continuity, 1 pyro armed, 2 pyro fired, 3 IMU ok,
 | 23 | PYRO_SAG | battery during a pyro pulse: `(before_mV << 16) \| min_mV` (unsigned) |
 | 24 | BENCH_MODE | 1 = bench mode on, 0 = off, 2 = off because launch was detected |
 | 25 | GPS | 0 = no GPS data (lost), 1 = data but no fix, 2 = position fix (on change) |
+| 26 | PONG | ping id (answer to a ground station connectivity check) |
+| 27 | EJECT_ARMED | one-time nonce (manual ejection armed) |
+| 28 | MANUAL_EJECT | altitude [cm] when the charge was fired by the ground command |
 
 ### GPS frame (38 bytes, optional module)
 
@@ -148,12 +151,12 @@ position is the last known one: after the fix is lost it stays, with
 All uplink frames have the same length. Header state byte = 0, header time =
 ground station clock.
 
-| Offset | Type | Heartbeat (kind 1) | Remote fire (kinds 2–4), bench mode (5) |
+| Offset | Type | Heartbeat (kind 1) | Commands (kinds 2–8) |
 |---|---|---|---|
-| 10 | u8 | kind = 1 | 2 = arm, 3 = fire, 4 = disarm, 5 = bench mode |
-| 11 | | u8 pad beep period [s] (0 = silent) | u32 code (fire only) |
+| 10 | u8 | kind = 1 | 2 = remote fire arm, 3 = fire, 4 = disarm, 5 = bench mode, 6 = ping, 7 = manual eject arm, 8 = manual eject |
+| 11 | | u8 pad beep period [s] (0 = silent) | u32 code (kinds 3, 5, 8) |
 | 12 | | u64 real time when sent [Unix ms] (0 = unknown) | |
-| 15 | | | u16 pulse length [ms] (kind 5: 1 = on, 0 = off) |
+| 15 | | | u16 pulse length [ms] (kind 5: 1 = on, 0 = off; kind 6: ping id; kinds 7–8: 0 = the rocket's `pyro_pulse_ms`) |
 | 17 | | | 3 bytes zero |
 | 20 | u16 | CRC | CRC |
 
@@ -197,12 +200,40 @@ remains the real safety. Set `rf_key` to your own number (on both kits).
 
 Refusal / disarm reasons: 0 fired, 1 not in bench mode, 2 not in PAD, 3 no
 continuity, 4 bad pulse length, 5 not armed, 6 wrong code, 7 window expired,
-8 cancelled, 9 output busy.
+8 cancelled, 9 output busy, 10 manual ejection not enabled (`manual_eject`),
+11 charge already fired, 12 no launch detected.
+
+**Ping (kind 6, connectivity check).** The rocket answers PONG(id) with its
+next transmission (events go first, about 0.1 s) and beeps once (not in
+flight). The ground station prints `# ping reply id=N rtt=<ms> rssi=<dBm>
+snr=<dB>` and beeps 0.5 s after the answer, or `# ping no reply id=N (why)`
+and three short beeps after 3 s. In flight the rocket answers only when it
+listens (manual ejection enabled).
+
+**Manual ejection (kinds 7, 8).** Same two-step scheme and code as the remote
+test fire, with its own nonce (EJECT_ARMED). The ground station sends kind 8
+automatically in reply to the EJECT_ARMED frame. The rocket accepts:
+
+- after launch detection (BOOST, COAST, DESCENT, LANDED): only with
+  `manual_eject` = 1 (or in a simulated flight in bench mode), charge not
+  fired yet. No altitude, apogee or continuity check. The pyro output fires
+  once; the flight logic then never fires (it still logs APOGEE and LANDED,
+  also after a reset);
+- on the pad: only in bench mode with continuity, as a test pulse (like the
+  remote test fire, does not use the flight shot);
+- otherwise REMOTE_REFUSED(reason). Disarms after 10 s (REMOTE_DISARMED).
+
+With `manual_eject` = 1 the rocket keeps its listen window after every
+transmission in flight too (fewer telemetry frames per second).
 
 Ground station USB commands: `beep <0..255>` (seconds), `uplink on|off`,
 `time <unix ms>`, `rf arm <ms>`, `rf fire`, `rf disarm`, `bench on|off`,
-`param ...` (radio settings), `wifi ...`, `reboot`; an empty line re-prints the
-CSV headers.
+`ping`, `search on|off`, `eject [ms]`, `eject button` (button ejection for
+60 s), `eject cancel`, `param ...` (radio and station settings), `wifi ...`,
+`reboot`; an empty line re-prints the CSV headers. Status lines:
+`# panel search=on|off eject_button=<s left> buzzer=on|off`,
+`# battery <V> V <pct> % [LOW]` or `# battery none`, `# ping ...`,
+`# eject ...`.
 
 The same lines and commands are available over the ground station's WiFi
 (src/ground/web.h): `GET /events` streams every output line as Server-Sent

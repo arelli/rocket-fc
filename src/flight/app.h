@@ -68,6 +68,15 @@ class App {
   void handle_remote_fire(const fc::tlm::Uplink& u, uint32_t now);
   fc::RemoteFireEnd remote_conditions() const;
   void check_remote_fire(uint32_t now);
+  // Ground station connectivity check and manual ejection (setting manual_eject).
+  void handle_ping(const fc::tlm::Uplink& u, uint32_t now);
+  void handle_eject(const fc::tlm::Uplink& u, uint32_t now);
+  fc::RemoteFireEnd eject_conditions() const;
+  void check_eject(uint32_t now);
+  // Listens to the ground station in flight (manual ejection enabled, or a
+  // simulated flight in bench mode).
+  bool listen_in_flight() const { return set_.manual_eject || bench_; }
+  bool warning_armed() const { return remote_.armed() || eject_.armed(); }
   void set_bench(bool on, int32_t why, uint32_t now, const char* source);
   void start_sag();
   void update_sag(uint32_t now);
@@ -144,6 +153,8 @@ class App {
   fc::GroundLink ground_;       // ground station heartbeat (pad beeps only)
   fc::TimeSync clock_;          // real time, from the ground station or USB
   fc::RemoteFire remote_;       // remote test fire by radio (bench mode only)
+  fc::RemoteFire eject_;        // manual ejection by radio (manual_eject, or bench mode)
+  uint32_t sound_until_ = 0;    // ping answer beep: sounds even with buzzer_on = 0
   // Optional GPS (gps_mode): position for recovery and the log, never for decisions.
   fc::NmeaParser gps_;
   uint8_t gps_state_ = 0;       // 0 no data, 1 data without fix, 2 fix (GPS event on change)

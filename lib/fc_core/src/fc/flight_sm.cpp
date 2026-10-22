@@ -63,7 +63,9 @@ void FlightStateMachine::fire(SmOutput& out, EventCode code, float alt_m) {
 }
 
 void FlightStateMachine::check_deploy(const SmInput& in, SmOutput& out) {
-  if (fired_ || apogee_passed_) return;
+  // After a manual fire (fired_ without apogee_passed_) apogee is still
+  // detected and logged; fire() then does nothing.
+  if (apogee_passed_) return;
   const uint32_t since = in.t_ms - t_launch_;
 
   // Apogee path (rules 2-4).
@@ -73,7 +75,7 @@ void FlightStateMachine::check_deploy(const SmInput& in, SmOutput& out) {
       apogee_passed_ = true;
       out.add(EventCode::Apogee, cm(max_alt_));
       if (max_alt_ >= cfg_.min_deploy_alt_m) {
-        if (cfg_.deploy_delay_ms == 0) {
+        if (cfg_.deploy_delay_ms == 0 || fired_) {  // fired_: no-op after a manual fire
           fire(out, EventCode::PyroFire, in.alt_m);
         } else {
           deploy_pending_ = true;
