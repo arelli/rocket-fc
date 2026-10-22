@@ -4,7 +4,7 @@
 //   XIAO pin  GPIO  use
 //   D0 / A0     1   battery voltage sense  (100k/100k divider from switched BAT+)
 //   D1 / A1     2   pyro continuity sense  (100k/100k divider from pyro MOSFET drain)
-//   D2          3   buzzer MOSFET gate     (100k pull-down)
+//   D2          3   active buzzer          (+ on the pin, − to GND)
 //   D3          4   pyro MOSFET gate       (100R series, 100k pull-down)
 //   D4          5   I2C SDA  (MPU9250 0x68, BMP280 0x76/0x77)
 //   D5          6   I2C SCL
@@ -37,7 +37,7 @@ constexpr int kBattSense = 1;  // D0 / A0
 constexpr int kPyroSense = 2;  // D1 / A1
 
 // Outputs
-constexpr int kBuzzer = 3;      // D2 (ESP32-S3 strapping pin: keep the 100k pull-down)
+constexpr int kBuzzer = 3;      // D2: active buzzer + (buzzer − to GND)
 constexpr int kPyroGate = 4;    // D3
 constexpr int kStatusLed = 43;  // D6 (flickers briefly at boot: ROM log on UART0 TX)
 
@@ -49,7 +49,7 @@ constexpr int kGpsRx = 44;  // D7
 // The flight computer's pin map above does not apply to it (no sensors).
 namespace ground {
 constexpr int kBattSense = 1; // D0 / A0: 100k/100k divider from BAT+ (same as the flight kit)
-constexpr int kBuzzer = 2;    // D1: buzzer MOSFET gate (100k pull-down), buzzer from 5V
+constexpr int kBuzzer = 2;    // D1: active buzzer + (buzzer − to GND)
 constexpr int kButton = 3;    // D2: push button to GND (internal pull-up)
 constexpr int kLedPower = 4;  // D3: "on" LED (330R)
 constexpr int kLedLink = 5;   // D4: "rocket connected" LED (330R)

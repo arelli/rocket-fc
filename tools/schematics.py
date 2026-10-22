@@ -233,25 +233,16 @@ def flight():
     cards.append(c.end())
 
     # Buzzer
-    c = Card(720, 480, 300, 400, 'Buzzer', 'active buzzer, low-side switch')
-    c.net(200, 70, 'BAT+ sw', 'left')
-    c.w((200, 70), (200, 100)); c.dot(200, 100); c.buzzer_v(200, 100, 170, 'BZ1', '')
-    c.dot(200, 170)
-    c.w((200, 100), (150, 100), cls='w opt'); c.diode_v(150, 100, 170, '', '', 'sym opt'); c.w((150, 170), (200, 170), cls='w opt')
-    c.t(138, 132, '1N4148', 'val', 'end'); c.t(138, 146, 'optional', 'val', 'end')
-    c.w((200, 170), (200, 210))
-    c.nmos(190, 240, 'Q2', 'IRLB8748')
-    c.gnd(200, 270, 14)
-    c.net(72, 240, 'BUZZER', 'left')
-    c.res_h(72, 127, 240, 'R8', '100 Ω'); c.w((127, 240), (160, 240))
-    c.dot(145, 240); c.res_v(145, 240, 320, '', '', 'left'); c.t(135, 296, 'R9 100k', 'val', 'end'); c.gnd(145, 320, 10)
-    c.note(14, 372, ['D2 is a strapping pin: R9 is required.'])
+    c = Card(720, 480, 300, 400, 'Buzzer', 'active buzzer straight on the pin')
+    c.net(90, 90, 'BUZZER', 'left')
+    c.w((90, 90), (150, 90), (150, 130)); c.buzzer_v(150, 130, 200, 'BZ1', 'active, 3–5 V'); c.gnd(150, 200, 14)
+    c.note(14, 300, ['Firmware sets the strongest pin', 'drive (≈ 40 mA). Small active', 'buzzers draw 10–30 mA.'])
     cards.append(c.end())
 
     # LED
     c = Card(1040, 480, 200, 400, 'Status LED', '')
     c.net(52, 90, 'LED', 'left')
-    c.res_h(52, 102, 90, 'R10', '100 Ω')
+    c.res_h(52, 102, 90, 'R8', '100 Ω')
     c.w((102, 90), (110, 90), (110, 130)); c.led_v(110, 130, 200, 'LED1', 'any'); c.gnd(110, 200, 14)
     c.note(14, 300, ['≈ 13 mA (red).', 'Patterns: see', 'docs/INDICATORS.md'])
     cards.append(c.end())
@@ -315,16 +306,10 @@ def ground():
                      'No automatic cutoff: switch off when LOW (ON LED double-blinks).'])
     cards.append(c.end())
 
-    c = Card(0, 480, 380, 380, 'Buzzer', 'active buzzer, low-side switch')
-    c.net(230, 60, 'BAT+ sw', 'left')
-    c.note(14, 350, ['BZ1 +: BAT+ sw, or 5V (USB only, louder).'])
-    c.w((230, 60), (230, 100)); c.buzzer_v(230, 100, 170, 'BZ1', '')
-    c.w((230, 170), (230, 210))
-    c.nmos(220, 240, 'Q1', 'IRLB8748 / AO3400')
-    c.gnd(230, 270, 14)
-    c.net(100, 240, 'BUZZER', 'left')
-    c.res_h(100, 160, 240, 'R3', '100 Ω'); c.w((160, 240), (190, 240))
-    c.dot(175, 240); c.res_v(175, 240, 320, '', '', 'left'); c.t(165, 290, 'R4 100k', 'val', 'end'); c.gnd(175, 320, 10)
+    c = Card(0, 480, 380, 380, 'Buzzer', 'active buzzer straight on the pin')
+    c.net(110, 90, 'BUZZER', 'left')
+    c.w((110, 90), (190, 90), (190, 130)); c.buzzer_v(190, 130, 200, 'BZ1', 'active, 3–5 V'); c.gnd(190, 200, 14)
+    c.note(14, 300, ['Same as the flight kit. The firmware sets', 'the strongest pin drive (≈ 40 mA).'])
     cards.append(c.end())
 
     c = Card(400, 480, 300, 380, 'Push button', 'momentary, normally open')
@@ -338,7 +323,7 @@ def ground():
     for i, (net, ref, col) in enumerate([('LED_ON', 'LED1', 'green'), ('LED_LINK', 'LED2', 'blue')]):
         x0 = 20 + i * 250
         c.net(x0 + 85, 90, net, 'left')
-        c.res_h(x0 + 85, x0 + 135, 90, 'R%d' % (5 + i), '330 Ω')
+        c.res_h(x0 + 85, x0 + 135, 90, 'R%d' % (3 + i), '330 Ω')
         c.w((x0 + 135, 90), (x0 + 160, 90), (x0 + 160, 130)); c.led_v(x0 + 160, 130, 200, ref, col); c.gnd(x0 + 160, 200, 14)
     c.note(14, 280, ['≈ 4 mA each. ON: steady = running, double blink = battery low,',
                      'fast = radio failed. CONNECTED: on while frames arrive,',
@@ -384,5 +369,6 @@ def svg(sheet, file_style):
 if __name__ == '__main__':
     import sys
     out = sys.argv[1]
+    inline = len(sys.argv) > 2 and sys.argv[2] == '--inline'  # page styles them (no <style>)
     for name, sh in (('flight', flight), ('ground', ground)):
-        open(f'{out}/{name}.svg', 'w', encoding='utf-8').write(svg(sh, True))
+        open(f'{out}/{name}{"_inline" if inline else ""}.svg', 'w', encoding='utf-8').write(svg(sh, not inline))

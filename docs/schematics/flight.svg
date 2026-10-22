@@ -236,61 +236,22 @@ text{font-family:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace}
 <g transform="translate(720,480)">
 <rect class="card" x="0" y="0" width="300" height="400" rx="6"/>
 <text class="ttl" x="14" y="24">Buzzer</text>
-<text class="sub" x="14" y="41">active buzzer, low-side switch</text>
-<path class="net" d="M200,70L193,61H130.7V79H193Z"/>
-<text class="nett" x="161.8" y="74" text-anchor="middle">BAT+ sw</text>
-<polyline class="w" points="200,70 200,100"/>
-<circle class="dot" cx="200" cy="100" r="3"/>
-<polyline class="w" points="200,100 200,121"/>
-<polyline class="w" points="200,149 200,170"/>
-<rect class="sym" x="186" y="121" width="28" height="28" rx="3"/>
-<path class="sym thin" d="M193,141Q200,125 207,141"/>
-<text class="lbl" x="182" y="129" text-anchor="end">+</text>
-<text class="lbl" x="220" y="133" text-anchor="start">BZ1</text>
-<text class="val" x="220" y="147" text-anchor="start"></text>
-<circle class="dot" cx="200" cy="170" r="3"/>
-<polyline class="w opt" points="200,100 150,100"/>
-<polyline class="w opt" points="150,100 150,127"/>
-<polyline class="w opt" points="150,143 150,170"/>
-<path class="sym opt" d="M141,143H159L150,127Z M141,127H159"/>
-<text class="lbl" x="164" y="133" text-anchor="start"></text>
-<text class="val" x="164" y="147" text-anchor="start"></text>
-<polyline class="w opt" points="150,170 200,170"/>
-<text class="val" x="138" y="132" text-anchor="end">1N4148</text>
-<text class="val" x="138" y="146" text-anchor="end">optional</text>
-<polyline class="w" points="200,170 200,210"/>
-<circle class="sym thin" cx="192" cy="240" r="21"/>
-<polyline class="w" points="160,240 180,240"/>
-<path class="sym" d="M180,228V252M186,225V234M186,236V244M186,246V255"/>
-<polyline class="w" points="186,230 200,230 200,210"/>
-<polyline class="w" points="186,250 200,250 200,270"/>
-<polyline class="w" points="186,240 200,240 200,250"/>
-<path class="fill" d="M187,240L194,236L194,244Z"/>
-<text class="pin" x="206" y="224" text-anchor="start">D</text>
-<text class="pin" x="206" y="264" text-anchor="start">S</text>
-<text class="pin" x="162" y="235" text-anchor="start">G</text>
-<text class="lbl" x="220" y="238" text-anchor="start">Q2</text>
-<text class="val" x="220" y="252" text-anchor="start">IRLB8748</text>
-<polyline class="w" points="200,270 200,284"/>
-<path class="sym" d="M190,284H210M194,288H206M197.5,292H202.5"/>
-<path class="net" d="M72,240L65,231H9.6V249H65Z"/>
-<text class="nett" x="37.3" y="244" text-anchor="middle">BUZZER</text>
-<polyline class="w" points="72,240 83.5,240"/>
-<polyline class="w" points="115.5,240 127,240"/>
-<rect class="sym" x="83.5" y="234" width="32" height="12"/>
-<text class="lbl" x="99.5" y="228" text-anchor="middle">R8</text>
-<text class="val" x="99.5" y="262" text-anchor="middle">100 Ω</text>
-<polyline class="w" points="127,240 160,240"/>
-<circle class="dot" cx="145" cy="240" r="3"/>
-<polyline class="w" points="145,240 145,264"/>
-<polyline class="w" points="145,296 145,320"/>
-<rect class="sym" x="139" y="264" width="12" height="32"/>
-<text class="lbl" x="133" y="278" text-anchor="end"></text>
-<text class="val" x="133" y="292" text-anchor="end"></text>
-<text class="val" x="135" y="296" text-anchor="end">R9 100k</text>
-<polyline class="w" points="145,320 145,330"/>
-<path class="sym" d="M135,330H155M139,334H151M142.5,338H147.5"/>
-<text class="note" x="14" y="372" text-anchor="start">D2 is a strapping pin: R9 is required.</text>
+<text class="sub" x="14" y="41">active buzzer straight on the pin</text>
+<path class="net" d="M90,90L83,81H27.6V99H83Z"/>
+<text class="nett" x="55.3" y="94" text-anchor="middle">BUZZER</text>
+<polyline class="w" points="90,90 150,90 150,130"/>
+<polyline class="w" points="150,130 150,151"/>
+<polyline class="w" points="150,179 150,200"/>
+<rect class="sym" x="136" y="151" width="28" height="28" rx="3"/>
+<path class="sym thin" d="M143,171Q150,155 157,171"/>
+<text class="lbl" x="132" y="159" text-anchor="end">+</text>
+<text class="lbl" x="170" y="163" text-anchor="start">BZ1</text>
+<text class="val" x="170" y="177" text-anchor="start">active, 3–5 V</text>
+<polyline class="w" points="150,200 150,214"/>
+<path class="sym" d="M140,214H160M144,218H156M147.5,222H152.5"/>
+<text class="note" x="14" y="300" text-anchor="start">Firmware sets the strongest pin</text>
+<text class="note" x="14" y="316" text-anchor="start">drive (≈ 40 mA). Small active</text>
+<text class="note" x="14" y="332" text-anchor="start">buzzers draw 10–30 mA.</text>
 </g>
 <g transform="translate(1040,480)">
 <rect class="card" x="0" y="0" width="200" height="400" rx="6"/>
@@ -300,7 +261,7 @@ text{font-family:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace}
 <polyline class="w" points="52,90 61,90"/>
 <polyline class="w" points="93,90 102,90"/>
 <rect class="sym" x="61" y="84" width="32" height="12"/>
-<text class="lbl" x="77" y="78" text-anchor="middle">R10</text>
+<text class="lbl" x="77" y="78" text-anchor="middle">R8</text>
 <text class="val" x="77" y="112" text-anchor="middle">100 Ω</text>
 <polyline class="w" points="102,90 110,90 110,130"/>
 <polyline class="w" points="110,130 110,156"/>

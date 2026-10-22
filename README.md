@@ -9,7 +9,7 @@ deployment, live LoRa telemetry and an onboard flight log.
 | Second XIAO ESP32-S3 + Wio-SX1262 kit | Ground station on your computer's USB |
 | MPU-9250 | Accelerometer ±16 g, gyroscope ±2000 °/s, magnetometer |
 | BMP280 | Barometric altitude, used for apogee |
-| IRLB8748 MOSFET ×2 | Pyro (nichrome igniter) and buzzer drivers |
+| IRLB8748 MOSFET | Pyro (nichrome igniter) driver |
 | Status LED, active buzzer | Continuous state and audible signals |
 | 1S Li-ion cell (18350) | Soldered to the XIAO battery pads, charged over the XIAO's USB-C |
 | L76K GPS (optional) | Recovery position, on D7; works with or without it |

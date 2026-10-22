@@ -141,50 +141,21 @@ text{font-family:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace}
 <g transform="translate(0,480)">
 <rect class="card" x="0" y="0" width="380" height="380" rx="6"/>
 <text class="ttl" x="14" y="24">Buzzer</text>
-<text class="sub" x="14" y="41">active buzzer, low-side switch</text>
-<path class="net" d="M230,60L223,51H160.7V69H223Z"/>
-<text class="nett" x="191.8" y="64" text-anchor="middle">BAT+ sw</text>
-<text class="note" x="14" y="350" text-anchor="start">BZ1 +: BAT+ sw, or 5V (USB only, louder).</text>
-<polyline class="w" points="230,60 230,100"/>
-<polyline class="w" points="230,100 230,121"/>
-<polyline class="w" points="230,149 230,170"/>
-<rect class="sym" x="216" y="121" width="28" height="28" rx="3"/>
-<path class="sym thin" d="M223,141Q230,125 237,141"/>
-<text class="lbl" x="212" y="129" text-anchor="end">+</text>
-<text class="lbl" x="250" y="133" text-anchor="start">BZ1</text>
-<text class="val" x="250" y="147" text-anchor="start"></text>
-<polyline class="w" points="230,170 230,210"/>
-<circle class="sym thin" cx="222" cy="240" r="21"/>
-<polyline class="w" points="190,240 210,240"/>
-<path class="sym" d="M210,228V252M216,225V234M216,236V244M216,246V255"/>
-<polyline class="w" points="216,230 230,230 230,210"/>
-<polyline class="w" points="216,250 230,250 230,270"/>
-<polyline class="w" points="216,240 230,240 230,250"/>
-<path class="fill" d="M217,240L224,236L224,244Z"/>
-<text class="pin" x="236" y="224" text-anchor="start">D</text>
-<text class="pin" x="236" y="264" text-anchor="start">S</text>
-<text class="pin" x="192" y="235" text-anchor="start">G</text>
-<text class="lbl" x="250" y="238" text-anchor="start">Q1</text>
-<text class="val" x="250" y="252" text-anchor="start">IRLB8748 / AO3400</text>
-<polyline class="w" points="230,270 230,284"/>
-<path class="sym" d="M220,284H240M224,288H236M227.5,292H232.5"/>
-<path class="net" d="M100,240L93,231H37.6V249H93Z"/>
-<text class="nett" x="65.3" y="244" text-anchor="middle">BUZZER</text>
-<polyline class="w" points="100,240 114,240"/>
-<polyline class="w" points="146,240 160,240"/>
-<rect class="sym" x="114" y="234" width="32" height="12"/>
-<text class="lbl" x="130" y="228" text-anchor="middle">R3</text>
-<text class="val" x="130" y="262" text-anchor="middle">100 Ω</text>
-<polyline class="w" points="160,240 190,240"/>
-<circle class="dot" cx="175" cy="240" r="3"/>
-<polyline class="w" points="175,240 175,264"/>
-<polyline class="w" points="175,296 175,320"/>
-<rect class="sym" x="169" y="264" width="12" height="32"/>
-<text class="lbl" x="163" y="278" text-anchor="end"></text>
-<text class="val" x="163" y="292" text-anchor="end"></text>
-<text class="val" x="165" y="290" text-anchor="end">R4 100k</text>
-<polyline class="w" points="175,320 175,330"/>
-<path class="sym" d="M165,330H185M169,334H181M172.5,338H177.5"/>
+<text class="sub" x="14" y="41">active buzzer straight on the pin</text>
+<path class="net" d="M110,90L103,81H47.6V99H103Z"/>
+<text class="nett" x="75.3" y="94" text-anchor="middle">BUZZER</text>
+<polyline class="w" points="110,90 190,90 190,130"/>
+<polyline class="w" points="190,130 190,151"/>
+<polyline class="w" points="190,179 190,200"/>
+<rect class="sym" x="176" y="151" width="28" height="28" rx="3"/>
+<path class="sym thin" d="M183,171Q190,155 197,171"/>
+<text class="lbl" x="172" y="159" text-anchor="end">+</text>
+<text class="lbl" x="210" y="163" text-anchor="start">BZ1</text>
+<text class="val" x="210" y="177" text-anchor="start">active, 3–5 V</text>
+<polyline class="w" points="190,200 190,214"/>
+<path class="sym" d="M180,214H200M184,218H196M187.5,222H192.5"/>
+<text class="note" x="14" y="300" text-anchor="start">Same as the flight kit. The firmware sets</text>
+<text class="note" x="14" y="316" text-anchor="start">the strongest pin drive (≈ 40 mA).</text>
 </g>
 <g transform="translate(400,480)">
 <rect class="card" x="0" y="0" width="300" height="380" rx="6"/>
@@ -214,7 +185,7 @@ text{font-family:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace}
 <polyline class="w" points="105,90 114,90"/>
 <polyline class="w" points="146,90 155,90"/>
 <rect class="sym" x="114" y="84" width="32" height="12"/>
-<text class="lbl" x="130" y="78" text-anchor="middle">R5</text>
+<text class="lbl" x="130" y="78" text-anchor="middle">R3</text>
 <text class="val" x="130" y="112" text-anchor="middle">330 Ω</text>
 <polyline class="w" points="155,90 180,90 180,130"/>
 <polyline class="w" points="180,130 180,156"/>
@@ -231,7 +202,7 @@ text{font-family:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace}
 <polyline class="w" points="355,90 364,90"/>
 <polyline class="w" points="396,90 405,90"/>
 <rect class="sym" x="364" y="84" width="32" height="12"/>
-<text class="lbl" x="380" y="78" text-anchor="middle">R6</text>
+<text class="lbl" x="380" y="78" text-anchor="middle">R4</text>
 <text class="val" x="380" y="112" text-anchor="middle">330 Ω</text>
 <polyline class="w" points="405,90 430,90 430,130"/>
 <polyline class="w" points="430,130 430,156"/>

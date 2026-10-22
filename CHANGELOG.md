@@ -75,3 +75,5 @@ First version: not yet flown.
   flight logic never fires after a manual ejection (tested, also across a
   reset). UI: Manual ejection panel, MANUAL EJECT pill, ground station box
   (battery, ping, search mode).
+- Buzzers (both kits) wired straight to their pin, as tested on the flight
+  kit: no MOSFET; the firmware sets the pin's strongest drive (~40 mA).

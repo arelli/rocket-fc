@@ -51,7 +51,7 @@ bool App::simulating() const { return sim_ != nullptr; }
 void App::setup() {
   // Pyro gate low before anything else (the 100k pull-down holds it until now).
   pyro_.begin(pins::kPyroGate);
-  buzzer_.begin(pins::kBuzzer);
+  buzzer_.begin(pins::kBuzzer, true, true);  // buzzer straight on the pin
 
   Serial.begin(115200);
   Serial.setTxTimeoutMs(5);  // never let a stalled USB host block the control loop

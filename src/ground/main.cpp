@@ -588,8 +588,8 @@ void update_panel(uint32_t now) {
 }  // namespace
 
 void setup() {
-  // Buzzer gate low first (it has a pull-down; GPIOs float during boot).
-  buzzer.begin(pins::ground::kBuzzer);
+  // Buzzer (straight on the pin) off first.
+  buzzer.begin(pins::ground::kBuzzer, true, true);
   led_power.begin(pins::ground::kLedPower);
   led_link.begin(pins::ground::kLedLink);
   led_power.set(true);

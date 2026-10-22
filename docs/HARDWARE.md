@@ -13,7 +13,7 @@ Schematics: [flight computer](schematics/flight.svg),
 |---|---|---|---|
 | D0 / A0 | 1 | Battery voltage sense | 100k/100k divider from switched BAT+ |
 | D1 / A1 | 2 | Pyro continuity sense | 100k/100k divider from pyro MOSFET drain |
-| D2 | 3 | Buzzer MOSFET gate | Strapping pin: the 100k pull-down is required |
+| D2 | 3 | Buzzer | Active buzzer + on the pin, − to GND |
 | D3 | 4 | Pyro MOSFET gate | 100 Ω series, 100k pull-down |
 | D4 | 5 | I²C SDA | MPU-9250 (0x68), BMP280 (0x76/0x77) |
 | D5 | 6 | I²C SCL | |
@@ -30,7 +30,7 @@ All header pins are used.
 ## GPS (optional): Seeed L76K GNSS module for XIAO
 
 Not stacked on the XIAO: that board also connects to D0, D2 and D6, which are
-the battery sense, the buzzer gate and the LED here. Wire it with four leads:
+the battery sense, the buzzer and the LED here. Wire it with four leads:
 
 | L76K pin | Connect to | Why |
 |---|---|---|
@@ -138,19 +138,16 @@ the battery sense, the buzzer gate and the LED here. Wire it with four leads:
 - Use thick wire (≥ 22 AWG) for the cell → link → resistor → igniter → Q1 →
   cell− loop; the 1 Ω resistor gets warm only during the 1 s pulse.
 
-## Buzzer (low-side MOSFET Q2)
+## Buzzer (on the pin)
 
-```
- switched BAT+ ── buzzer (+) ── buzzer (−) ── Q2 drain (IRLB8748)
- D2 ── 100 Ω ──┬── Q2 gate
-               100k
- GND ──────────┴── Q2 source
-```
+`D2 ── buzzer (+), buzzer (−) ── GND`
 
-- The "5 V" active buzzer runs from the 3.0–4.2 V battery, a little quieter.
-  Do not drive it straight from a GPIO pin (current).
-- D2 is a strapping pin of the ESP32-S3. With the 100k pull-down it boots normally.
-- Optional: a 1N4148 diode across the buzzer (cathode to BAT+).
+- An active buzzer straight on the pin, tested on the flight kit. The
+  firmware sets the pin to its strongest drive (about 40 mA); typical small
+  active buzzers draw 10–30 mA at 3.3 V. A buzzer that is too quiet or draws
+  more needs a transistor driver (logic-level N-MOSFET from BAT+).
+- D2 is a strapping pin of the ESP32-S3 only for an eFuse-selected JTAG mode
+  (not used); the buzzer to GND keeps it low at boot anyway.
 
 ## Status LED
 
@@ -193,7 +190,7 @@ Pins: `pins::ground` in [include/board_pins.h](../include/board_pins.h).
 | XIAO pin | GPIO | Function | Part |
 |---|---|---|---|
 | D0 / A0 | 1 | Battery voltage sense | 100k/100k divider from BAT+ (as on the flight kit) |
-| D1 | 2 | Buzzer MOSFET gate | 100 Ω series, 100k pull-down, IRLB8748 (or 2N7000) |
+| D1 | 2 | Buzzer | Active buzzer + on the pin, − to GND (as on the flight kit) |
 | D2 | 3 | Push button | to GND, internal pull-up (no resistor) |
 | D3 | 4 | ON LED | 330 Ω, green |
 | D4 | 5 | "Rocket connected" LED | 330 Ω, blue or yellow |
@@ -201,21 +198,18 @@ Pins: `pins::ground` in [include/board_pins.h](../include/board_pins.h).
 | U.FL on the Wio-SX1262 | | LoRa antenna | 868 MHz only |
 
 ```
- cell + ──o/ o── switch ──┬─────────────┬──────────────┬──────── XIAO BAT+ pad
- (18350 or                │             │              │
-  1S LiPo)              100k        buzzer (+)          │
-                          ├── D0     buzzer (−)          │
-                        100k            │              │
-                          │          Q drain           │
- cell − ──────────────────┴──── GND ── Q source        └─ (USB-C: power bank or laptop)
-                                        │
-                     D1 ── 100 Ω ──┬── Q gate
-                                  100k
-                                   │
-                                  GND
+ cell + ──o/ o── switch ──┬──────────────┬──────── XIAO BAT+ pad
+ (18350 or                │              │
+  1S LiPo)              100k             └─ (USB-C: power bank or laptop)
+                          ├── D0
+                        100k
+                          │
+ cell − ──────────────────┴──── GND
 
- D2 ── push button ── GND          D3 ── 330 Ω ── LED ON (anode→cathode) ── GND
-                                   D4 ── 330 Ω ── LED CONNECTED ──────────── GND
+ D1 ── buzzer (+), buzzer (−) ── GND
+ D2 ── push button ── GND
+ D3 ── 330 Ω ── LED ON (anode→cathode) ── GND
+ D4 ── 330 Ω ── LED CONNECTED ──────────── GND
 ```
 
 - **Battery (optional):** any protected 1S Li-ion/LiPo (another MXJO 18350
@@ -227,9 +221,8 @@ Pins: `pins::ground` in [include/board_pins.h](../include/board_pins.h).
   the station the reading is the charger's voltage (higher than the resting
   cell). Calibrate `gs_batt_divider` with a multimeter. Without a cell, leave
   the divider out (the station reports "none" or a meaningless voltage).
-- **Buzzer:** active buzzer, low-side MOSFET from BAT+ (works on battery and
-  on USB). Without a cell, take buzzer (+) from the 5V pin instead (USB
-  only, louder). Do not drive it from the GPIO directly.
+- **Buzzer:** active buzzer straight on D1, like the flight kit (strongest
+  pin drive, set by the firmware). Works on battery and on USB.
 - **Button:** momentary, normally open, between D2 and GND. D2 is a strapping
   pin of the ESP32-S3 only for an eFuse-selected JTAG mode (not used): holding
   the button during power-up is harmless.
@@ -289,14 +282,14 @@ GPS on D7 none is left.
 
 | Part | Qty |
 |---|---|
-| IRLB8748PBF logic-level MOSFET (pyro, buzzer) | 2 |
+| IRLB8748PBF logic-level MOSFET (pyro) | 1 |
 | Resistor 1 Ω 5 W (pyro current limit) | 1 |
-| Resistor 100 Ω (gates, LED) | 3 |
-| Resistor 100 kΩ (gate pull-downs, two dividers) | 6 |
+| Resistor 100 Ω (gate, LED) | 2 |
+| Resistor 100 kΩ (gate pull-down, two dividers) | 5 |
 | Electrolytic capacitor 1000 µF 16 V | 1 |
 | 2-pin screw terminal (arm link, igniter) | 2 |
 | Active buzzer | 1 |
 | LED, 3 or 5 mm | 1 |
 | Slide switch (main power, ≥ 0.5 A) | 1 |
 | Perfboard, wire (≥ 22 AWG for the pyro loop), crimp ferrules for the nichrome | |
-| Optional: 100 nF capacitors on D0/D1, 1N4148 across the buzzer | |
+| Optional: 100 nF capacitors on D0/D1 | |

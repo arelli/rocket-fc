@@ -2,17 +2,20 @@
 #pragma once
 
 #include <Arduino.h>
+#include <driver/gpio.h>
 
 namespace hal {
 
-// A digital output with configurable polarity (LED, buzzer MOSFET gate).
+// A digital output with configurable polarity (LED, buzzer).
 class DigitalOut {
  public:
-  void begin(int pin, bool active_high = true) {
+  // strong: maximum pin drive (about 40 mA), for a buzzer wired straight to the pin.
+  void begin(int pin, bool active_high = true, bool strong = false) {
     pin_ = pin;
     active_high_ = active_high;
     set(false);
     pinMode(pin_, OUTPUT);
+    if (strong) gpio_set_drive_capability(static_cast<gpio_num_t>(pin_), GPIO_DRIVE_CAP_3);
     set(false);
   }
   void set(bool on) {
