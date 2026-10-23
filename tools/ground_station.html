@@ -388,7 +388,15 @@ function renderSettings() {
     v.append(e);
   }
 }
+const CONFIRM_ON = {
+  manual_eject: 'ENABLE MANUAL EJECTION IN FLIGHT?\n\nThe station can then fire the ejection charge at any moment after ' +
+    'launch, overriding the apogee logic. A mistaken press during the climb ejects at full speed (torn or stripped ' +
+    'parachute). Enable it only if you intend to use it, and set it back to off afterwards.',
+  radio_unlock: 'Allow radio settings outside the EU 869.40-869.65 MHz band and its 10 % duty-cycle limit?\n\n' +
+    'You are responsible for using a frequency, power and duty cycle that are legal where you operate.',
+};
 function setParam(kit, d, value) {
+  if (CONFIRM_ON[d.key] && value === '1' && !confirm(CONFIRM_ON[d.key])) { renderKey = ''; renderSettings(); return; }
   const radio = d.flags.includes('R');
   if (kit === 'rocket' || radio) send('r param set ' + d.key + ' ' + value);
   if (kit === 'station' || radio) send('param set ' + d.key + ' ' + value);

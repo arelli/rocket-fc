@@ -73,7 +73,7 @@ class App {
   void handle_ping(const fc::tlm::Uplink& u, uint32_t now);
   void handle_text(const fc::tlm::Text& t, uint32_t now);
   // Rocket WiFi (log download through the ground station, app_wifi.cpp).
-  void wifi_command(const char* a, const char* b, const char* c, uint32_t now);
+  void wifi_command(const char* a, const char* b, const char* c, const char* d, uint32_t now);
   void wifi_poll(uint32_t now);
   void wifi_stop(const char* why);
   bool wifi_allowed() const;

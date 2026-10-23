@@ -1,9 +1,12 @@
 // Rocket WiFi: joins the ground station's access point (as a client) so the
-// ground station can fetch the onboard logs at WiFi speed. Started by the
-// console command "wifi join <ssid> <password>" (the ground station sends it
-// by radio), only on the ground and never in flight mode on the pad: in
-// LANDED, FAULT, or in bench mode. Stopped by "wifi off", a launch, or when
-// the rocket leaves those conditions.
+// ground station can fetch the onboard logs at WiFi speed. Only on the ground
+// and never in flight mode on the pad: in LANDED, FAULT, or in bench mode.
+// Stopped by "wifi off", a launch, or when the rocket leaves those conditions.
+//
+// The password never crosses the radio in clear (fc/crypto.h):
+//   wifi key <station public key hex>   -> prints "wifi: key <rocket public key hex>"
+//   wifi join <ssid> <sealed password hex> <tag hex>   (within 60 s, once)
+// The ground station's "rwifi" command does both steps.
 //
 // HTTP (port 80, plain text):
 //   GET /          firmware and endpoints
@@ -17,12 +20,24 @@
 #include <string.h>
 
 #include "app.h"
+#include "fc/crypto.h"
 
 using fc::FlightState;
 
 namespace {
 
 constexpr uint32_t kJoinTimeoutMs = 20000;
+constexpr uint32_t kKeyValidMs = 60000;
+
+// One pending key exchange (cleared after one use).
+uint8_t g_key[32];
+bool g_have_key = false;
+uint32_t g_key_at = 0;
+
+void wipe(void* p, size_t n) {
+  volatile uint8_t* v = static_cast<volatile uint8_t*>(p);
+  while (n--) *v++ = 0;
+}
 
 // Buffers output into ~1.4 KB chunks for WebServer::sendContent.
 class ChunkOut : public Print {
@@ -54,13 +69,15 @@ bool App::wifi_allowed() const {
   return s == FlightState::Landed || s == FlightState::Fault || bench_;
 }
 
-void App::wifi_command(const char* a, const char* b, const char* c, uint32_t now) {
+void App::wifi_command(const char* a, const char* b, const char* c, const char* d, uint32_t now) {
   if (a && !strcmp(a, "off")) {
     wifi_stop("off");
     return;
   }
-  if (!a || strcmp(a, "join") != 0 || !b) {
-    con.printf("wifi: %s%s (usage: wifi join <ssid> <password> | wifi off)\n",
+  const bool key = a && !strcmp(a, "key") && b;
+  const bool join = a && !strcmp(a, "join") && b && c;
+  if (!key && !join) {
+    con.printf("wifi: %s%s (the ground station's \"rwifi\" starts it; wifi off stops it)\n",
                !wifi_on_ ? "off" : wifi_joined_ ? "joined ip=" : "connecting",
                wifi_joined_ ? WiFi.localIP().toString().c_str() : "");
     return;
@@ -69,11 +86,67 @@ void App::wifi_command(const char* a, const char* b, const char* c, uint32_t now
     con.println("wifi: refused: only after landing, in FAULT, or in bench mode");
     return;
   }
-  if (wifi_on_) wifi_stop("restart");
-  WiFi.persistent(false);
-  WiFi.mode(WIFI_STA);
+  if (key) {
+    uint8_t peer[32];
+    if (fc::from_hex(b, peer, sizeof(peer)) != 32) {
+      con.println("wifi: bad key");
+      return;
+    }
+    if (wifi_on_) wifi_stop("restart");
+    // The WiFi radio on makes esp_random() a true random source.
+    WiFi.persistent(false);
+    WiFi.mode(WIFI_STA);
+    wifi_on_ = true;
+    wifi_joined_ = false;
+    wifi_since_ = now;
+    uint8_t secret[32], pub[32], shared[32];
+    fc::Sha256 h;  // mix the hardware RNG with timing, then hash
+    for (int i = 0; i < 16; ++i) {
+      const uint32_t r[2] = {esp_random(), micros()};
+      h.update(reinterpret_cast<const uint8_t*>(r), sizeof(r));
+    }
+    h.final(secret);
+    fc::x25519_public(pub, secret);
+    fc::x25519(shared, secret, peer);
+    fc::wifi_secret::derive_key(shared, set_.rf_key, g_key);
+    g_have_key = true;
+    g_key_at = now;
+    wipe(secret, sizeof(secret));
+    wipe(shared, sizeof(shared));
+    char hex[65];
+    fc::to_hex(pub, 32, hex);
+    con.printf("wifi: key %s\n", hex);
+    return;
+  }
+  // join <ssid> <sealed password> <tag>
+  const char* tag_hex = d;
+  uint8_t ct[fc::wifi_secret::kMaxPass], tag[fc::wifi_secret::kTag], want[fc::wifi_secret::kTag];
+  const size_t n = fc::from_hex(c, ct, sizeof(ct));
+  if (!g_have_key || now - g_key_at > kKeyValidMs) {
+    con.println("wifi: refused: no key exchange (use rwifi on the ground station)");
+    return;
+  }
+  g_have_key = false;  // one use, whatever happens
+  if (n == 0 || !tag_hex || fc::from_hex(tag_hex, tag, sizeof(tag)) != sizeof(tag)) {
+    wipe(g_key, sizeof(g_key));
+    con.println("wifi: refused: bad request");
+    return;
+  }
+  fc::wifi_secret::tag(g_key, b, ct, n, want);
+  uint8_t diff = 0;
+  for (size_t i = 0; i < sizeof(tag); ++i) diff |= static_cast<uint8_t>(tag[i] ^ want[i]);
+  if (diff) {
+    wipe(g_key, sizeof(g_key));
+    con.println("wifi: refused: wrong key (rf_key differs?)");
+    return;
+  }
+  char pass[fc::wifi_secret::kMaxPass + 1];
+  fc::wifi_secret::crypt(g_key, ct, reinterpret_cast<uint8_t*>(pass), n);
+  pass[n] = '\0';
+  wipe(g_key, sizeof(g_key));
   WiFi.setSleep(false);
-  WiFi.begin(b, c ? c : "");
+  WiFi.begin(b, pass);
+  wipe(pass, sizeof(pass));
   wifi_on_ = true;
   wifi_joined_ = false;
   wifi_since_ = now;

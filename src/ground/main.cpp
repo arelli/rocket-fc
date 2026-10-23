@@ -41,6 +41,7 @@
 #include "board_pins.h"
 #include "fc/battery.h"
 #include "fc/crc16.h"
+#include "fc/crypto.h"
 #include "fc/csv.h"
 #include "fc/indicators.h"
 #include "fc/launch.h"
@@ -119,6 +120,10 @@ char text_cmd[fc::tlm::kMaxCmdText + 1];
 uint32_t text_since = 0;
 char rc_line[256];  // rocket output being reassembled into lines
 size_t rc_len = 0;
+// "rwifi": key exchange in progress (fc/crypto.h); the secret is wiped after use.
+uint8_t wifi_secret[32];
+bool wifi_exchange = false;
+uint32_t wifi_exchange_at = 0;
 
 // --- settings -------------------------------------------------------------------
 fc::Settings set;  // radio + station settings, loaded at boot
@@ -446,8 +451,23 @@ void exec(char* line) {
     defs.exec(1, list, false, defs_line, store_text, &store);
     out.println("# end of rocket definitions");
   } else if (!strcmp(c, "rwifi")) {
-    char t[fc::tlm::kMaxCmdText + 1];
-    snprintf(t, sizeof(t), "wifi join %s %s", wifi.ssid, wifi.pass);
+    // Step 1 of the sealed join: our public key (the password goes in step 2, encrypted).
+    if (!wifi_up) {
+      out.println("RC,! this station's WiFi is off");
+      return;
+    }
+    fc::Sha256 h;  // the WiFi radio is on: esp_random() is a true random source
+    for (int i = 0; i < 16; ++i) {
+      const uint32_t r[2] = {esp_random(), micros()};
+      h.update(reinterpret_cast<const uint8_t*>(r), sizeof(r));
+    }
+    h.final(wifi_secret);
+    uint8_t pub[32];
+    fc::x25519_public(pub, wifi_secret);
+    char t[fc::tlm::kMaxCmdText + 1] = "wifi key ";
+    fc::to_hex(pub, 32, t + 9);
+    wifi_exchange = true;
+    wifi_exchange_at = now;
     queue_text(t, now);
   } else if (!strcmp(c, "param")) {
     params.exec(argc - 1, argv + 1, true, serial_line, store_text, &store);
@@ -534,6 +554,39 @@ void send_heartbeat(uint32_t now) {
   send_frame(buf, fc::tlm::encode(u, buf, sizeof(buf)), now);
 }
 
+void wipe(void* p, size_t n) {
+  volatile uint8_t* v = static_cast<volatile uint8_t*>(p);
+  while (n--) *v++ = 0;
+}
+
+// Step 2: the rocket's public key arrived; send the password sealed with the shared key.
+void wifi_seal_and_join(const char* rocket_pub_hex) {
+  const uint32_t now = millis();
+  if (!wifi_exchange || now - wifi_exchange_at > 60000) return;
+  wifi_exchange = false;
+  uint8_t peer[32], shared[32], key[32];
+  if (fc::from_hex(rocket_pub_hex, peer, sizeof(peer)) != 32) {
+    wipe(wifi_secret, sizeof(wifi_secret));
+    out.println("RC,! bad key from the rocket");
+    return;
+  }
+  fc::x25519(shared, wifi_secret, peer);
+  wipe(wifi_secret, sizeof(wifi_secret));
+  fc::wifi_secret::derive_key(shared, set.rf_key, key);
+  wipe(shared, sizeof(shared));
+  const size_t n = strlen(wifi.pass);
+  uint8_t ct[fc::wifi_secret::kMaxPass], tag[fc::wifi_secret::kTag];
+  fc::wifi_secret::crypt(key, reinterpret_cast<const uint8_t*>(wifi.pass), ct, n);
+  fc::wifi_secret::tag(key, wifi.ssid, ct, n, tag);
+  wipe(key, sizeof(key));
+  char ct_hex[2 * fc::wifi_secret::kMaxPass + 1], tag_hex[2 * fc::wifi_secret::kTag + 1];
+  fc::to_hex(ct, n, ct_hex);
+  fc::to_hex(tag, sizeof(tag), tag_hex);
+  char t[fc::tlm::kMaxCmdText + 1];
+  snprintf(t, sizeof(t), "wifi join %s %s %s", wifi.ssid, ct_hex, tag_hex);
+  queue_text(t, now);
+}
+
 // Rocket console output: whole lines become "RC,<line>".
 void rocket_text(const fc::tlm::Text& t) {
   for (size_t i = 0; i < t.len; ++i) {
@@ -541,6 +594,8 @@ void rocket_text(const fc::tlm::Text& t) {
     if (ch == '\n' || rc_len == sizeof(rc_line) - 1) {
       rc_line[rc_len] = '\0';
       out.printf("RC,%s\n", rc_line);
+      const char* key = strstr(rc_line, "wifi: key ");
+      if (key) wifi_seal_and_join(key + 10);
       const char* ip = strstr(rc_line, "wifi: joined ip=");
       if (ip) web::set_rocket_ip(ip + 16);
       if (strstr(rc_line, "wifi: off")) web::set_rocket_ip("");

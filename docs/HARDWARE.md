@@ -254,7 +254,8 @@ working at the same time (both see the same data and can send commands).
   both kits' settings and consoles (the rocket's by radio), and the rocket's
   onboard logs: "Rocket WiFi on" makes the rocket join this access point (only
   after landing, in FAULT or in bench mode), then the station relays its log
-  files. The rocket's USB console still works with `pio device monitor`.
+  files. The password is sent to the rocket encrypted (X25519 key exchange,
+  docs/TELEMETRY.md). The rocket's USB console still works with `pio device monitor`.
 - **Security:** anyone on the WiFi has the full UI, including LAUNCH (which
   still needs the physical ARM switch) and ejection. Keep the password private.
 - **Power:** about 100-150 mA with WiFi on. Some power banks switch off below

@@ -62,7 +62,8 @@ checks this).
 Off by default. When on, the ground station can fire the ejection charge at
 any moment after launch detection (UI: "Eject parachute", or `eject` on the
 ground station). It overrides the apogee logic, so a mistaken command during
-the climb ejects at full speed. The rocket prints a warning at boot, sets
+the climb ejects at full speed. The UI asks for confirmation when you switch
+it on (also for `radio_unlock`). The rocket prints a warning at boot, sets
 self-test warning bit 7 and telemetry link bit 6 (UI: MANUAL EJECT pill). Set it back to 0 when you do
 not need it. Without it, manual ejection works only on the pad in bench mode
 (test pulse).

@@ -73,7 +73,7 @@ void App::console_exec(char* line, uint32_t now) {
         "  gps [raw on|off] GPS status; raw: echo the NMEA sentences\n"
         "  bench on|off    bench mode: enables the test commands below until reboot (not in flight)\n"
         "  reboot          restart (not in flight)\n"
-        "  wifi join <ssid> <pass> | off   join the ground station WiFi to send logs (landed/bench)\n"
+        "  wifi [off]      WiFi for the log download (landed/FAULT/bench; the ground station's rwifi starts it)\n"
         " bench mode only:\n"
         "  sim             simulated flight: fake sensors, pyro output NOT driven\n"
         "  sim live        simulated flight that also pulses the pyro output\n"
@@ -102,7 +102,7 @@ void App::console_exec(char* line, uint32_t now) {
   } else if (!safe_to_interrupt()) {
     con.println("refused: in flight");
   } else if (!strcmp(cmd, "wifi")) {
-    wifi_command(a1, a2, argv[3], now);
+    wifi_command(a1, a2, argv[3], argv[4], now);
   } else if (!strcmp(cmd, "dump")) {
     dump_log(con);
   } else if (!strcmp(cmd, "flog")) {

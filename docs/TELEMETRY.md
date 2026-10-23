@@ -253,7 +253,7 @@ The station prints each output line as `RC,<line>`.
 | Offset | TextCmd (type 5, ground → rocket) | TextOut (type 6, rocket → ground) |
 |---|---|---|
 | 10 | u32 code = `fc::text_code(seq, crc16(text), rf_key)` | u8 n (≤ 200) |
-| 14 / 11 | u8 n (≤ 120), then n bytes of text | n bytes of text (lines end in `\n`) |
+| 14 / 11 | u8 n (≤ 200), then n bytes of text | n bytes of text (lines end in `\n`) |
 | end | u16 CRC | u16 CRC |
 
 - Accepted only on the ground (never in flight), with the right code; a
@@ -262,6 +262,15 @@ The station prints each output line as `RC,<line>`.
   the station supplies the definitions (`rdefs` → `D,` lines, same fields as
   `P,`). Refused by radio: `fire` (use the ejection command), `dump`,
   `flog dump`, `csv` (too long: use the WiFi log download).
+- **Rocket WiFi (log download).** The station's WiFi password never crosses
+  the radio in clear ([fc/crypto.h](../lib/fc_core/src/fc/crypto.h)). `rwifi`
+  sends `wifi key <station X25519 public key>`; the rocket answers
+  `wifi: key <its public key>`; both derive
+  `key = SHA-256(shared secret | rf_key | "rocketfc-wifi-v1")` and the station
+  sends `wifi join <ssid> <password XOR keystream> <8-byte tag>`. Fresh keys
+  for every request; the rocket accepts one join within 60 s of the key
+  exchange and only with a correct tag. Someone listening to the radio cannot
+  recover the password; an active attacker would also need rf_key.
 - On the ground the rocket listens up to `15 ms + airtime(longest command) +
   60 ms` after each transmission.
 

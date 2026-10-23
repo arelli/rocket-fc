@@ -43,7 +43,7 @@ constexpr size_t kGpsLen = 38;
 constexpr size_t kMaxFrameLen = kTelemetryLen;  // fixed-length frames
 // Text frames: header | [TextCmd: u32 code] | u8 n | n bytes of text | CRC
 constexpr size_t kMaxText = 200;     // output text per frame (lines separated by '\n')
-constexpr size_t kMaxCmdText = 120;  // command line length
+constexpr size_t kMaxCmdText = 200;  // command line length (fits "wifi join" with a sealed password)
 constexpr size_t kMaxTextFrameLen = kHeaderLen + 4 + 1 + kMaxText + 2;
 constexpr size_t text_frame_len(bool cmd, size_t n) { return kHeaderLen + (cmd ? 4 : 0) + 1 + n + 2; }
 

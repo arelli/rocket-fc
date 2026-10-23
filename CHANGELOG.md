@@ -91,3 +91,7 @@ First version: not yet flown.
   relayed by the station at /rocket/...
 - New WiFi-only UI (much simpler): launch, flight, recovery, events,
   settings, logs, console. The local file / USB viewer is gone.
+- Rocket WiFi join: the station's password is sent encrypted (fresh X25519
+  key exchange per request, key bound to rf_key, tagged; fc/crypto.h with
+  RFC 7748 / FIPS 180 test vectors). Text commands up to 200 characters.
+- UI: confirmation again before enabling manual_eject (and radio_unlock).
