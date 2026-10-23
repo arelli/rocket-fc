@@ -21,6 +21,7 @@
 //
 // Commands (one per line):
 //   launch / abort      launch channel: start the countdown / stop it
+//   mode flight|bench   station mode (same as flipping the MODE switch; the latest wins)
 //   ping                connectivity check (the rocket beeps and answers)
 //   search on|off       search mode: beeps faster the stronger the rocket's signal
 //   eject [ms] | eject cancel   manual ejection (rocket setting manual_eject, or bench mode on the pad)
@@ -155,7 +156,7 @@ bool search_on = false;
 uint32_t t_search_beep = 0;
 constexpr uint32_t kSearchHoldMs = 1500;
 // MODE switch (debounced): true = BENCH.
-bool mode_bench = false, mode_raw = false;
+bool mode_bench = false, mode_raw = false, mode_switch = false, mode_raw_done = true;
 uint32_t mode_raw_since = 0, t_mode_sync = 0;
 // Launch channel.
 fc::LaunchControl launch;
@@ -397,6 +398,18 @@ void set_search(bool on, uint32_t now) {
   print_status(now, true);
 }
 
+void set_mode(bool bench, uint32_t now, const char* source) {
+  const bool changed = bench != mode_bench;
+  mode_bench = bench;
+  out.printf("# mode %s (%s)\n", mode_bench ? "BENCH" : "FLIGHT", source);
+  if (changed && !warn_sound) {
+    beeper.clear();
+    beeper.beeps(mode_bench ? 2 : 1, 200, 150, 0);
+  }
+  t_mode_sync = 0;
+  print_status(now, true);
+}
+
 void start_launch(uint32_t now, const char* source) {
   const fc::LaunchEnd why = launch.start(now, launch_inputs(now), set.gs_launch_countdown_s * 1000u);
   if (why != fc::LaunchEnd::None) {
@@ -428,6 +441,8 @@ void exec(char* line) {
   } else if (!strcmp(c, "abort")) {
     if (launch.state() == fc::LaunchState::Idle) out.println("# launch: nothing to abort");
     launch.abort();
+  } else if (!strcmp(c, "mode") && a && (!strcmp(a, "flight") || !strcmp(a, "bench"))) {
+    set_mode(!strcmp(a, "bench"), now, "page");
   } else if (!strcmp(c, "ping")) {
     start_ping(now, "command");
   } else if (!strcmp(c, "search")) {
@@ -492,7 +507,7 @@ void exec(char* line) {
     policy.set_enabled(!strcmp(a, "on"));
     print_uplink();
   } else {
-    out.println("# commands: launch, abort, ping, search on|off, eject [ms]|cancel, r <rocket command>, rdefs, "
+    out.println("# commands: launch, abort, mode flight|bench, ping, search on|off, eject [ms]|cancel, r <rocket command>, rdefs, "
                 "rwifi, beep <s>, uplink on|off, time <unix ms>, param ..., wifi ..., reboot");
   }
 }
@@ -707,21 +722,21 @@ void receive(uint32_t now) {
 // Panel: switches, launch channel, button, beeps, LEDs
 // =================================================================================
 
+// MODE: the switch sets it when flipped, the page ("mode flight|bench") at any
+// time; the latest wins. Without a switch (D7 open) the station boots in FLIGHT.
 void update_mode(uint32_t now) {
   const bool raw = digitalRead(pins::ground::kModeSwitch) == LOW;  // closed = BENCH
   if (raw != mode_raw) {
     mode_raw = raw;
     mode_raw_since = now;
+    mode_raw_done = false;
   }
-  if (mode_raw != mode_bench && now - mode_raw_since >= 50) {
-    mode_bench = mode_raw;
-    out.printf("# mode %s\n", mode_bench ? "BENCH" : "FLIGHT");
-    if (!warn_sound) {
-      beeper.clear();
-      beeper.beeps(mode_bench ? 2 : 1, 200, 150, 0);
+  if (!mode_raw_done && now - mode_raw_since >= 50) {  // debounced flip
+    mode_raw_done = true;
+    if (mode_raw != mode_switch) {
+      mode_switch = mode_raw;
+      set_mode(mode_switch, now, "switch");
     }
-    t_mode_sync = 0;
-    print_status(now, true);
   }
   // The rocket's bench mode follows the switch (on the ground; it ends by itself at launch).
   const bool rocket_bench = (rocket_link & fc::tlm::kLinkBenchMode) != 0;
@@ -871,7 +886,7 @@ void setup() {
   batt_adc.begin(pins::ground::kBattSense, set.gs_batt_divider);
   launch_adc.begin(pins::ground::kLaunchSense, set.gs_launch_divider);
   vbat = batt_adc.read_volts();
-  mode_raw = mode_bench = digitalRead(pins::ground::kModeSwitch) == LOW;
+  mode_raw = mode_switch = mode_bench = digitalRead(pins::ground::kModeSwitch) == LOW;
   wifi = web::load_config();
   wifi_up = web::begin(wifi);
   const hal::RadioLink::Pins p{pins::kLoraSck,  pins::kLoraMiso, pins::kLoraMosi, pins::kLoraNss,

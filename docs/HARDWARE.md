@@ -233,6 +233,21 @@ box, powered by an 18650 cell. It is also the launch controller. Schematic:
 
 `gs_buzzer_on` = 0 silences everything except the arming and launch sounds.
 
+**Every panel part is optional.** The station works with any of them
+missing, and the WiFi page keeps every control:
+
+| Missing | What happens |
+|---|---|
+| MODE switch | Boots in FLIGHT; FLIGHT/BENCH buttons on the page (with a switch, the latest of switch or page wins) |
+| ARM switch / whole launch channel | Reads "ARM off": LAUNCH refused, the button pings. Nothing else changes |
+| Push button | Ping, search, launch from the page |
+| Buzzer, LEDs | Silent / dark; the page shows everything |
+| Battery cell or divider | Station pill shows "USB"; no low-battery warning. The launch channel needs the battery reading (it compares the drain with it) |
+
+Unconnected analog inputs (D0, D4) read 0 V, not a random level: the
+firmware empties the pin with its internal pull-down before every sample
+(`hal::AnalogIn`), so a missing divider never looks like ARM or a battery.
+
 ## Ground station WiFi
 
 The ground station is also a WiFi access point that serves the UI, so it can

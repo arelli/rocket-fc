@@ -95,3 +95,7 @@ First version: not yet flown.
   key exchange per request, key bound to rf_key, tagged; fc/crypto.h with
   RFC 7748 / FIPS 180 test vectors). Text commands up to 200 characters.
 - UI: confirmation again before enabling manual_eject (and radio_unlock).
+- Ground station parts are all optional: FLIGHT/BENCH also from the page
+  (`mode flight|bench`, latest of switch or page wins); unconnected analog
+  inputs read 0 V (pull-down before each sample), so a missing launch
+  channel or battery divider never reads as ARM or a battery.

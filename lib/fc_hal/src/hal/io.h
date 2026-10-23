@@ -74,10 +74,18 @@ class AnalogIn {
     pinMode(pin_, INPUT);
     analogSetPinAttenuation(pin_, ADC_11db);  // ~0.15..2.5 V usable range
   }
+  // A pin with nothing connected reads about 0 V (not a random level): before
+  // each sample the internal pull-down empties it for 10 us. analogRead then
+  // switches the pull-down off again, so a connected divider (about 50 kOhm)
+  // is back at its true voltage within a microsecond and reads normally.
   float read_volts(uint8_t samples = 8) {
     if (pin_ < 0 || samples == 0) return 0.0f;
     uint32_t sum = 0;
-    for (uint8_t i = 0; i < samples; ++i) sum += analogReadMilliVolts(pin_);
+    for (uint8_t i = 0; i < samples; ++i) {
+      pinMode(pin_, INPUT_PULLDOWN);
+      delayMicroseconds(10);
+      sum += analogReadMilliVolts(pin_);  // sets the pin to analog mode, pulls off
+    }
     return (sum / static_cast<float>(samples)) / 1000.0f * ratio_;
   }
   void set_ratio(float r) { ratio_ = r; }

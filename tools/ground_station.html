@@ -43,6 +43,8 @@ summary { cursor: pointer; margin: 0; } details[open] summary { margin-bottom: 8
 .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 6px 0; }
 button { font: inherit; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--line); background: var(--chip); color: var(--ink); cursor: pointer; }
 button:disabled { opacity: .45; cursor: default; }
+button.seg { padding: 4px 12px; font-size: 13px; }
+button.seg.on { background: var(--ink); color: var(--card); }
 button.go { background: var(--bad); color: #fff; border-color: var(--bad); font-weight: 700; font-size: 18px; padding: 12px 22px; }
 button.stop { background: var(--ink); color: var(--card); font-weight: 700; font-size: 18px; padding: 12px 22px; }
 input, select { font: inherit; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); min-width: 0; }
@@ -80,6 +82,10 @@ pre { margin: 0; max-height: 260px; overflow: auto; font-size: 12px; white-space
 <main>
   <section>
     <h2>Launch</h2>
+    <div class="row">
+      <span class="muted">Mode</span>
+      <button id="b-mflight" class="seg">FLIGHT</button><button id="b-mbench" class="seg">BENCH</button>
+    </div>
     <div class="row">
       <span class="pill" id="l-arm">ARM —</span>
       <span class="pill" id="l-cont">igniter —</span>
@@ -283,6 +289,8 @@ function render() {
   // station
   const s = S.station, armed = s.arm === '1', bench = s.mode === 'bench';
   pill($('p-mode'), s.mode ? s.mode.toUpperCase() : '—', bench ? 'warn' : '');
+  $('b-mflight').className = 'seg' + (s.mode === 'flight' ? ' on' : '');
+  $('b-mbench').className = 'seg' + (bench ? ' on' : '');
   pill($('p-arm'), armed ? 'ARMED' : 'safe', armed ? 'bad' : '');
   pill($('p-gsbatt'), s.vbat && s.vbat !== '0.00' ? `station ${s.pct}%` : 'station USB', s.low === '1' ? 'bad' : '');
   const rb = f && (f.link & 8);
@@ -442,6 +450,8 @@ async function listLogs() {
 
 // ---------------------------------------------------------------- controls
 $('b-launch').onclick = () => send('launch');
+$('b-mflight').onclick = () => send('mode flight');
+$('b-mbench').onclick = () => send('mode bench');
 $('b-abort').onclick = () => send('abort');
 $('b-ping').onclick = () => { $('r-ping').textContent = 'waiting…'; send('ping'); };
 $('c-search').onchange = e => send('search ' + (e.target.checked ? 'on' : 'off'));
