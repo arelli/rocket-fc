@@ -217,7 +217,15 @@ enum ParamFlags : uint8_t {
   X(F32, gs_batt_divider,   "station",  2, 1, 10, "", kParamGround, "", \
     "Ground station battery sense divider ratio (100k/100k = 2). Calibrate: measured cell voltage / reported voltage x this.") \
   X(F32, gs_batt_low_v,     "station",  3.5, 3.0, 4.1, "V", kParamGround, "", \
-    "Ground station battery low warning (ON LED double-blinks, '# battery' line says LOW).")
+    "Ground station battery low warning (ON LED double-blinks, '# battery' line says LOW).") \
+  X(U32, gs_launch_countdown_s, "launch", 3, 0, 10, "s", kParamGround, "", \
+    "Launch: countdown after LAUNCH (beep per second; press again or ABORT to stop). 0 = fire at once.") \
+  X(U32, gs_launch_pulse_ms, "launch", 2000, 100, 5000, "ms", kParamGround, "", \
+    "Launch: igniter on-time.") \
+  X(Bool, gs_launch_need_pad, "launch", 1, 0, 1, "", kParamGround, "", \
+    "Launch in FLIGHT mode only while the rocket is heard in PAD (ready, flight mode). 0 = launch without the flight computer.") \
+  X(F32, gs_launch_divider, "launch",  2, 1, 10, "", kParamGround, "", \
+    "Launch channel sense divider ratio (100k/100k = 2).")
 // clang-format on
 
 template <ParamType> struct ParamCType;

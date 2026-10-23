@@ -18,12 +18,15 @@ namespace {
 constexpr int kMaxEventClients = 4;
 constexpr size_t kOutBuffer = 16 * 1024;
 constexpr size_t kCmdBuffer = 2 * 1024;
-constexpr size_t kMaxLine = 256;
+constexpr size_t kMaxLine = 512;
 
 MessageBufferHandle_t g_out = nullptr;  // loop -> web task (output lines)
 MessageBufferHandle_t g_cmd = nullptr;  // web task -> loop (command lines)
 volatile bool g_running = false;
 volatile int g_clients = 0;
+char g_rocket_ip[16] = {0};
+portMUX_TYPE g_ip_mux = portMUX_INITIALIZER_UNLOCKED;
+
 
 // Non-blocking send: gives up on a client that cannot take the data within 200 ms.
 bool send_all(WiFiClient& c, const char* d, size_t n) {
@@ -46,6 +49,40 @@ bool send_all(WiFiClient& c, const char* d, size_t n) {
 }
 
 void send_text(WiFiClient& c, const char* s) { send_all(c, s, strlen(s)); }
+
+// GET /rocket/<path>: fetch http://<rocket ip>/<path> and pass the answer on
+// unchanged (HTTP/1.0: the rocket closes the connection at the end).
+void proxy(WiFiClient& c, const String& path) {
+  char ip[16];
+  portENTER_CRITICAL(&g_ip_mux);
+  memcpy(ip, g_rocket_ip, sizeof(ip));
+  portEXIT_CRITICAL(&g_ip_mux);
+  if (!ip[0]) {
+    send_text(c, "HTTP/1.1 503 Service Unavailable\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\n"
+                 "the rocket is not on this WiFi (send rwifi first)\n");
+    return;
+  }
+  WiFiClient r;
+  if (!r.connect(ip, 80, 3000)) {
+    send_text(c, "HTTP/1.1 504 Gateway Timeout\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\n"
+                 "the rocket does not answer on WiFi\n");
+    return;
+  }
+  r.printf("GET %s HTTP/1.0\r\nHost: %s\r\nConnection: close\r\n\r\n", path.c_str(), ip);
+  uint8_t buf[1460];
+  uint32_t t_last = millis();
+  while (r.connected() || r.available()) {
+    const int n = r.read(buf, sizeof(buf));
+    if (n > 0) {
+      if (c.write(buf, static_cast<size_t>(n)) != static_cast<size_t>(n)) break;  // browser gone
+      t_last = millis();
+    } else {
+      if (millis() - t_last > 15000) break;
+      vTaskDelay(1);
+    }
+  }
+  r.stop();
+}
 
 void serve_ui(WiFiClient& c, bool head) {
   char h[256];
@@ -108,6 +145,10 @@ bool handle(WiFiClient& c) {
     }
     if (sent == 0) xMessageBufferSend(g_cmd, " ", 1, 0);  // an empty command line
     send_text(c, "HTTP/1.1 204 No Content\r\nAccess-Control-Allow-Origin: *\r\nConnection: close\r\n\r\n");
+    return false;
+  }
+  if (method == "GET" && path.startsWith("/rocket/")) {
+    proxy(c, path.substring(7));
     return false;
   }
   if (method == "GET" || method == "HEAD") {
@@ -258,6 +299,15 @@ bool poll_command(char* buf, size_t cap) {
   if (n == 0) return false;
   buf[n] = '\0';
   return true;
+}
+
+void set_rocket_ip(const char* ip) {
+  portENTER_CRITICAL(&g_ip_mux);
+  strncpy(g_rocket_ip, ip, sizeof(g_rocket_ip) - 1);
+  g_rocket_ip[sizeof(g_rocket_ip) - 1] = '\0';
+  for (char* p = g_rocket_ip; *p; ++p)
+    if (!((*p >= '0' && *p <= '9') || *p == '.')) *p = '\0';
+  portEXIT_CRITICAL(&g_ip_mux);
 }
 
 }  // namespace web

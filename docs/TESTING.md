@@ -79,19 +79,24 @@ Flash `pio run -e flight -t upload`, open `pio device monitor` (or the UI).
 
 Proves the charge size separates the rocket and deploys the parachute.
 
-1. Ground station kit connected to the UI, rocket assembled with parachute
-   and charge, restrained horizontally, nose pointing away from people.
-   Switch the rocket to bench mode (USB, or "Bench mode on (by radio)" in the
-   Remote test fire panel).
-2. Fit the arm link last; check "Continuity: yes" and "Rocket hears ground:
-   yes" in the UI's red **Remote test fire** panel. Everyone moves to a safe
-   distance.
-3. Tick the checklist, ARM, confirm; the rocket beeps. FIRE within 10 s,
-   confirm.
+1. Rocket assembled with parachute and charge, restrained horizontally, nose
+   pointing away from people. Ground station MODE switch to **BENCH** (the
+   rocket follows: banner on the WiFi page).
+2. Fit the rocket's arm link last; check "CHARGE OK" on the page. Everyone
+   moves to a safe distance.
+3. **Eject parachute** → OK: the rocket arms and fires a test pulse at once.
 4. After a misfire wait at least 60 s, then remove the arm link before
    touching anything.
-5. Switch back to flight mode or reboot the rocket (every boot starts in
-   flight mode); the UI's bench mode banner must be gone.
+5. MODE switch back to **FLIGHT**; the banner must be gone.
+
+## 3c. Launch channel (ground station)
+
+1. No igniter, ARM off: the page shows "ARM off".
+2. ARM on: three beeps, then a chirp every 2 s; "NO igniter".
+3. Bare nichrome (or an LED with a resistor) on the launch leads: "igniter OK".
+4. MODE **BENCH**, LAUNCH: countdown beeps, then the pulse burns the nichrome.
+   ABORT during the countdown must stop it; ARM off must too.
+5. MODE **FLIGHT**: LAUNCH is refused unless the rocket is heard in PAD.
 
 ## 4. Before every flight
 

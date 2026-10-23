@@ -77,3 +77,17 @@ First version: not yet flown.
   (battery, ping, search mode).
 - Buzzers (both kits) wired straight to their pin, as tested on the flight
   kit: no MOSFET; the firmware sets the pin's strongest drive (~40 mA).
+- Ground station as launch controller: 18650 power, ARM switch in the
+  igniter circuit, launch MOSFET channel with ARM/continuity sensing on one
+  ADC pin, countdown (gs_launch_countdown_s) and pulse (gs_launch_pulse_ms),
+  rocket-in-PAD interlock in FLIGHT mode (gs_launch_need_pad). Tested logic:
+  fc/launch.h. MODE switch (FLIGHT/BENCH): the rocket's bench mode follows
+  it. Ground pins changed: CONNECTED LED D4 → D6; D4 launch sense, D5 launch
+  gate, D7 MODE. Station button ejection removed (page only).
+- Rocket console over the radio (TextCmd/TextOut frames, keyed code): the
+  station's `r <command>`; compact settings (V lines) with definitions from
+  the station (`rdefs`). Rocket settings are edited from the WiFi page.
+- Rocket WiFi client for log download (`wifi join`, only landed/FAULT/bench),
+  relayed by the station at /rocket/...
+- New WiFi-only UI (much simpler): launch, flight, recovery, events,
+  settings, logs, console. The local file / USB viewer is gone.

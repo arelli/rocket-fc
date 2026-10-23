@@ -13,6 +13,10 @@
 //   PE,<count>,<edit crc>,<running crc>,<saved crc>,<ok | invalid: reason>
 //   PERR,<key or *>,<reason>
 //   PSAVED,<crc>,<number of values that differ from the defaults>
+//   V,<key>,<value>,<running>   compact mode (console over the radio): instead
+//       of P lines; "list" then prints only the settings that differ from the
+//       defaults (edit or running copy). The definitions come from the
+//       receiver's own table (same firmware source).
 // Human-readable lines start with '#'.
 #pragma once
 
@@ -41,6 +45,9 @@ class ParamShell {
   // `allowed`: false refuses every change (e.g. in flight); reading still works.
   void exec(int argc, const char* const* argv, bool allowed, Out out, Store store, void* ctx);
 
+  // Compact output (V lines), for the console over the radio.
+  void set_compact(bool c) { compact_ = c; }
+
   const Settings& edit() const { return edit_; }
   const Settings& saved() const { return saved_; }
   const Settings& running() const { return running_; }
@@ -56,8 +63,10 @@ class ParamShell {
 
  private:
   void summary(Out out, void* ctx) const;
+  void line_for(const ParamDef& d, char* buf, size_t cap) const;
   Settings running_, saved_, edit_;
   bool radio_only_;
+  bool compact_ = false;
 };
 
 }  // namespace fc

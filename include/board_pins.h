@@ -48,11 +48,14 @@ constexpr int kGpsRx = 44;  // D7
 // Ground station panel (second kit only; docs/HARDWARE.md "Ground station").
 // The flight computer's pin map above does not apply to it (no sensors).
 namespace ground {
-constexpr int kBattSense = 1; // D0 / A0: 100k/100k divider from BAT+ (same as the flight kit)
-constexpr int kBuzzer = 2;    // D1: active buzzer + (buzzer − to GND)
-constexpr int kButton = 3;    // D2: push button to GND (internal pull-up)
-constexpr int kLedPower = 4;  // D3: "on" LED (330R)
-constexpr int kLedLink = 5;   // D4: "rocket connected" LED (330R)
+constexpr int kBattSense = 1;   // D0 / A0: 100k/100k divider from BAT+ (same as the flight kit)
+constexpr int kBuzzer = 2;      // D1: active buzzer + (buzzer − to GND)
+constexpr int kButton = 3;      // D2: push button to GND (internal pull-up)
+constexpr int kLedPower = 4;    // D3: "on" LED (330R)
+constexpr int kLaunchSense = 5; // D4 / A4: launch channel drain, 100k/100k divider (ARM + continuity)
+constexpr int kLaunchGate = 6;  // D5: launch MOSFET gate (100R series, 100k pull-down)
+constexpr int kLedLink = 43;    // D6: "rocket connected" LED (330R; flickers at boot: ROM log)
+constexpr int kModeSwitch = 44; // D7: FLIGHT/BENCH switch to GND (internal pull-up; open = FLIGHT)
 }  // namespace ground
 
 }  // namespace pins

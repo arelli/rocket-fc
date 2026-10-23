@@ -55,12 +55,11 @@ in the 100 Hz loop: it must only queue.
 the flight logic should use it, extend `SmInput`/`Estimator` in `fc_core` with
 tests. If it should be transmitted, append fields to the telemetry frame,
 increment `tlm::kVersion`, and update `docs/TELEMETRY.md`, the CSV format and
-`tools/ground_station.html` (TLM_COLUMNS) and `tools/ground_station.py` together.
+`tools/ground_station.html` (T_COLS) and `tools/ground_station.py` together.
 
 **Change the ground station UI:** `tools/ground_station.html` is one file with
-no dependencies. What it shows (columns, flags, gauges, plots, command
-buttons) is defined in the CONFIG tables at the top of its script; add a row
-there to add a gauge, plot series or button.
+no dependencies, served by the ground station over WiFi (embedded at build
+time: reflash the ground station after changing it).
 
 **Add an event:** append a value to `EventCode` (never renumber), add its
 name in `types.cpp` and a row in `docs/TELEMETRY.md`.

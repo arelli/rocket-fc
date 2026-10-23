@@ -5,6 +5,8 @@
 //   GET  /        the UI (any other path too: captive portal)
 //   GET  /events  Server-Sent Events: every line the ground station prints
 //   POST /cmd     one or more command lines (same commands as over USB)
+//   GET  /rocket/<path>  relayed to the rocket's own web server when it has
+//                 joined this WiFi ("rwifi"): its onboard log download
 //
 // The web server runs in its own task on core 0 (with the WiFi stack), so a
 // slow or vanished browser can never delay the radio loop: lines are handed
@@ -39,5 +41,7 @@ int clients();  // browsers receiving events
 void publish(const char* line, size_t len);
 // Next command line from a browser (NUL-terminated); false if none.
 bool poll_command(char* buf, size_t cap);
+// The rocket's address on this WiFi ("" = not joined).
+void set_rocket_ip(const char* ip);
 
 }  // namespace web

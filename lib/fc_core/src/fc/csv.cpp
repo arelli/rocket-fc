@@ -75,7 +75,8 @@ size_t format_frame(const uint8_t* frame, size_t len, char* buf, size_t cap) {
   if (cap) buf[0] = '\0';
   tlm::FrameType type;
   if (tlm::frame_type(frame, len, &type) != tlm::DecodeResult::Ok) return 0;
-  if (type == tlm::FrameType::Uplink) return 0;  // not a rocket frame
+  if (type == tlm::FrameType::Uplink || type == tlm::FrameType::TextCmd || type == tlm::FrameType::TextOut)
+    return 0;  // not a telemetry/event/GPS frame
   if (type == tlm::FrameType::Gps) {
     tlm::Gps g;
     if (tlm::decode(frame, len, &g) != tlm::DecodeResult::Ok) return 0;

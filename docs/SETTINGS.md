@@ -21,11 +21,12 @@ checks this).
 
 ### Using them
 
-- **UI:** the Settings panel (bottom of `tools/ground_station.html`) reads
-  the settings of every connected kit, checks each change on the device as you
-  make it, saves to flash and reboots to apply. Filter by name or "only
-  changed"; export/import a settings file (`key=value` lines) to keep it with
-  your flight records.
+- **UI (WiFi page):** Settings → Rocket or Station → Read. The rocket's
+  settings travel by radio (it must be on the ground and in range). Each
+  change is checked on the device as you make it; Save, then Reboot to
+  apply. Radio settings change on both kits together. `r param export` in
+  the console prints a settings file (`key=value` lines) to keep with your
+  flight records.
 - **Console:** `param list [group]`, `param get <key>`, `param set <key> <value>`,
   `param reset <key>|all`, `param revert` (discard unsaved), `param save`,
   `param export`. `config` prints the settings in use, marking changed ones.
@@ -59,33 +60,36 @@ checks this).
 ### Manual ejection (`manual_eject`, flight safety)
 
 Off by default. When on, the ground station can fire the ejection charge at
-any moment after launch detection (UI: "Manual parachute ejection" panel,
-`eject` on the ground station, or a 3 s hold of its button after
-`eject button`). It overrides the apogee logic, so a mistaken command during
-the climb ejects at full speed. The UI asks for confirmation when you switch
-it on; the rocket prints a warning at boot, sets self-test warning bit 7 and
-telemetry link bit 6 (UI: MANUAL EJECT pill). Set it back to 0 when you do
+any moment after launch detection (UI: "Eject parachute", or `eject` on the
+ground station). It overrides the apogee logic, so a mistaken command during
+the climb ejects at full speed. The rocket prints a warning at boot, sets
+self-test warning bit 7 and telemetry link bit 6 (UI: MANUAL EJECT pill). Set it back to 0 when you do
 not need it. Without it, manual ejection works only on the pad in bench mode
 (test pulse).
 
 ### Ground station settings (`G`)
 
 `gs_*` settings exist only on the ground station (its `param` command and
-the UI's Settings panel, marked "ground station"): search mode signal range,
-buzzer on/off, battery divider and low-battery threshold. Like all settings
-they apply after save and reboot.
+the UI's Settings → Station): search mode signal range, buzzer on/off,
+battery divider and low-battery threshold, and the launch channel:
+`gs_launch_countdown_s` (3 s; 0 = fire at once), `gs_launch_pulse_ms`
+(2000 ms), `gs_launch_need_pad` (1: in FLIGHT mode, launch only while the
+rocket is heard in PAD and in flight mode; 0: launch without the flight
+computer) and `gs_launch_divider`. Like all settings they apply after save
+and reboot.
 
 ### Radio settings (both kits)
 
 Radio settings (`R`) exist on the flight computer and the ground station and
 must be identical, or there is no link. The UI sends each radio change to
-every connected kit and warns when they differ; save and reboot both. The
+both kits (the rocket's by radio); save and reboot the rocket first, then
+the station. The
 ground station's `param` command has only these and its own `gs_*` settings.
 
 Without `radio_unlock` the channel must lie within the EU 869.40–869.65 MHz
 band (centre ± bandwidth/2) and the duty limit must not exceed 10 % per hour
 (`radio_duty_pct` × 3600 s + `radio_burst_s` ≤ 360 s). `radio_unlock` = 1
-("I accept", confirmed in the UI) allows 860–930 MHz and any duty cycle: you
+allows 860–930 MHz and any duty cycle: you
 are responsible for the rules where you operate. The SX1262 transmits at most
 22 dBm. Receive sensitivity is set by the spreading factor and bandwidth
 (each SF step ≈ 2.5 dB, at twice the airtime) and `radio_rx_boost` (≈ 2 dB).
@@ -103,13 +107,14 @@ Add one `X(...)` line to `FC_SETTINGS`, use `set_.<name>` in the firmware
 
 There is one flight computer firmware. **Bench mode** enables its test
 commands: `sim` / `sim live` (simulated flight), `fire <ms> CONFIRM` (USB test
-pulse) and the remote test fire by radio.
+pulse), the ejection charge test from the ground station on the pad, and the
+rocket's WiFi for the log download.
 
 - Kept in RAM only: **every boot starts in flight mode**.
-- Switched with `bench on|off` on the flight computer's console (UI: Flight
-  computer panel), or by radio from the ground station (`bench on|off`, UI:
-  Remote test fire panel). The radio request carries a code derived from the
-  pairing key `rf_key`; the rocket accepts it only on the ground.
+- Normally set by the ground station's **MODE switch**: the station sends the
+  rocket's bench mode by radio until it matches (on the ground only). The
+  request carries a code derived from the pairing key `rf_key`. Over USB:
+  `bench on|off` (the station switches it back to match its switch).
 - A detected launch switches it off (BENCH_MODE event, argument 2).
 - Telemetry link bit 3 and the BENCH_MODE event report it; the UI shows a
   banner while it is on.

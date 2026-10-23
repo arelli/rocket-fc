@@ -283,54 +283,88 @@ def ground():
     c = Card(0, 0, 610, 460, 'Ground station: XIAO pin map', 'second kit: XIAO ESP32-S3 + Wio-SX1262')
     xiao_hub(c,
              [('D0', 'SENSE_BAT', ''), ('D1', 'BUZZER', ''), ('D2', 'BUTTON', ''), ('D3', 'LED_ON', ''),
-              ('D4', 'LED_LINK', ''), ('D5', '', 'nc'), ('D6', '', 'nc')],
-             [('5V', '5V', ''), ('GND', '', 'gnd'), ('3V3', '', 'nc'), ('D10', '', 'wio'), ('D9', '', 'wio'),
-              ('D8', '', 'wio'), ('D7', '', 'nc')],
+              ('D4', 'SENSE_LAUNCH', ''), ('D5', 'LAUNCH_GATE', 'hot'), ('D6', 'LED_LINK', '')],
+             [('5V', '', 'nc'), ('GND', '', 'gnd'), ('3V3', '', 'nc'), ('D10', '', 'wio'), ('D9', '', 'wio'),
+              ('D8', '', 'wio'), ('D7', 'MODE', '')],
              [('BAT+', 'BAT+ sw'), ('BAT−', 'GND')],
-             ['USB-C: power bank or laptop (charges the cell).', 'Antennas: Wio U.FL = 868 MHz LoRa,',
+             ['USB-C: charging (slow for an 18650) or a power bank.', 'Antennas: Wio U.FL = 868 MHz LoRa,',
               'XIAO U.FL = 2.4 GHz WiFi (D-Link).'])
     cards.append(c.end())
 
-    c = Card(630, 0, 610, 460, 'Battery and battery sense (optional)', 'same as the flight kit, without C1')
-    c.batt_v(70, 120, 250, 'B1', '1S Li-ion, protected')
+    c = Card(630, 0, 610, 460, 'Power and battery sense', '18650 on the XIAO BAT pads through the power switch')
+    c.batt_v(70, 120, 250, 'B1', '18650 Li-ion')
     c.gnd(70, 250, 14)
     c.w((70, 120), (70, 80), (150, 80))
+    c.dot(110, 80); c.w((110, 80), (110, 56)); c.net(110, 56, 'CELL+', 'right', 'net hotnet')
+    c.t(176, 60, 'to the ARM switch (before SW1)', 'val')
     c.sw_h(150, 200, 80, 'SW1', 'power switch')
     c.w((203, 80), (560, 80))
     c.net(560, 80, 'BAT+ sw', 'left'); c.t(560, 108, 'to XIAO BAT+ pad', 'val', 'end')
-    c.dot(330, 80); c.res_v(330, 80, 170, 'R1', '100k')
-    c.dot(330, 170); c.res_v(330, 170, 260, 'R2', '100k'); c.gnd(330, 260, 14)
-    c.w((330, 170), (400, 170)); c.net(400, 170, 'SENSE_BAT', 'right')
-    c.note(14, 330, ['Reports volts and % (# battery, UI: Radio link → Ground station).',
-                     'On USB the reading is the charger voltage. No cell: leave out R1/R2.',
-                     'No automatic cutoff: switch off when LOW (ON LED double-blinks).'])
+    c.dot(260, 80); c.cap_v(260, 80, 200, 'C1', '1000 µF 16 V'); c.gnd(260, 200, 14)
+    c.dot(400, 80); c.res_v(400, 80, 170, 'R1', '100k')
+    c.dot(400, 170); c.res_v(400, 170, 260, 'R2', '100k'); c.gnd(400, 260, 14)
+    c.w((400, 170), (470, 170)); c.net(470, 170, 'SENSE_BAT', 'right')
+    c.note(14, 330, ['BAT− is the pad nearest the USB connector.',
+                     'Volts and % on the WiFi page (station pill). No automatic cutoff:',
+                     'switch off when the ON LED double-blinks (battery low).',
+                     'C1 rides through the launch pulse (mind the polarity).'])
     cards.append(c.end())
 
-    c = Card(0, 480, 380, 380, 'Buzzer', 'active buzzer straight on the pin')
+    c = Card(0, 480, 760, 420, 'Launch channel (motor igniter)', 'thick line = high-current loop, ≥ 20 AWG; ARM switch rated ≥ 5 A')
+    c.net(70, 90, 'CELL+', 'left', 'net hotnet')
+    c.w((70, 90), (120, 90), cls='w thick')
+    c.sw_h(120, 175, 90, 'SW2', 'ARM (toggle or key)')
+    c.w((178, 90), (205, 90), cls='w thick')
+    c.res_h(205, 275, 90, 'R3', '1 Ω 5 W')
+    c.w((275, 90), (330, 90), cls='w thick')
+    c.dot(300, 90); c.term(334, 90)
+    c.o.append('<path class="sym opt" d="M339,90 q12,-26 24,0 t24,0 t24,0"/>')
+    c.t(375, 62, 'igniter (launch leads)', 'lbl', 'middle')
+    c.term(416, 90); c.t(334, 116, 'J1', 'val', 'middle'); c.t(416, 116, 'J2', 'val', 'middle')
+    c.w((420, 90), (500, 90), (500, 200), cls='w thick')
+    c.dot(450, 90)
+    c.w((300, 90), (300, 150)); c.res_h(300, 450, 150, 'R8', '100k bypass'); c.w((450, 150), (450, 90))
+    c.dot(500, 120); c.w((500, 120), (660, 120))
+    c.res_v(660, 120, 200, 'R4', '100k'); c.dot(660, 200); c.res_v(660, 200, 280, 'R5', '100k'); c.gnd(660, 280, 12)
+    c.w((640, 200), (660, 200)); c.net(640, 200, 'SENSE_LAUNCH', 'left')
+    c.nmos(490, 230, 'Q1', 'IRLB8748')
+    c.w((500, 260), (500, 310), cls='w thick'); c.gnd(500, 310, 6)
+    c.net(130, 230, 'LAUNCH_GATE', 'left', 'net hotnet')
+    c.res_h(130, 210, 230, 'R6', '100 Ω')
+    c.w((210, 230), (460, 230))
+    c.dot(360, 230); c.res_v(360, 230, 310, 'R7', '100k', 'left'); c.gnd(360, 310, 12)
+    c.note(14, 356, ['SENSE_LAUNCH tells the firmware: 0 V = ARM off; ~2/3 battery = armed, no igniter (R8);',
+                     '~battery = armed with an igniter. R7 keeps Q1 off during boot. Keep the station near the pad',
+                     'with short launch leads; fire from the phone over WiFi at a safe distance.'])
+    cards.append(c.end())
+
+    c = Card(780, 480, 460, 420, 'Switches and button', 'all to GND, internal pull-ups')
+    c.net(110, 100, 'MODE', 'left')
+    c.w((110, 100), (150, 100)); c.sw_h(153, 205, 100, 'SW3', 'MODE'); c.w((208, 100), (260, 100), (260, 130)); c.gnd(260, 130, 4)
+    c.t(290, 96, 'open = FLIGHT', 'lbl'); c.t(290, 112, 'closed = BENCH', 'lbl')
+    c.net(110, 230, 'BUTTON', 'left')
+    c.w((110, 230), (150, 230)); c.button_h(153, 213, 230, 'S1', 'push button'); c.w((216, 230), (260, 230), (260, 260)); c.gnd(260, 260, 4)
+    c.note(14, 320, ['Button: ARM off: short = ping, hold 1.5 s = search mode.',
+                     'ARM on: short = LAUNCH (countdown); again = abort.',
+                     'MODE: the rocket follows it (bench mode); BENCH also',
+                     'allows a launch-channel test without the rocket.'])
+    cards.append(c.end())
+
+    c = Card(0, 920, 380, 300, 'Buzzer', 'active buzzer straight on the pin')
     c.net(110, 90, 'BUZZER', 'left')
     c.w((110, 90), (190, 90), (190, 130)); c.buzzer_v(190, 130, 200, 'BZ1', 'active, 3–5 V'); c.gnd(190, 200, 14)
-    c.note(14, 300, ['Same as the flight kit. The firmware sets', 'the strongest pin drive (≈ 40 mA).'])
     cards.append(c.end())
 
-    c = Card(400, 480, 300, 380, 'Push button', 'momentary, normally open')
-    c.net(110, 120, 'BUTTON', 'left')
-    c.w((110, 120), (150, 120)); c.button_h(153, 213, 120, 'S1', ''); c.w((216, 120), (260, 120), (260, 150)); c.gnd(260, 150, 4)
-    c.note(14, 220, ['Internal pull-up: no resistor.', 'Short press: ping. Hold 1.5 s: search mode.',
-                     'Hold 3 s: manual ejection, only within', '60 s after "Enable station button" (UI).'])
-    cards.append(c.end())
-
-    c = Card(720, 480, 520, 380, 'LEDs', 'ON and "rocket connected"')
+    c = Card(400, 920, 840, 300, 'LEDs', 'ON and "rocket connected"')
     for i, (net, ref, col) in enumerate([('LED_ON', 'LED1', 'green'), ('LED_LINK', 'LED2', 'blue')]):
-        x0 = 20 + i * 250
-        c.net(x0 + 85, 90, net, 'left')
-        c.res_h(x0 + 85, x0 + 135, 90, 'R%d' % (3 + i), '330 Ω')
-        c.w((x0 + 135, 90), (x0 + 160, 90), (x0 + 160, 130)); c.led_v(x0 + 160, 130, 200, ref, col); c.gnd(x0 + 160, 200, 14)
-    c.note(14, 280, ['≈ 4 mA each. ON: steady = running, double blink = battery low,',
-                     'fast = radio failed. CONNECTED: on while frames arrive,',
-                     'off for an instant at each frame. Both alternate: eject button',
-                     'enabled; both blink together: ejection in progress.'])
+        x0 = 20 + i * 260
+        c.net(x0 + 95, 90, net, 'left')
+        c.res_h(x0 + 95, x0 + 145, 90, 'R%d' % (9 + i), '330 Ω')
+        c.w((x0 + 145, 90), (x0 + 170, 90), (x0 + 170, 130)); c.led_v(x0 + 170, 130, 200, ref, col); c.gnd(x0 + 170, 200, 14)
+    c.note(540, 80, ['ON: steady = running;', '2 Hz = ARMED;', 'fast = countdown / firing', '  or radio failed;',
+                     'double blink = battery low.', 'CONNECTED: on while rocket', 'frames arrive.'])
     cards.append(c.end())
-    return W, 860, cards
+    return W, 1220, cards
 
 STYLE_FILE = '''<rect x="-2" y="-2" width="100%" height="100%" fill="#ffffff"/><style>
 .card{fill:#fbfcfc;stroke:#c9d2d6;stroke-width:1}

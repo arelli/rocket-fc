@@ -29,15 +29,11 @@ deployment, live LoRa telemetry and an onboard flight log.
    see [docs/SETTINGS.md](docs/SETTINGS.md)).
 4. Ground station: connect the second kit, `pio run -e ground -t upload`.
 5. Serial console: `pio device monitor` (115200 baud), type `help`.
-6. Ground station window: open `tools/ground_station.html` in Chrome or Edge
-   (double-click it; works offline). Connect the ground kit for live telemetry
-   and the flight computer for its console. It also opens saved logs.
-   Command-line alternative: `pip install pyserial`, then
-   `python tools/ground_station.py COM5`.
-   **Without a laptop:** power the ground station from a power bank, join its
-   WiFi (`rocketfc-XXXX`; the password is printed by the `wifi` command over
-   USB) and open http://192.168.4.1 on a phone. Same UI, radio features only
-   (docs/HARDWARE.md, "Ground station WiFi").
+6. Ground station UI: switch the ground station on, join its WiFi
+   (`rocketfc-XXXX`; the password is printed by the `wifi` command on its USB
+   console the first time) and open http://192.168.4.1 on a phone or laptop.
+   Everything is there: telemetry, launch, recovery, both kits' settings and
+   consoles, and the rocket's onboard logs (docs/HARDWARE.md, "Ground station").
 7. Unit tests on your computer: `pio test -e native` (needs a C++ compiler:
    on Windows install one, e.g. `scoop install gcc` or MSYS2).
 
@@ -65,7 +61,8 @@ lib/fc_hal/         drivers: MPU-9250, BMP280, SX1262, GPS UART, flash partition
 src/flight/         flight firmware (app.cpp = wiring of the above)
 src/ground/         ground station firmware (main.cpp) and its WiFi access point / web UI server (web.cpp)
 test/               unit tests (pio test -e native)
-tools/              ground_station.html (UI), ground_station.py (CLI recorder), build_info.py
+tools/              ground_station.html (UI, served by the ground station), ground_station.py (CLI recorder),
+                    schematics.py (wiring drawings), build_info.py
 docs/               hardware, flight logic, telemetry, indicators, testing
 ```
 

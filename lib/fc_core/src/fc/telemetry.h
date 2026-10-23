@@ -20,7 +20,9 @@ constexpr uint8_t kVersion = 4;  // 2: attitude; 3: ground link, uplink; 4: UTC 
 
 // Telemetry, Event, Gps: rocket -> ground (and the onboard log). Uplink: ground -> rocket.
 // Gps frames exist only when a GPS module sends data (optional hardware).
-enum class FrameType : uint8_t { Telemetry = 1, Event = 2, Uplink = 3, Gps = 4 };
+// TextCmd / TextOut: the rocket's console over the radio (variable length,
+// never logged): a command line up, its output down.
+enum class FrameType : uint8_t { Telemetry = 1, Event = 2, Uplink = 3, Gps = 4, TextCmd = 5, TextOut = 6 };
 
 enum Flags : uint8_t {
   kFlagPyroContinuity = 1 << 0,  // igniter circuit closed (arm link fitted + bridge intact)
@@ -38,7 +40,12 @@ constexpr size_t kTelemetryLen = 56;
 constexpr size_t kEventLen = 17;
 constexpr size_t kUplinkLen = 22;
 constexpr size_t kGpsLen = 38;
-constexpr size_t kMaxFrameLen = kTelemetryLen;
+constexpr size_t kMaxFrameLen = kTelemetryLen;  // fixed-length frames
+// Text frames: header | [TextCmd: u32 code] | u8 n | n bytes of text | CRC
+constexpr size_t kMaxText = 200;     // output text per frame (lines separated by '\n')
+constexpr size_t kMaxCmdText = 120;  // command line length
+constexpr size_t kMaxTextFrameLen = kHeaderLen + 4 + 1 + kMaxText + 2;
+constexpr size_t text_frame_len(bool cmd, size_t n) { return kHeaderLen + (cmd ? 4 : 0) + 1 + n + 2; }
 
 // Engineering-unit view of a telemetry frame. Encoding quantizes to the units
 // given in the comments; decode returns the quantized values.
@@ -114,6 +121,18 @@ struct Gps {
   uint32_t utc_s = 0;      // Unix time of the fix, 0 = unknown
 };
 
+// Console text over the radio. TextCmd (ground -> rocket) carries a code
+// (fc::text_code) that proves it comes from a station with the same rf_key.
+struct Text {
+  bool cmd = false;  // true: TextCmd, false: TextOut
+  FlightState state = FlightState::Init;
+  uint16_t seq = 0;
+  uint32_t t_ms = 0;
+  uint32_t code = 0;  // TextCmd only
+  uint8_t len = 0;
+  char text[kMaxText + 1] = {0};  // NUL-terminated after decode
+};
+
 struct Event {
   FlightState state = FlightState::Init;
   uint16_t seq = 0;
@@ -127,6 +146,7 @@ size_t encode(const Telemetry& t, uint8_t* out, size_t cap);
 size_t encode(const Event& e, uint8_t* out, size_t cap);
 size_t encode(const Uplink& u, uint8_t* out, size_t cap);
 size_t encode(const Gps& g, uint8_t* out, size_t cap);
+size_t encode(const Text& t, uint8_t* out, size_t cap);
 
 enum class DecodeResult : uint8_t {
   Ok = 0,
@@ -144,6 +164,7 @@ DecodeResult decode(const uint8_t* buf, size_t len, Telemetry* out);
 DecodeResult decode(const uint8_t* buf, size_t len, Event* out);
 DecodeResult decode(const uint8_t* buf, size_t len, Uplink* out);
 DecodeResult decode(const uint8_t* buf, size_t len, Gps* out);
+DecodeResult decode(const uint8_t* buf, size_t len, Text* out);
 
 const char* to_string(DecodeResult r);
 

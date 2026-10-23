@@ -4,6 +4,7 @@
 #include <time.h>
 
 #include "board_pins.h"
+#include "fc/crc16.h"
 #include "fc/csv.h"
 #include "flight_config.h"
 #include "hal/system.h"
@@ -42,6 +43,8 @@ App::App()
       remote_(0),
       eject_(0) {}
 
+ConsoleOut con;
+
 bool App::simulating() const { return sim_ != nullptr; }
 
 // =============================================================================
@@ -57,13 +60,13 @@ void App::setup() {
   Serial.setTxTimeoutMs(5);  // never let a stalled USB host block the control loop
 
   reset_cause_ = hal::reset_cause();
-  Serial.printf("\nrocket-fc %s  reset: %s\n", FC_GIT_REV, hal::reset_reason_name());
+  con.printf("\nrocket-fc %s  reset: %s\n", FC_GIT_REV, hal::reset_reason_name());
   load_settings();
   apply_settings();
   led_.begin(pins::kStatusLed, 0, static_cast<uint8_t>(set_.led_bright_pct));
-  Serial.println("mode: FLIGHT (bench mode off: 'bench on' enables the test commands until reboot)");
+  con.println("mode: FLIGHT (bench mode off: 'bench on' enables the test commands until reboot)");
   if (set_.manual_eject)
-    Serial.println("WARNING: manual_eject = 1: the ground station can fire the ejection charge IN FLIGHT "
+    con.println("WARNING: manual_eject = 1: the ground station can fire the ejection charge IN FLIGHT "
                    "(two-step coded command). Set manual_eject = 0 if you do not intend to use it.");
 
   batt_adc_.begin(pins::kBattSense, set_.batt_divider);
@@ -84,8 +87,13 @@ void App::setup() {
   airtime_up_ms_ = fc::lora_airtime_us(m, fc::tlm::kUplinkLen) / 1000;
   airtime_gps_us_ = fc::lora_airtime_us(m, fc::tlm::kGpsLen);
   // The ground station replies 15 ms after our frame; its reply must fit in the window.
-  const uint32_t need = 15 + airtime_up_ms_ + 60;
+  // On the ground the longest reply is a console command (TextCmd); in flight
+  // (manual ejection) a fixed-length uplink.
+  airtime_text_us_ = fc::lora_airtime_us(m, fc::tlm::kMaxTextFrameLen);
+  const uint32_t cmd_ms = fc::lora_airtime_us(m, fc::tlm::text_frame_len(true, fc::tlm::kMaxCmdText)) / 1000;
+  const uint32_t need = 15 + cmd_ms + 60;
   rx_window_ms_ = set_.uplink_rx_ms > need ? set_.uplink_rx_ms : need;
+  rx_window_flight_ms_ = 15 + airtime_up_ms_ + 60;
 
   event(EventCode::Boot, static_cast<int32_t>(FC_GIT_REV_U32), now);
   event(EventCode::Config, static_cast<int32_t>(set_crc_), now);
@@ -95,7 +103,7 @@ void App::setup() {
   update_battery(now);
   hal::watchdog_begin(cfg::kWatchdogS);
   t_tick_ = t_slow_ = t_report_ = now;
-  Serial.println("type 'help' for commands");
+  con.println("type 'help' for commands");
 }
 
 // Stored settings over the defaults. If they cannot be used, the computer runs
@@ -117,13 +125,13 @@ void App::load_settings() {
   } else if (!fc::validate(stored, config_problem_, sizeof(config_problem_))) {
     config_ok_ = false;
   }
-  if (rep.unknown) Serial.printf("settings: %u stored value(s) unknown to this firmware, ignored (%s)\n",
+  if (rep.unknown) con.printf("settings: %u stored value(s) unknown to this firmware, ignored (%s)\n",
                                  rep.unknown, rep.first_problem);
   set_ = config_ok_ ? stored : fc::Settings{};
   params_.init(set_, stored);
   set_crc_ = fc::settings_crc(set_);
   if (!config_ok_) {
-    Serial.printf("SETTINGS INVALID: %s\n  running on the defaults; the computer will refuse to fly.\n"
+    con.printf("SETTINGS INVALID: %s\n  running on the defaults; the computer will refuse to fly.\n"
                   "  Fix with 'param set ...' + 'param save' (or 'param reset all' + 'param save'), reboot.\n",
                   config_problem_);
   }
@@ -135,10 +143,10 @@ void App::load_settings() {
     if (fc::param_equal(set_, defaults, d)) continue;
     char v[32];
     fc::format_param(set_, d, v, sizeof(v));
-    Serial.printf("  setting %s = %s\n", d.key, v);
+    con.printf("  setting %s = %s\n", d.key, v);
     ++changed;
   }
-  Serial.printf("settings: %u changed from the defaults, crc %08lX\n", static_cast<unsigned>(changed),
+  con.printf("settings: %u changed from the defaults, crc %08lX\n", static_cast<unsigned>(changed),
                 static_cast<unsigned long>(set_crc_));
 }
 
@@ -155,30 +163,30 @@ void App::apply_settings() {
 
 void App::init_sensors() {
   // List everything on the bus first: tells wiring faults from driver faults.
-  Serial.print("I2C bus:");
+  con.print("I2C bus:");
   int found = 0;
   for (uint8_t a = 1; a < 127; ++a) {
     Wire.beginTransmission(a);
     if (Wire.endTransmission() == 0) {
-      Serial.printf(" 0x%02X", a);
+      con.printf(" 0x%02X", a);
       ++found;
     }
   }
-  Serial.println(found ? "  (MPU-9250 = 0x68/0x69, BMP280 = 0x76/0x77)" : " nothing (check SDA/SCL/3V3/GND)");
+  con.println(found ? "  (MPU-9250 = 0x68/0x69, BMP280 = 0x76/0x77)" : " nothing (check SDA/SCL/3V3/GND)");
 
   if (imu_.begin(&Wire, 0x68, set_.imu_dlpf) || imu_.begin(&Wire, 0x69, set_.imu_dlpf)) {
-    Serial.printf("IMU: %s (WHO_AM_I 0x%02X)%s\n", imu_.chip_name(), imu_.who_am_i(),
+    con.printf("IMU: %s (WHO_AM_I 0x%02X)%s\n", imu_.chip_name(), imu_.who_am_i(),
                   imu_.has_mag() ? " + AK8963 magnetometer" : ", no magnetometer");
   } else if (imu_.who_am_i() != 0) {
-    Serial.printf("IMU: answered (WHO_AM_I 0x%02X) but could not be configured\n", imu_.who_am_i());
+    con.printf("IMU: answered (WHO_AM_I 0x%02X) but could not be configured\n", imu_.who_am_i());
   } else {
-    Serial.println("IMU: not found at 0x68 or 0x69");
+    con.println("IMU: not found at 0x68 or 0x69");
   }
   if (baro_.begin(&Wire, set_.baro_iir, set_.baro_osr)) {
-    Serial.printf("Baro: %s at 0x%02X\n", baro_.chip_id() == 0x60 ? "BME280" : "BMP280",
+    con.printf("Baro: %s at 0x%02X\n", baro_.chip_id() == 0x60 ? "BME280" : "BMP280",
                   baro_.address());
   } else {
-    Serial.println("Baro: not found");
+    con.println("Baro: not found");
   }
 }
 
@@ -191,9 +199,9 @@ void App::retry_imu(uint32_t now) {
   if (simulating() || now - t_imu_retry_ < 2000) return;
   t_imu_retry_ = now;
   if (imu_.begin(&Wire, 0x68, set_.imu_dlpf) || imu_.begin(&Wire, 0x69, set_.imu_dlpf)) {
-    Serial.printf("IMU: found after boot: %s (WHO_AM_I 0x%02X)%s\n", imu_.chip_name(),
+    con.printf("IMU: found after boot: %s (WHO_AM_I 0x%02X)%s\n", imu_.chip_name(),
                   imu_.who_am_i(), imu_.has_mag() ? " + AK8963 magnetometer" : ", no magnetometer");
-    Serial.println("     gyro bias was not calibrated: restart with the rocket still for best attitude");
+    con.println("     gyro bias was not calibrated: restart with the rocket still for best attitude");
   }
 }
 
@@ -213,23 +221,23 @@ void App::init_radio() {
   if (radio_.begin(p, r)) {
     radio_.set_listen(true);  // hear ground station heartbeats between transmissions
     radio_.start_receive();
-    Serial.printf("Radio: SX1262 %.3f MHz SF%lu BW%.1f, %ld dBm%s%s\n",
+    con.printf("Radio: SX1262 %.3f MHz SF%lu BW%.1f, %ld dBm%s%s\n",
                   static_cast<double>(set_.radio_freq_mhz), static_cast<unsigned long>(set_.radio_sf),
                   static_cast<double>(fc::radio_bw_khz(set_)), static_cast<long>(set_.radio_power_dbm),
                   set_.radio_rx_boost ? ", RX boost" : "",
                   fc::radio_within_eu_rules(set_) ? "" : "  [outside EU band rules: radio_unlock]");
   } else {
-    Serial.printf("Radio: init failed (RadioLib error %d)\n", radio_.last_error());
+    con.printf("Radio: init failed (RadioLib error %d)\n", radio_.last_error());
   }
 }
 
 void App::init_gps() {
   if (set_.gps_mode == 0) {
-    Serial.println("GPS: off (gps_mode)");
+    con.println("GPS: off (gps_mode)");
     return;
   }
   gps_uart_.begin(pins::kGpsRx, fc::gps_baud(set_));
-  Serial.printf("GPS: listening on D7 at %lu baud (gps_mode %s)\n", static_cast<unsigned long>(fc::gps_baud(set_)),
+  con.printf("GPS: listening on D7 at %lu baud (gps_mode %s)\n", static_cast<unsigned long>(fc::gps_baud(set_)),
                 set_.gps_mode == 2 ? "required" : "auto");
 }
 
@@ -241,15 +249,15 @@ void App::init_log() {
     if (flog_ok_) {
       add_sink(&flog_);
       const size_t n = flog_.log().stored_sessions();
-      Serial.printf("Log: flash-log %u KB, session %lu, %u earlier session(s) stored ('flog')\n",
+      con.printf("Log: flash-log %u KB, session %lu, %u earlier session(s) stored ('flog')\n",
                     static_cast<unsigned>(flog_.log().sectors() * 4), static_cast<unsigned long>(flog_.log().session()),
                     static_cast<unsigned>(n));
     } else {
-      Serial.println("Log: flash-log FAILED (no 'flog' partition: flash with this project's platformio.ini)");
+      con.println("Log: flash-log FAILED (no 'flog' partition: flash with this project's platformio.ini)");
     }
   }
   for (size_t i = 0; i < n_sinks_; ++i) {
-    Serial.printf("Log: %s %s\n", sinks_[i]->name(), sinks_[i]->ok() ? "ok" : "FAILED");
+    con.printf("Log: %s %s\n", sinks_[i]->name(), sinks_[i]->ok() ? "ok" : "FAILED");
   }
 }
 
@@ -266,7 +274,7 @@ void App::try_resume(uint32_t now) {
   fc_.resume(rec, now);
   resumed_ = true;
   prev_state_ = fc_.state();
-  Serial.printf("RESUMED flight in %s, %lu ms after launch, fired=%u\n", to_string(fc_.state()),
+  con.printf("RESUMED flight in %s, %lu ms after launch, fired=%u\n", to_string(fc_.state()),
                 static_cast<unsigned long>(rec.ms_since_launch), rec.fired);
   event(EventCode::Resumed, static_cast<int32_t>(rec.ms_since_launch), now);
 }
@@ -278,7 +286,7 @@ void App::start_countdown(uint32_t now) {
   up_sum_ = 0;
   cal_n_ = 0;
   last_countdown_s_ = 0;
-  Serial.printf("Keep the rocket still: calibrating for %lu s\n",
+  con.printf("Keep the rocket still: calibrating for %lu s\n",
                 static_cast<unsigned long>(set_.settle_ms / 1000));
 }
 
@@ -311,6 +319,7 @@ void App::loop() {
   update_flash_log(now);
   update_indicators(now);
   console_poll(now);
+  wifi_poll(now);
   hal::watchdog_feed();
 }
 
@@ -438,7 +447,7 @@ void App::run_selftest(uint32_t now) {
   // Fatal checks (FAULT: never arms, never fires). The order is the priority.
   if (!config_ok_) {
     fault_ = fc::FaultCode::ConfigInvalid;
-    Serial.printf("SELF-TEST: settings invalid: %s\n", config_problem_);
+    con.printf("SELF-TEST: settings invalid: %s\n", config_problem_);
   } else if (baro_good_ < 10 || !baro_ok_) {
     fault_ = fc::FaultCode::BaroMissing;
   } else if (!(pressure_pa_ > set_.st_p_min_pa && pressure_pa_ < set_.st_p_max_pa)) {
@@ -479,27 +488,27 @@ void App::run_selftest(uint32_t now) {
   if (fault_ != fc::FaultCode::None) {
     event(EventCode::SelfTestFail, static_cast<int32_t>(fault_), now);
     beeper_.beeps(static_cast<uint8_t>(fault_), 600, 300, 1500);
-    Serial.printf("SELF-TEST FAILED: fault %u -> FAULT state, will not fly\n",
+    con.printf("SELF-TEST FAILED: fault %u -> FAULT state, will not fly\n",
                   static_cast<unsigned>(fault_));
   } else {
     event(EventCode::SelfTestOk, warnings_, now);
     if (set_.beep_selftest) beeper_.beeps(2, 150, 150, 1000);
-    Serial.printf("SELF-TEST OK: ground %.1f Pa, warnings 0x%02X\n",
+    con.printf("SELF-TEST OK: ground %.1f Pa, warnings 0x%02X\n",
                   static_cast<double>(fc_.estimator().ground_pa()), warnings_);
   }
-  if (warnings_ & fc::kWarnImuMissing) Serial.println("  warning: IMU not responding");
-  if (warnings_ & fc::kWarnMagMissing) Serial.println("  warning: no magnetometer");
+  if (warnings_ & fc::kWarnImuMissing) con.println("  warning: IMU not responding");
+  if (warnings_ & fc::kWarnMagMissing) con.println("  warning: no magnetometer");
   if (warnings_ & fc::kWarnImuAxis)
-    Serial.printf("  warning: up axis reads %.2f g (expected ~1.00): check imu_up_axis / orientation\n",
+    con.printf("  warning: up axis reads %.2f g (expected ~1.00): check imu_up_axis / orientation\n",
                   static_cast<double>(up));
-  if (warnings_ & fc::kWarnRadioFail) Serial.println("  warning: radio not working");
-  if (warnings_ & fc::kWarnBattLow) Serial.println("  warning: battery low");
+  if (warnings_ & fc::kWarnRadioFail) con.println("  warning: radio not working");
+  if (warnings_ & fc::kWarnBattLow) con.println("  warning: battery low");
   if (warnings_ & fc::kWarnNoBackupTimer)
-    Serial.println("  note: backup deployment timer disabled (backup_deploy_ms = 0)");
+    con.println("  note: backup deployment timer disabled (backup_deploy_ms = 0)");
   if (warnings_ & fc::kWarnGpsMissing)
-    Serial.println("  note: no GPS data on D7 (no module? set gps_mode = off to silence this)");
+    con.println("  note: no GPS data on D7 (no module? set gps_mode = off to silence this)");
   if (warnings_ & fc::kWarnManualEject)
-    Serial.println("  WARNING: manual ejection by radio ENABLED (manual_eject = 1): the ground station "
+    con.println("  WARNING: manual ejection by radio ENABLED (manual_eject = 1): the ground station "
                    "can fire the charge in flight");
   t_report_ = now;
 }
@@ -511,27 +520,28 @@ void App::handle_output(const fc::SmOutput& out, uint32_t now) {
   if (sim_) {
     sim_->deploy();
     if (!sim_live_) {
-      Serial.println("[sim] FIRE command (pyro output not driven; use 'sim live' to drive it)");
+      con.println("[sim] FIRE command (pyro output not driven; use 'sim live' to drive it)");
       return;
     }
   }
   start_sag();
   if (pyro_.fire(now, set_.pyro_pulse_ms)) {
     watch_open_ = continuity_;  // only meaningful if the circuit was closed
-    Serial.printf("[%lu] PYRO FIRED (%lu ms pulse)\n", static_cast<unsigned long>(now),
+    con.printf("[%lu] PYRO FIRED (%lu ms pulse)\n", static_cast<unsigned long>(now),
                   static_cast<unsigned long>(set_.pyro_pulse_ms));
   } else {
     sag_active_ = false;
-    Serial.printf("[%lu] PYRO fire command REFUSED by driver (armed=%d fired=%d)\n",
+    con.printf("[%lu] PYRO fire command REFUSED by driver (armed=%d fired=%d)\n",
                   static_cast<unsigned long>(now), pyro_.armed(), pyro_.fired());
   }
 }
 
 void App::on_state_change(FlightState from, FlightState to, uint32_t now) {
-  Serial.printf("[%lu] state %s -> %s\n", static_cast<unsigned long>(now), to_string(from),
+  con.printf("[%lu] state %s -> %s\n", static_cast<unsigned long>(now), to_string(from),
                 to_string(to));
   if (to == FlightState::Boost) {
     beeper_.clear();  // no buzzer during flight
+    if (wifi_on_) wifi_stop("launch");
     t_tlm_ = 0;       // send telemetry right away
     // A real launch ends bench mode (a simulated one does not).
     if (bench_ && !simulating()) set_bench(false, 2, now, "launch detected");
@@ -562,7 +572,7 @@ void App::slow_tick(uint32_t now) {
   if (csv_stream_) print_csv_line(now);
   if (sim_ && !sim_reported_ && fc_.state() == FlightState::Landed) {
     sim_reported_ = true;
-    Serial.printf("[sim] complete: true apogee %.1f m at t=%lu ms; computer max %.1f m\n",
+    con.printf("[sim] complete: true apogee %.1f m at t=%lu ms; computer max %.1f m\n",
                   static_cast<double>(sim_->apogee_alt_m()),
                   static_cast<unsigned long>(sim_->apogee_ms()),
                   static_cast<double>(fc_.sm().max_alt_m()));
@@ -681,7 +691,7 @@ void App::update_indicators(uint32_t now) {
 }
 
 void App::shutdown(const char* why) {
-  Serial.printf("SHUTDOWN: %s (vbat %.2f V). Power cycle to restart.\n", why,
+  con.printf("SHUTDOWN: %s (vbat %.2f V). Power cycle to restart.\n", why,
                 static_cast<double>(vbat_));
   pyro_.force_off();
   buzzer_.set(false);
@@ -767,7 +777,7 @@ void App::event_at(EventCode code, int32_t arg, uint32_t now) {
   evq_[(evq_head_ + evq_count_) % kEventQueue] = e;
   ++evq_count_;
 
-  Serial.printf("[%lu] EVENT %s arg=%ld\n", static_cast<unsigned long>(now), to_string(code),
+  con.printf("[%lu] EVENT %s arg=%ld\n", static_cast<unsigned long>(now), to_string(code),
                 static_cast<long>(arg));
 }
 
@@ -799,11 +809,19 @@ uint32_t App::telemetry_period_ms() const {
 }
 
 void App::receive_uplink(uint32_t now) {
-  uint8_t buf[32];
+  uint8_t buf[fc::tlm::kMaxTextFrameLen + 8];
   float rssi = 0, snr = 0;
   bool crc_error = false;
   const size_t n = radio_.receive(buf, sizeof(buf), &rssi, &snr, &crc_error);
   if (n == 0 || crc_error) return;
+  fc::tlm::FrameType type;
+  if (fc::tlm::frame_type(buf, n, &type) != fc::tlm::DecodeResult::Ok) return;
+  if (type == fc::tlm::FrameType::TextCmd) {
+    if (in_flight(fc_.state())) return;  // the console never runs commands by radio in flight
+    static fc::tlm::Text t;
+    if (fc::tlm::decode(buf, n, &t) == fc::tlm::DecodeResult::Ok) handle_text(t, now);
+    return;
+  }
   fc::tlm::Uplink u;
   if (fc::tlm::decode(buf, n, &u) != fc::tlm::DecodeResult::Ok) return;
   using K = fc::tlm::UplinkKind;
@@ -845,11 +863,11 @@ void App::handle_remote_fire(const fc::tlm::Uplink& u, uint32_t now) {
       const RemoteFireEnd r = remote_.arm(now, u.pulse_ms, esp_random(), remote_conditions());
       if (r != RemoteFireEnd::Fired) {
         event(EventCode::RemoteRefused, static_cast<int32_t>(r), now);
-        Serial.printf("REMOTE FIRE: arm refused: %s\n", fc::to_string(r));
+        con.printf("REMOTE FIRE: arm refused: %s\n", fc::to_string(r));
         return;
       }
       event(EventCode::RemoteArmed, static_cast<int32_t>(remote_.nonce()), now);
-      Serial.printf("REMOTE FIRE: ARMED for %u ms pulse, fire window %lu s\n", remote_.pulse_ms(),
+      con.printf("REMOTE FIRE: ARMED for %u ms pulse, fire window %lu s\n", remote_.pulse_ms(),
                     static_cast<unsigned long>(fc::RemoteFire::kWindowMs / 1000));
       // Warning to anyone near the rocket: beep for the whole window.
       beeper_.clear();
@@ -861,14 +879,14 @@ void App::handle_remote_fire(const fc::tlm::Uplink& u, uint32_t now) {
       beeper_.clear();
       if (r != RemoteFireEnd::Fired) {
         event(EventCode::RemoteRefused, static_cast<int32_t>(r), now);
-        Serial.printf("REMOTE FIRE: fire refused: %s\n", fc::to_string(r));
+        con.printf("REMOTE FIRE: fire refused: %s\n", fc::to_string(r));
         return;
       }
       watch_open_ = continuity_;
       start_sag();
       if (pyro_.bench_fire(now, u.pulse_ms)) {
         event(EventCode::BenchFire, u.pulse_ms, now);
-        Serial.printf("REMOTE FIRE: FIRED %u ms\n", u.pulse_ms);
+        con.printf("REMOTE FIRE: FIRED %u ms\n", u.pulse_ms);
       } else {
         sag_active_ = false;
       }
@@ -879,18 +897,18 @@ void App::handle_remote_fire(const fc::tlm::Uplink& u, uint32_t now) {
         remote_.disarm();
         beeper_.clear();
         event(EventCode::RemoteDisarmed, static_cast<int32_t>(RemoteFireEnd::Cancelled), now);
-        Serial.println("REMOTE FIRE: disarmed from the ground station");
+        con.println("REMOTE FIRE: disarmed from the ground station");
       }
       return;
     case fc::tlm::UplinkKind::BenchMode: {
       const bool on = u.pulse_ms != 0;
       if (u.code != fc::bench_mode_code(on, set_.rf_key)) {
         event(EventCode::RemoteRefused, static_cast<int32_t>(RemoteFireEnd::BadCode), now);
-        Serial.println("BENCH MODE by radio: refused, wrong code (pairing key rf_key differs?)");
+        con.println("BENCH MODE by radio: refused, wrong code (pairing key rf_key differs?)");
         return;
       }
       if (!on && simulating()) {
-        Serial.println("BENCH MODE by radio: off refused while a simulation runs (reboot ends it)");
+        con.println("BENCH MODE by radio: off refused while a simulation runs (reboot ends it)");
         event(EventCode::BenchMode, 1, now);
         return;
       }
@@ -937,7 +955,7 @@ void App::poll_gps(uint32_t now) {
   char c;
   for (int i = 0; i < 64 && gps_uart_.read(&c); ++i) {
     gps_.feed(c, now);
-    if (c == '\n' && gps_raw_) Serial.printf("[gps] %s\n", gps_.last_line());
+    if (c == '\n' && gps_raw_) con.printf("[gps] %s\n", gps_.last_line());
   }
 }
 
@@ -949,14 +967,14 @@ void App::update_gps(uint32_t now) {
   const uint8_t st = fix ? 2 : data ? 1 : 0;
   if (st != gps_state_) {
     static const char* const kNames[] = {"no data (lost)", "receiving, no fix yet", "position fix"};
-    Serial.printf("[%lu] GPS: %s, %u satellites\n", static_cast<unsigned long>(now), kNames[st],
+    con.printf("[%lu] GPS: %s, %u satellites\n", static_cast<unsigned long>(now), kNames[st],
                   gps_.fix().sats);
     gps_state_ = st;
     event(EventCode::GpsStatus, st, now);
   }
   if (!data && !gps_none_reported_ && now > 8000) {
     gps_none_reported_ = true;
-    Serial.printf("GPS: no data on D7 yet (%lu bytes rejected). Module wired? gps_baud right?\n",
+    con.printf("GPS: no data on D7 yet (%lu bytes rejected). Module wired? gps_baud right?\n",
                   static_cast<unsigned long>(gps_.checksum_errors()));
   }
   // Real time from the GPS if nothing better came first (TimeSync keeps the first).
@@ -1012,7 +1030,7 @@ void App::set_bench(bool on, int32_t why, uint32_t now, const char* source) {
     event(EventCode::RemoteDisarmed, static_cast<int32_t>(fc::RemoteFireEnd::Cancelled), now);
   }
   event(EventCode::BenchMode, why, now);
-  Serial.printf("[%lu] BENCH MODE %s (%s)%s\n", static_cast<unsigned long>(now), on ? "ON" : "OFF", source,
+  con.printf("[%lu] BENCH MODE %s (%s)%s\n", static_cast<unsigned long>(now), on ? "ON" : "OFF", source,
                 on ? ": test commands enabled until reboot, 'bench off' or launch" : "");
 }
 
@@ -1045,12 +1063,12 @@ void App::update_sag(uint32_t now) {
   const uint32_t min_mv = static_cast<uint32_t>(sag_min_v_ * 1000.0f + 0.5f);
   event(EventCode::PyroSag, static_cast<int32_t>(((pre_mv & 0xFFFFu) << 16) | (min_mv & 0xFFFFu)), now);
   const float mean = sag_n_ ? sag_sum_ / static_cast<float>(sag_n_) : sag_pre_v_;
-  Serial.printf("[%lu] PYRO battery: %.3f V before, min %.3f V (drop %.3f V), mean %.3f V, %lu samples%s\n",
+  con.printf("[%lu] PYRO battery: %.3f V before, min %.3f V (drop %.3f V), mean %.3f V, %lu samples%s\n",
                 static_cast<unsigned long>(now), static_cast<double>(sag_pre_v_), static_cast<double>(sag_min_v_),
                 static_cast<double>(sag_pre_v_ - sag_min_v_), static_cast<double>(mean),
                 static_cast<unsigned long>(sag_n_), have_battery_ ? "" : " (no cell: USB supply)");
   if (have_battery_ && sag_min_v_ < 3.3f)
-    Serial.println("  WARNING: below 3.3 V during the pulse: risk of a brown-out reset. Check the cell, "
+    con.println("  WARNING: below 3.3 V during the pulse: risk of a brown-out reset. Check the cell, "
                    "its wiring and the 1000 uF capacitor.");
 }
 
@@ -1065,7 +1083,7 @@ void App::check_remote_fire(uint32_t now) {
   }
   beeper_.clear();
   event(EventCode::RemoteDisarmed, static_cast<int32_t>(why), now);
-  Serial.printf("REMOTE FIRE: disarmed: %s\n", fc::to_string(why));
+  con.printf("REMOTE FIRE: disarmed: %s\n", fc::to_string(why));
 }
 
 // --- Connectivity check (ground station button / 'ping') ---------------------
@@ -1079,6 +1097,38 @@ void App::handle_ping(const fc::tlm::Uplink& u, uint32_t now) {
   beeper_.push(150, 0);
   sound_until_ = now + 200;
   t_report_ = now;  // no pad beeps right on top of it
+}
+
+// --- Console by radio (TextCmd from the ground station) ---------------------
+// The command runs as if typed on USB; its output goes back in TextOut frames.
+// Settings print compactly (V lines). Not by radio: commands that stream a
+// lot (dump, flog dump: use the WiFi download) or pulse the output directly
+// (fire: use the remote test fire).
+void App::handle_text(const fc::tlm::Text& t, uint32_t now) {
+  const uint16_t crc = fc::crc16_ccitt(reinterpret_cast<const uint8_t*>(t.text), t.len);
+  if (t.code != fc::text_code(t.seq, crc, set_.rf_key)) {
+    event(EventCode::RemoteRefused, static_cast<int32_t>(fc::RemoteFireEnd::BadCode), now);
+    return;
+  }
+  if (have_text_seq_ && t.seq == last_text_seq_) return;  // the same command repeated
+  have_text_seq_ = true;
+  last_text_seq_ = t.seq;
+  char line[fc::tlm::kMaxCmdText + 1];
+  memcpy(line, t.text, t.len);
+  line[t.len] = '\0';
+  con.capture(true);
+  con.printf("> %s\n", line);
+  const bool stream = !strncmp(line, "dump", 4) || !strncmp(line, "flog dump", 9) || !strncmp(line, "csv", 3);
+  if (!strncmp(line, "fire", 4)) {
+    con.println("refused by radio: use the remote test fire");
+  } else if (stream) {
+    con.println("refused by radio (too long): use the WiFi log download");
+  } else {
+    params_.set_compact(true);
+    console_exec(line, now);
+    params_.set_compact(false);
+  }
+  con.capture(false);
 }
 
 // --- Manual ejection by radio ------------------------------------------------
@@ -1115,11 +1165,11 @@ void App::handle_eject(const fc::tlm::Uplink& u, uint32_t now) {
     const RemoteFireEnd r = eject_.arm(now, pulse, esp_random(), eject_conditions());
     if (r != RemoteFireEnd::Fired) {
       event(EventCode::RemoteRefused, static_cast<int32_t>(r), now);
-      Serial.printf("MANUAL EJECT: arm refused: %s\n", fc::to_string(r));
+      con.printf("MANUAL EJECT: arm refused: %s\n", fc::to_string(r));
       return;
     }
     event(EventCode::EjectArmed, static_cast<int32_t>(eject_.nonce()), now);
-    Serial.printf("MANUAL EJECT: ARMED (%u ms pulse), fire window %lu s\n", eject_.pulse_ms(),
+    con.printf("MANUAL EJECT: ARMED (%u ms pulse), fire window %lu s\n", eject_.pulse_ms(),
                   static_cast<unsigned long>(fc::RemoteFire::kWindowMs / 1000));
     if (!flying) {  // warning to anyone near the rocket
       beeper_.clear();
@@ -1132,7 +1182,7 @@ void App::handle_eject(const fc::tlm::Uplink& u, uint32_t now) {
   if (!flying) beeper_.clear();
   if (r != RemoteFireEnd::Fired) {
     event(EventCode::RemoteRefused, static_cast<int32_t>(r), now);
-    Serial.printf("MANUAL EJECT: refused: %s\n", fc::to_string(r));
+    con.printf("MANUAL EJECT: refused: %s\n", fc::to_string(r));
     return;
   }
   const int32_t alt_cm = static_cast<int32_t>(fc_.estimator().alt_m() * 100.0f);
@@ -1141,7 +1191,7 @@ void App::handle_eject(const fc::tlm::Uplink& u, uint32_t now) {
     start_sag();
     if (pyro_.bench_fire(now, pulse)) {
       event(EventCode::ManualEject, alt_cm, now);
-      Serial.printf("MANUAL EJECT: test pulse FIRED %u ms (bench mode, on the pad)\n", pulse);
+      con.printf("MANUAL EJECT: test pulse FIRED %u ms (bench mode, on the pad)\n", pulse);
     } else {
       sag_active_ = false;
     }
@@ -1153,7 +1203,7 @@ void App::handle_eject(const fc::tlm::Uplink& u, uint32_t now) {
   if (sim_) {
     sim_->deploy();
     if (!sim_live_) {
-      Serial.println("MANUAL EJECT: [sim] fire (pyro output not driven; use 'sim live' to drive it)");
+      con.println("MANUAL EJECT: [sim] fire (pyro output not driven; use 'sim live' to drive it)");
       return;
     }
   }
@@ -1163,10 +1213,10 @@ void App::handle_eject(const fc::tlm::Uplink& u, uint32_t now) {
   pyro_.set_armed(fc_.sm().pyro_armed());
   if (ok) {
     watch_open_ = continuity_;
-    Serial.printf("[%lu] MANUAL EJECT: PYRO FIRED (%u ms pulse)\n", static_cast<unsigned long>(now), pulse);
+    con.printf("[%lu] MANUAL EJECT: PYRO FIRED (%u ms pulse)\n", static_cast<unsigned long>(now), pulse);
   } else {
     sag_active_ = false;
-    Serial.printf("[%lu] MANUAL EJECT: pyro driver refused (fired before)\n", static_cast<unsigned long>(now));
+    con.printf("[%lu] MANUAL EJECT: pyro driver refused (fired before)\n", static_cast<unsigned long>(now));
   }
 }
 
@@ -1180,7 +1230,7 @@ void App::check_eject(uint32_t now) {
   eject_.disarm();
   if (!in_flight(fc_.state())) beeper_.clear();
   event(EventCode::RemoteDisarmed, static_cast<int32_t>(why), now);
-  Serial.printf("MANUAL EJECT: disarmed: %s\n", fc::to_string(why));
+  con.printf("MANUAL EJECT: disarmed: %s\n", fc::to_string(why));
 }
 
 void App::sync_time(uint64_t utc_ms, uint32_t now, const char* source) {
@@ -1191,7 +1241,7 @@ void App::sync_time(uint64_t utc_ms, uint32_t now, const char* source) {
   event_at(EventCode::TimeSync, unix_s, t_ms);
   char buf[32];
   format_utc(now, buf, sizeof(buf));
-  Serial.printf("[%lu] real time from %s: %s\n", static_cast<unsigned long>(now), source, buf);
+  con.printf("[%lu] real time from %s: %s\n", static_cast<unsigned long>(now), source, buf);
 }
 
 void App::format_utc(uint32_t t_ms, char* buf, size_t cap) const {
@@ -1213,8 +1263,9 @@ void App::update_radio(uint32_t now) {
   receive_uplink(now);
   // Leave a short receive window after each transmission for the ground
   // station's reply. In flight only when it may send a manual ejection.
-  if ((!in_flight(fc_.state()) || listen_in_flight()) && radio_.tx_done_ms() != 0 &&
-      now - radio_.tx_done_ms() < rx_window_ms_)
+  const bool flying = in_flight(fc_.state());
+  if ((!flying || listen_in_flight()) && radio_.tx_done_ms() != 0 &&
+      now - radio_.tx_done_ms() < (flying ? rx_window_flight_ms_ : rx_window_ms_))
     return;
 
   uint8_t buf[fc::tlm::kMaxFrameLen];
@@ -1227,6 +1278,23 @@ void App::update_radio(uint32_t now) {
       ++radio_seq_;
       evq_head_ = (evq_head_ + 1) % kEventQueue;
       --evq_count_;
+    }
+    return;
+  }
+
+  // Console output for the ground station (a command received by radio).
+  if (con.pending() > 0 || text_len_ > 0) {
+    if (text_len_ == 0) text_len_ = con.take(text_buf_, fc::tlm::kMaxText);
+    fc::tlm::Text t;
+    t.state = fc_.state();
+    t.t_ms = now;
+    t.seq = radio_seq_;
+    t.len = static_cast<uint8_t>(text_len_);
+    memcpy(t.text, text_buf_, text_len_);
+    const size_t n = fc::tlm::encode(t, buf2_, sizeof(buf2_));
+    if (n && duty_.try_consume(now, fc::lora_airtime_us(fc::lora_modulation(set_), n)) && radio_.send(buf2_, n)) {
+      ++radio_seq_;
+      text_len_ = 0;
     }
     return;
   }

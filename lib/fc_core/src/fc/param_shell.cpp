@@ -45,6 +45,14 @@ void ParamShell::format_line(const ParamDef& d, char* buf, size_t cap) const {
            mn, mx, d.unit, fl, d.options, d.help);
 }
 
+void ParamShell::line_for(const ParamDef& d, char* buf, size_t cap) const {
+  if (!compact_) return format_line(d, buf, cap);
+  char v[32], r[32];
+  format_param(edit_, d, v, sizeof(v));
+  format_param(running_, d, r, sizeof(r));
+  snprintf(buf, cap, "V,%s,%s,%s", d.key, v, r);
+}
+
 void ParamShell::summary(Out out, void* ctx) const {
   size_t n = 0;
   for (size_t i = 0; i < param_count(); ++i) n += visible(param_def(i)) ? 1 : 0;
@@ -72,7 +80,8 @@ void ParamShell::exec(int argc, const char* const* argv, bool allowed, Out out, 
     for (size_t i = 0; i < param_count(); ++i) {
       const ParamDef& d = param_def(i);
       if (!visible(d) || (key && strcmp(key, d.group) != 0)) continue;
-      format_line(d, line, sizeof(line));
+      if (compact_ && param_equal(edit_, kDefaults, d) && param_equal(running_, kDefaults, d)) continue;
+      line_for(d, line, sizeof(line));
       out(ctx, line);
     }
     summary(out, ctx);
@@ -97,7 +106,7 @@ void ParamShell::exec(int argc, const char* const* argv, bool allowed, Out out, 
   if (!strcmp(sub, "get")) {
     const ParamDef* d = find_param(key);
     if (!d || !visible(*d)) return emit(out, ctx, "PERR,%s,unknown setting", key ? key : "");
-    format_line(*d, line, sizeof(line));
+    line_for(*d, line, sizeof(line));
     out(ctx, line);
     return;
   }
@@ -115,7 +124,7 @@ void ParamShell::exec(int argc, const char* const* argv, bool allowed, Out out, 
     if (!d || !visible(*d)) return emit(out, ctx, "PERR,%s,unknown setting", key ? key : "");
     if (argc < 3) return emit(out, ctx, "PERR,%s,missing value", d->key);
     if (const char* why = set_param(edit_, *d, argv[2])) return emit(out, ctx, "PERR,%s,%s", d->key, why);
-    format_line(*d, line, sizeof(line));
+    line_for(*d, line, sizeof(line));
     out(ctx, line);
   } else if (!strcmp(sub, "reset")) {
     if (key && !strcmp(key, "all")) {
@@ -126,7 +135,7 @@ void ParamShell::exec(int argc, const char* const* argv, bool allowed, Out out, 
       const ParamDef* d = find_param(key);
       if (!d || !visible(*d)) return emit(out, ctx, "PERR,%s,unknown setting", key ? key : "");
       reset_param(edit_, *d);
-      format_line(*d, line, sizeof(line));
+      line_for(*d, line, sizeof(line));
       out(ctx, line);
     }
   } else if (!strcmp(sub, "revert")) {

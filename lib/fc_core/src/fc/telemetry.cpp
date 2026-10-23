@@ -35,6 +35,16 @@ DecodeResult check_frame(const uint8_t* buf, size_t len, FrameType* type) {
     case FrameType::Event: expected = kEventLen; break;
     case FrameType::Uplink: expected = kUplinkLen; break;
     case FrameType::Gps: expected = kGpsLen; break;
+    case FrameType::TextCmd:
+    case FrameType::TextOut: {
+      const bool cmd = static_cast<FrameType>(buf[2]) == FrameType::TextCmd;
+      const size_t at = kHeaderLen + (cmd ? 4 : 0);
+      if (len < at + 1 + 2) return DecodeResult::TooShort;
+      const size_t n = buf[at];
+      if (n > (cmd ? kMaxCmdText : kMaxText)) return DecodeResult::BadLength;
+      expected = text_frame_len(cmd, n);
+      break;
+    }
     default: return DecodeResult::BadType;
   }
   if (len != expected) return DecodeResult::BadLength;
@@ -219,6 +229,37 @@ DecodeResult decode(const uint8_t* buf, size_t len, Gps* out) {
   out->course_deg = rd.u16() / 100.0f;
   out->age_ms = rd.u16();
   out->utc_s = rd.u32();
+  return rd.ok() ? DecodeResult::Ok : DecodeResult::BadLength;
+}
+
+size_t encode(const Text& t, uint8_t* out, size_t cap) {
+  const size_t n = t.len;
+  if (n > (t.cmd ? kMaxCmdText : kMaxText)) return 0;
+  ByteWriter w(out, cap);
+  write_header(w, t.cmd ? FrameType::TextCmd : FrameType::TextOut, t.state, t.seq, t.t_ms);
+  if (t.cmd) w.u32(t.code);
+  w.u8(static_cast<uint8_t>(n));
+  for (size_t i = 0; i < n; ++i) w.u8(static_cast<uint8_t>(t.text[i]));
+  return finish(w, out);
+}
+
+DecodeResult decode(const uint8_t* buf, size_t len, Text* out) {
+  FrameType type;
+  DecodeResult r = check_frame(buf, len, &type);
+  if (r != DecodeResult::Ok) return r;
+  if (type != FrameType::TextCmd && type != FrameType::TextOut) return DecodeResult::BadType;
+  ByteReader rd(buf, len);
+  rd.u8();
+  rd.u8();
+  rd.u8();
+  out->cmd = type == FrameType::TextCmd;
+  out->state = static_cast<FlightState>(rd.u8());
+  out->seq = rd.u16();
+  out->t_ms = rd.u32();
+  out->code = out->cmd ? rd.u32() : 0;
+  out->len = rd.u8();
+  for (size_t i = 0; i < out->len; ++i) out->text[i] = static_cast<char>(rd.u8());
+  out->text[out->len] = '\0';
   return rd.ok() ? DecodeResult::Ok : DecodeResult::BadLength;
 }
 

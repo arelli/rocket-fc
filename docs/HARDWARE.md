@@ -183,61 +183,55 @@ Settings: [docs/TELEMETRY.md](TELEMETRY.md).
 
 ## Ground station (second kit)
 
-The ground station is the second XIAO ESP32-S3 + Wio-SX1262 kit. Everything
-below is optional: without it the station works over USB/WiFi as before.
-Pins: `pins::ground` in [include/board_pins.h](../include/board_pins.h).
+The ground station is the second XIAO ESP32-S3 + Wio-SX1262 kit, in its own
+box, powered by an 18650 cell. It is also the launch controller. Schematic:
+[schematics/ground.svg](schematics/ground.svg). Pins: `pins::ground` in
+[include/board_pins.h](../include/board_pins.h).
 
 | XIAO pin | GPIO | Function | Part |
 |---|---|---|---|
-| D0 / A0 | 1 | Battery voltage sense | 100k/100k divider from BAT+ (as on the flight kit) |
-| D1 | 2 | Buzzer | Active buzzer + on the pin, − to GND (as on the flight kit) |
-| D2 | 3 | Push button | to GND, internal pull-up (no resistor) |
-| D3 | 4 | ON LED | 330 Ω, green |
-| D4 | 5 | "Rocket connected" LED | 330 Ω, blue or yellow |
+| D0 / A0 | 1 | Battery sense | 100k/100k divider from BAT+ |
+| D1 | 2 | Buzzer | active buzzer + on the pin, − to GND |
+| D2 | 3 | Push button | to GND (internal pull-up) |
+| D3 | 4 | ON LED | 330 Ω |
+| D4 / A4 | 5 | Launch sense | 100k/100k divider from the launch MOSFET drain |
+| D5 | 6 | Launch MOSFET gate | 100 Ω series, 100k pull-down, IRLB8748 |
+| D6 | 43 | CONNECTED LED | 330 Ω (flickers at boot) |
+| D7 | 44 | MODE switch | to GND (internal pull-up): open = FLIGHT, closed = BENCH |
 | U.FL on the XIAO | | WiFi antenna | 2.4 GHz (D-Link) |
-| U.FL on the Wio-SX1262 | | LoRa antenna | 868 MHz only |
+| U.FL on the Wio-SX1262 | | LoRa antenna | 868 MHz |
 
-```
- cell + ──o/ o── switch ──┬──────────────┬──────── XIAO BAT+ pad
- (18350 or                │              │
-  1S LiPo)              100k             └─ (USB-C: power bank or laptop)
-                          ├── D0
-                        100k
-                          │
- cell − ──────────────────┴──── GND
+- **Power:** 18650 on the BAT pads through the power switch SW1, 1000 µF
+  across BAT+/GND, battery divider on D0. The XIAO charges it from USB-C
+  (50-100 mA: an 18650 takes a day; charge it in an external charger if you
+  can). No automatic cutoff: switch off when the ON LED double-blinks.
+- **Launch channel:** cell + (before SW1) → ARM switch SW2 → 1 Ω 5 W → launch
+  lead terminals J1/J2 → igniter → J2 → MOSFET drain; source → cell −.
+  ARM is in the igniter current: rated for at least 5 A (toggle or key
+  switch). R8 (100k) across J1/J2 lets the firmware see ARM without an
+  igniter: the drain reads 0 V with ARM off, about 2/3 of the battery when
+  armed without an igniter, and the battery voltage when armed with an
+  igniter connected. Thick wire for the whole loop; keep the launch leads
+  short (put the station near the pad and use the phone at a distance).
+- **MODE switch:** FLIGHT (open) or BENCH (closed). The station keeps the
+  rocket's bench mode equal to it (by radio, on the ground). In FLIGHT a
+  launch needs the rocket heard in PAD (`gs_launch_need_pad`); BENCH allows
+  a launch channel test without the rocket.
+- **Button:** ARM off: short = ping, hold 1.5 s = search mode on/off. ARM on:
+  short = LAUNCH (countdown `gs_launch_countdown_s`), again = abort.
+- **Buzzer and LEDs:** see the table.
 
- D1 ── buzzer (+), buzzer (−) ── GND
- D2 ── push button ── GND
- D3 ── 330 Ω ── LED ON (anode→cathode) ── GND
- D4 ── 330 Ω ── LED CONNECTED ──────────── GND
-```
-
-- **Battery (optional):** any protected 1S Li-ion/LiPo (another MXJO 18350
-  works) on the BAT pads through a slide switch, like the flight kit. The XIAO
-  charges it from USB-C (power bank or laptop) and it carries the station when
-  the power bank switches off. The firmware reports `# battery 3.95 V 78 %`
-  every 10 s (UI: Radio link → Ground station), `LOW` below `gs_batt_low_v`
-  (ON LED double-blinks), or `# battery none` below 2.5 V. While USB powers
-  the station the reading is the charger's voltage (higher than the resting
-  cell). Calibrate `gs_batt_divider` with a multimeter. Without a cell, leave
-  the divider out (the station reports "none" or a meaningless voltage).
-- **Buzzer:** active buzzer straight on D1, like the flight kit (strongest
-  pin drive, set by the firmware). Works on battery and on USB.
-- **Button:** momentary, normally open, between D2 and GND. D2 is a strapping
-  pin of the ESP32-S3 only for an eFuse-selected JTAG mode (not used): holding
-  the button during power-up is harmless.
-- **LEDs:** 330 Ω gives about 4 mA (bright enough in an enclosure).
-
-| Panel | Behaviour |
+| Signal | Meaning |
 |---|---|
-| Short press (< 1 s) | Ping: the rocket beeps, answers; the station beeps 0.5 s after the answer. Three short beeps = no answer |
-| Hold 1.5 s | Search mode on (2 beeps) / off (1 long). Beeps faster the stronger the rocket's signal (`gs_search_lo_dbm` → 1.5 s, `gs_search_hi_dbm` → 0.08 s); two faint ticks every 3 s while nothing is heard |
-| Hold 3 s, only within 60 s after `eject button` (UI) | Manual ejection: chirps during the hold, then arms and fires. Both LEDs alternate while enabled |
-| ON LED | Steady = running. Double blink = battery low. Fast blink = radio failed. Both LEDs blink together = ejection in progress |
-| CONNECTED LED | On while rocket frames arrive (< 3 s old), off for an instant at every frame |
-| Buzzer at power-up | One short beep = radio OK; five = radio failed |
+| 3 beeps, then a chirp every 2 s | ARMED (always audible) |
+| 1 beep per second, then a long tone | Countdown, then the igniter pulse |
+| 3 short beeps | Refused / aborted / no answer |
+| Rocket beeps, station beeps 0.5 s later | Ping: both directions of the link work |
+| Faster ticks | Search mode: stronger signal |
+| ON LED steady / 2 Hz / fast / double blink | Running / ARMED / countdown, firing or radio failed / battery low |
+| CONNECTED LED | On while rocket frames arrive, off for an instant at each frame |
 
-`gs_buzzer_on` = 0 silences everything except the ejection warnings.
+`gs_buzzer_on` = 0 silences everything except the arming and launch sounds.
 
 ## Ground station WiFi
 
@@ -256,14 +250,13 @@ working at the same time (both see the same data and can send commands).
 - **Open:** http://192.168.4.1 (always), http://rocketfc.local, or any http
   address (captive portal). The access point has no internet: if the phone
   asks, choose to stay connected.
-- **Over WiFi** everything that goes through the ground station works
-  (telemetry, plots, heartbeats, remote test fire, bench mode by radio, the
-  ground station's radio settings). The flight computer's USB features
-  (console, settings, flash log download) need the laptop with the UI opened as
-  a file: browsers allow USB (Web Serial) only there.
-- **Security:** anyone on the WiFi has the full UI, including the remote test
-  fire (which still needs bench mode, PAD, continuity and the two-step
-  arm/fire). Keep the password private.
+- **Everything is over WiFi:** telemetry, launch, ping, search, ejection,
+  both kits' settings and consoles (the rocket's by radio), and the rocket's
+  onboard logs: "Rocket WiFi on" makes the rocket join this access point (only
+  after landing, in FAULT or in bench mode), then the station relays its log
+  files. The rocket's USB console still works with `pio device monitor`.
+- **Security:** anyone on the WiFi has the full UI, including LAUNCH (which
+  still needs the physical ARM switch) and ejection. Keep the password private.
 - **Power:** about 100-150 mA with WiFi on. Some power banks switch off below
   a minimum current; this load is normally above it.
 - The UI served is `tools/ground_station.html`, embedded when the ground

@@ -16,7 +16,7 @@ using fc::FlightState;
 
 namespace {
 const char* level_name(fc::BatteryMonitor::Level l) { return fc::to_string(l); }
-void serial_line(void*, const char* line) { Serial.println(line); }
+void serial_line(void*, const char* line) { con.println(line); }
 bool store_text(void* ctx, const char* text, size_t len) {
   return static_cast<hal::SettingsStore*>(ctx)->save(text, len);
 }
@@ -56,7 +56,7 @@ void App::console_exec(char* line, uint32_t now) {
   if (!cmd) return;
 
   if (!strcmp(cmd, "help")) {
-    Serial.println(
+    con.println(
         "commands:\n"
         "  status          sensors, estimate, battery, pyro, radio\n"
         "  config          flight configuration in this firmware\n"
@@ -73,6 +73,7 @@ void App::console_exec(char* line, uint32_t now) {
         "  gps [raw on|off] GPS status; raw: echo the NMEA sentences\n"
         "  bench on|off    bench mode: enables the test commands below until reboot (not in flight)\n"
         "  reboot          restart (not in flight)\n"
+        "  wifi join <ssid> <pass> | off   join the ground station WiFi to send logs (landed/bench)\n"
         " bench mode only:\n"
         "  sim             simulated flight: fake sensors, pyro output NOT driven\n"
         "  sim live        simulated flight that also pulses the pyro output\n"
@@ -84,43 +85,45 @@ void App::console_exec(char* line, uint32_t now) {
   } else if (!strcmp(cmd, "gps")) {
     if (a1 && !strcmp(a1, "raw")) gps_raw_ = a2 && !strcmp(a2, "on");
     const fc::GpsFix& f = gps_.fix();
-    Serial.printf("gps        mode %s, %s, %lu sentences, %lu rejected%s\n",
+    con.printf("gps        mode %s, %s, %lu sentences, %lu rejected%s\n",
                   set_.gps_mode == 0 ? "off" : set_.gps_mode == 1 ? "auto" : "required",
                   gps_state_ == 2 ? "FIX" : gps_state_ == 1 ? "data, no fix" : "no data",
                   static_cast<unsigned long>(gps_.sentences()), static_cast<unsigned long>(gps_.checksum_errors()),
                   gps_raw_ ? ", raw echo on" : "");
     if (gps_.sentences())
-      Serial.printf("           quality %u, %u sats, hdop %.2f, %.7f %.7f, %.1f m MSL, %.1f m/s\n", f.quality,
+      con.printf("           quality %u, %u sats, hdop %.2f, %.7f %.7f, %.1f m MSL, %.1f m/s\n", f.quality,
                     f.sats, static_cast<double>(f.hdop), f.lat_e7 / 1e7, f.lon_e7 / 1e7,
                     static_cast<double>(f.alt_msl_m), static_cast<double>(f.speed_mps));
   } else if (!strcmp(cmd, "param")) {
     params_.exec(argc - 1, argv + 1, safe_to_interrupt(), serial_line, store_text, &store_);
   } else if (!strcmp(cmd, "csv")) {
     csv_stream_ = a1 && !strcmp(a1, "on");
-    if (csv_stream_) Serial.println(fc::csv::telemetry_header());
+    if (csv_stream_) con.println(fc::csv::telemetry_header());
   } else if (!safe_to_interrupt()) {
-    Serial.println("refused: in flight");
+    con.println("refused: in flight");
+  } else if (!strcmp(cmd, "wifi")) {
+    wifi_command(a1, a2, argv[3], now);
   } else if (!strcmp(cmd, "dump")) {
-    dump_log();
+    dump_log(con);
   } else if (!strcmp(cmd, "flog")) {
     flog_command(a1, a2, now);
   } else if (!strcmp(cmd, "logclear")) {
     ram_log_.ring().clear();
-    Serial.println("onboard log cleared");
+    con.println("onboard log cleared");
   } else if (!strcmp(cmd, "time")) {
     // time <unix ms>: real time from the computer (the ground station UI sends it).
     const unsigned long long v = a1 ? strtoull(a1, nullptr, 10) : 0;
     if (clock_.synced()) {
-      Serial.println("time already set for this boot (kept, so log timestamps never jump)");
+      con.println("time already set for this boot (kept, so log timestamps never jump)");
     } else if (!fc::TimeSync::plausible(v)) {
-      Serial.println("usage: time <unix time in ms>");
+      con.println("usage: time <unix time in ms>");
     } else {
       sync_time(v, now, "USB");
     }
   } else if (!strcmp(cmd, "i2c")) {
     i2c_scan();
   } else if (!strcmp(cmd, "reboot")) {
-    Serial.println("rebooting");
+    con.println("rebooting");
     Serial.flush();
     hal::clear_flight_record();
     ESP.restart();
@@ -128,21 +131,21 @@ void App::console_exec(char* line, uint32_t now) {
     beeper_.beeps(3);
   } else if (!strcmp(cmd, "bench")) {
     if (!a1 || (strcmp(a1, "on") && strcmp(a1, "off"))) {
-      Serial.printf("bench mode is %s (usage: bench on|off)\n", bench_ ? "ON" : "off");
+      con.printf("bench mode is %s (usage: bench on|off)\n", bench_ ? "ON" : "off");
     } else if (!strcmp(a1, "off") && simulating()) {
-      Serial.println("a simulation is running: reboot to end it");
+      con.println("a simulation is running: reboot to end it");
     } else {
       set_bench(!strcmp(a1, "on"), !strcmp(a1, "on") ? 1 : 0, now, "USB");
     }
   } else if ((!strcmp(cmd, "sim") || !strcmp(cmd, "fire")) && !bench_) {
-    Serial.printf("refused: '%s' needs bench mode ('bench on')\n", cmd);
+    con.printf("refused: '%s' needs bench mode ('bench on')\n", cmd);
   } else if (!strcmp(cmd, "sim")) {
     start_sim(a1 && !strcmp(a1, "live"), now);
   } else if (!strcmp(cmd, "fire")) {
     const long ms = a1 ? strtol(a1, nullptr, 10) : 0;
     if (ms <= 0 || ms > static_cast<long>(hal::PyroChannel::kMaxPulseMs) || !a2 ||
         strcmp(a2, "CONFIRM") != 0) {
-      Serial.printf("usage: fire <1..%lu ms> CONFIRM\n",
+      con.printf("usage: fire <1..%lu ms> CONFIRM\n",
                     static_cast<unsigned long>(hal::PyroChannel::kMaxPulseMs));
     } else {
       start_sag();
@@ -154,55 +157,55 @@ void App::console_exec(char* line, uint32_t now) {
       }
     }
   } else {
-    Serial.printf("unknown command '%s' (type 'help')\n", cmd);
+    con.printf("unknown command '%s' (type 'help')\n", cmd);
   }
 }
 
 void App::print_status(uint32_t now) {
   const fc::Estimator& est = fc_.estimator();
-  Serial.printf("firmware   %s, reset: %s%s\n", FC_GIT_REV, hal::reset_reason_name(),
+  con.printf("firmware   %s, reset: %s%s\n", FC_GIT_REV, hal::reset_reason_name(),
                 resumed_ ? " (flight RESUMED)" : "");
-  Serial.printf("mode       %s\n", bench_ ? "BENCH (test commands enabled; not for flight)" : "flight");
-  Serial.printf("man. eject %s\n", set_.manual_eject ? "ENABLED: the ground station can fire the charge in flight"
+  con.printf("mode       %s\n", bench_ ? "BENCH (test commands enabled; not for flight)" : "flight");
+  con.printf("man. eject %s\n", set_.manual_eject ? "ENABLED: the ground station can fire the charge in flight"
                                                      : "off (manual_eject = 0)");
-  Serial.printf("settings   crc %08lX%s\n", static_cast<unsigned long>(set_crc_),
+  con.printf("settings   crc %08lX%s\n", static_cast<unsigned long>(set_crc_),
                 config_ok_ ? "" : "  INVALID (running on defaults, will not fly): see 'param'");
   {
     char utc[40];
     format_utc(now, utc, sizeof(utc));
-    Serial.printf("time       %s\n", utc);
+    con.printf("time       %s\n", utc);
   }
-  Serial.printf("state      %s  uptime %lu s  fault %u  warnings 0x%02X%s\n",
+  con.printf("state      %s  uptime %lu s  fault %u  warnings 0x%02X%s\n",
                 to_string(fc_.state()), static_cast<unsigned long>(now / 1000),
                 static_cast<unsigned>(fault_), warnings_, simulating() ? "  [SIMULATION]" : "");
-  Serial.printf("estimate   alt %.2f m  vel %.2f m/s  max %.2f m  accel_up %.3f g\n",
+  con.printf("estimate   alt %.2f m  vel %.2f m/s  max %.2f m  accel_up %.3f g\n",
                 static_cast<double>(est.alt_m()), static_cast<double>(est.vel_mps()),
                 static_cast<double>(fc_.sm().max_alt_m()), static_cast<double>(est.accel_up_g()));
-  Serial.printf("baro       %s  %.1f Pa  %.2f C  ground %.1f Pa  errors %lu\n",
+  con.printf("baro       %s  %.1f Pa  %.2f C  ground %.1f Pa  errors %lu\n",
                 baro_ok_ ? "ok" : "--", static_cast<double>(pressure_pa_),
                 static_cast<double>(temp_c_), static_cast<double>(est.ground_pa()),
                 static_cast<unsigned long>(baro_.errors()));
-  Serial.printf("imu        %s %s  accel %.3f %.3f %.3f g  gyro %.1f %.1f %.1f dps  errors %lu\n",
+  con.printf("imu        %s %s  accel %.3f %.3f %.3f g  gyro %.1f %.1f %.1f dps  errors %lu\n",
                 imu_.chip_name(), imu_ok_ ? "ok" : "--", static_cast<double>(imu_s_.accel_g.x),
                 static_cast<double>(imu_s_.accel_g.y), static_cast<double>(imu_s_.accel_g.z),
                 static_cast<double>(imu_s_.gyro_dps.x), static_cast<double>(imu_s_.gyro_dps.y),
                 static_cast<double>(imu_s_.gyro_dps.z), static_cast<unsigned long>(imu_.errors()));
-  Serial.printf("attitude   tilt %.1f deg from vertical%s\n",
+  con.printf("attitude   tilt %.1f deg from vertical%s\n",
                 static_cast<double>(fc::tilt_deg(ahrs_.q())), imu_ok_ ? "" : " (no IMU)");
-  Serial.printf("mag        %s  %.1f %.1f %.1f uT\n", imu_.has_mag() ? "ok" : "--",
+  con.printf("mag        %s  %.1f %.1f %.1f uT\n", imu_.has_mag() ? "ok" : "--",
                 static_cast<double>(imu_s_.mag_uT.x), static_cast<double>(imu_s_.mag_uT.y),
                 static_cast<double>(imu_s_.mag_uT.z));
   if (have_battery_) {
-    Serial.printf("battery    %.3f V  ~%.0f %%  %s\n", static_cast<double>(vbat_),
+    con.printf("battery    %.3f V  ~%.0f %%  %s\n", static_cast<double>(vbat_),
                   static_cast<double>(fc::liion_percent(vbat_)), level_name(batt_.level()));
   } else {
-    Serial.printf("battery    none (%.2f V): running from USB\n", static_cast<double>(vbat_));
+    con.printf("battery    none (%.2f V): running from USB\n", static_cast<double>(vbat_));
   }
-  Serial.printf("pyro       drain %.2f V  continuity %s  armed %s  fired %s%s\n",
+  con.printf("pyro       drain %.2f V  continuity %s  armed %s  fired %s%s\n",
                 static_cast<double>(vpyro_), continuity_ ? "YES" : "no",
                 pyro_.armed() ? "YES" : "no", (fc_.sm().fired() || pyro_.fired()) ? "YES" : "no",
                 pyro_.firing() ? "  FIRING" : "");
-  Serial.printf("radio      %s  tx %lu  errors %lu  denied %lu  budget %.1f s  queue %u  "
+  con.printf("radio      %s  tx %lu  errors %lu  denied %lu  budget %.1f s  queue %u  "
                 "dropped %lu\n",
                 radio_.ok() ? "ok" : "FAIL", static_cast<unsigned long>(radio_.tx_count()),
                 static_cast<unsigned long>(radio_.tx_errors()),
@@ -210,37 +213,37 @@ void App::print_status(uint32_t now) {
                 static_cast<double>(duty_.available_us(now)) / 1e6,
                 static_cast<unsigned>(evq_count_), static_cast<unsigned long>(ev_dropped_));
   if (ground_.connected(now)) {
-    Serial.printf("ground     heard, uplink rssi %d dBm, pad beeps every %u s%s\n",
+    con.printf("ground     heard, uplink rssi %d dBm, pad beeps every %u s%s\n",
                   ground_.rssi_dbm(now), ground_.pad_beep_period_s(now),
                   ground_.pad_beep_period_s(now) ? "" : " (off)");
   } else {
-    Serial.println("ground     not heard: pad status beeps off");
+    con.println("ground     not heard: pad status beeps off");
   }
   if (gps_uart_.started()) {
     const fc::GpsFix& f = gps_.fix();
-    Serial.printf("gps        %s  %u sats  hdop %.2f  %.7f %.7f  %.1f m MSL\n",
+    con.printf("gps        %s  %u sats  hdop %.2f  %.7f %.7f  %.1f m MSL\n",
                   gps_state_ == 2 ? "FIX" : gps_state_ == 1 ? "no fix" : "no data", f.sats,
                   static_cast<double>(f.hdop), f.lat_e7 / 1e7, f.lon_e7 / 1e7, static_cast<double>(f.alt_msl_m));
   } else {
-    Serial.println("gps        off (gps_mode)");
+    con.println("gps        off (gps_mode)");
   }
   if (flog_ok_) {
-    Serial.printf("flash log  session %lu  %lu KB written this boot  backlog %u frames  lost %lu  errors %lu\n",
+    con.printf("flash log  session %lu  %lu KB written this boot  backlog %u frames  lost %lu  errors %lu\n",
                   static_cast<unsigned long>(flog_.log().session()),
                   static_cast<unsigned long>(flog_.log().bytes_written() / 1024), static_cast<unsigned>(flog_.backlog()),
                   static_cast<unsigned long>(flog_.dropped()), static_cast<unsigned long>(flog_.log().errors()));
   } else {
-    Serial.printf("flash log  %s\n", set_.flog_on ? "NOT AVAILABLE" : "off (flog_on)");
+    con.printf("flash log  %s\n", set_.flog_on ? "NOT AVAILABLE" : "off (flog_on)");
   }
-  Serial.printf("log        %s  %u / %u frames  overwritten %lu\n", ram_log_.name(),
+  con.printf("log        %s  %u / %u frames  overwritten %lu\n", ram_log_.name(),
                 static_cast<unsigned>(ram_log_.ring().count()),
                 static_cast<unsigned>(ram_log_.ring().capacity()),
                 static_cast<unsigned long>(ram_log_.ring().overwritten()));
-  Serial.printf("timing     longest control tick %lu us (budget %lu us)\n",
+  con.printf("timing     longest control tick %lu us (budget %lu us)\n",
                 static_cast<unsigned long>(loop_max_us_),
                 static_cast<unsigned long>(cfg::kLoopMs * 1000));
   if (sag_n_ > 0)
-    Serial.printf("last pulse battery %.3f V before, min %.3f V\n", static_cast<double>(sag_pre_v_),
+    con.printf("last pulse battery %.3f V before, min %.3f V\n", static_cast<double>(sag_pre_v_),
                   static_cast<double>(sag_min_v_));
 }
 
@@ -253,20 +256,20 @@ void App::print_config() {
     const fc::ParamDef& d = fc::param_def(i);
     if (strcmp(group, d.group) != 0) {
       group = d.group;
-      Serial.printf("[%s]\n", group);
+      con.printf("[%s]\n", group);
     }
     char v[32];
     fc::format_param(set_, d, v, sizeof(v));
     const bool changed = !fc::param_equal(set_, defaults, d);
     char dv[32] = "";
     if (changed) fc::format_param(defaults, d, dv, sizeof(dv));
-    Serial.printf("  %-18s %s %s%s%s%s\n", d.key, v, d.unit, changed ? "   (default " : "", dv,
+    con.printf("  %-18s %s %s%s%s%s\n", d.key, v, d.unit, changed ? "   (default " : "", dv,
                   changed ? ")" : "");
     if ((i & 15) == 0) hal::watchdog_feed();
   }
-  Serial.printf("settings crc %08lX%s\n", static_cast<unsigned long>(set_crc_),
+  con.printf("settings crc %08lX%s\n", static_cast<unsigned long>(set_crc_),
                 config_ok_ ? "" : "  INVALID: running on defaults");
-  Serial.printf("airtime            telemetry %lu us, event %lu us (RadioLib: %lu us), uplink %lu ms; "
+  con.printf("airtime            telemetry %lu us, event %lu us (RadioLib: %lu us), uplink %lu ms; "
                 "listen window %lu ms\n",
                 static_cast<unsigned long>(airtime_tlm_us_), static_cast<unsigned long>(airtime_evt_us_),
                 static_cast<unsigned long>(radio_.time_on_air_us(fc::tlm::kTelemetryLen)),
@@ -277,50 +280,50 @@ void App::print_csv_line(uint32_t now) {
   if (now - t_csv_ < 100) return;
   t_csv_ = now;
   char line[fc::csv::kLineMax];
-  if (fc::csv::format(snapshot(now), line, sizeof(line))) Serial.println(line);
+  if (fc::csv::format(snapshot(now), line, sizeof(line))) con.println(line);
 }
 
 void App::i2c_scan() {
-  Serial.print("I2C devices:");
+  con.print("I2C devices:");
   int found = 0;
   for (uint8_t a = 1; a < 127; ++a) {
     Wire.beginTransmission(a);
     if (Wire.endTransmission() == 0) {
-      Serial.printf(" 0x%02X", a);
+      con.printf(" 0x%02X", a);
       ++found;
     }
     hal::watchdog_feed();
   }
-  Serial.println(found ? "" : " none");
-  Serial.println("  expected: 0x68 (MPU9250), 0x76 or 0x77 (BMP280); 0x0C (AK8963) after init");
+  con.println(found ? "" : " none");
+  con.println("  expected: 0x68 (MPU9250), 0x76 or 0x77 (BMP280); 0x0C (AK8963) after init");
 }
 
-void App::dump_log() {
+void App::dump_log(Print& o) {
   const fc::FrameRing& r = ram_log_.ring();
-  Serial.printf("# onboard log: %u frames, %lu overwritten, firmware %s, settings crc %08lX\n",
+  o.printf("# onboard log: %u frames, %lu overwritten, firmware %s, settings crc %08lX\n",
                 static_cast<unsigned>(r.count()), static_cast<unsigned long>(r.overwritten()), FC_GIT_REV,
                 static_cast<unsigned long>(set_crc_));
   // Real time of t_ms = 0 (also in the TIME_SYNC event, which an old log may
   // have overwritten): utc_ms = utc0 + t_ms.
   if (clock_.synced()) {
-    Serial.printf("# clock utc0_ms %llu\n", static_cast<unsigned long long>(clock_.utc_ms(0)));
+    o.printf("# clock utc0_ms %llu\n", static_cast<unsigned long long>(clock_.utc_ms(0)));
   } else {
-    Serial.println("# clock not synced (no ground station time this boot)");
+    o.println("# clock not synced (no ground station time this boot)");
   }
-  Serial.println(fc::csv::telemetry_header());
-  Serial.println(fc::csv::event_header());
-  Serial.println(fc::csv::gps_header());
+  o.println(fc::csv::telemetry_header());
+  o.println(fc::csv::event_header());
+  o.println(fc::csv::gps_header());
   uint8_t frame[fc::FrameRing::kSlot];
   char line[fc::csv::kLineMax];
   for (size_t i = 0; i < r.count(); ++i) {
     const size_t n = r.get(i, frame, sizeof(frame));
-    if (fc::csv::format_frame(frame, n, line, sizeof(line))) Serial.println(line);
+    if (fc::csv::format_frame(frame, n, line, sizeof(line))) o.println(line);
     if ((i & 31) == 0) {
       hal::watchdog_feed();
       pyro_.update(millis());
     }
   }
-  Serial.println("# end of log");
+  o.println("# end of log");
 }
 
 namespace {
@@ -328,6 +331,7 @@ struct DumpCtx {
   uint32_t session = 0;
   uint32_t n = 0;
   App* app = nullptr;
+  Print* o = nullptr;
 };
 }  // namespace
 
@@ -335,74 +339,39 @@ struct DumpCtx {
 void App::flog_command(const char* sub, const char* arg, uint32_t now) {
   (void)now;
   if (!flog_ok_) {
-    Serial.println(set_.flog_on ? "flash log not available (partition missing?)" : "flash log off (setting flog_on)");
+    con.println(set_.flog_on ? "flash log not available (partition missing?)" : "flash log off (setting flog_on)");
     return;
   }
   fc::FlashLog& log = flog_.log();
   if (!sub || !strcmp(sub, "list")) {
-    flash_log_drain();
-    static fc::FlashLog::Session s[64];
-    const size_t n = log.list(s, 64);
-    Serial.printf("# flash log: %u KB, this boot is session %lu, %u session(s) stored, errors %lu\n",
-                  static_cast<unsigned>(log.sectors() * 4), static_cast<unsigned long>(log.session()),
-                  static_cast<unsigned>(n), static_cast<unsigned long>(log.errors()));
-    for (size_t i = 0; i < (n < 64 ? n : 64); ++i) {
-      Serial.printf("FLOG,%lu,%lu,%lu,%lu,%lu,%lu\n", static_cast<unsigned long>(s[i].session),
-                    static_cast<unsigned long>(s[i].sectors), static_cast<unsigned long>(s[i].frames),
-                    static_cast<unsigned long>(s[i].first_t_ms), static_cast<unsigned long>(s[i].last_t_ms),
-                    static_cast<unsigned long>(s[i].bytes));
-    }
-    if (n > 64) Serial.println("# (only the oldest 64 sessions listed)");
-    Serial.println("# end of flash log list");
+    flog_list(con);
   } else if (!strcmp(sub, "dump")) {
     const bool all = arg && !strcmp(arg, "all");
     const uint32_t session = all ? 0 : (arg ? strtoul(arg, nullptr, 10) : 0);
     if (!all && session == 0) {
-      Serial.println("usage: flog dump <session number>|all   (see 'flog list')");
+      con.println("usage: flog dump <session number>|all   (see 'flog list')");
       return;
     }
-    flash_log_drain();
-    if (all) {
-      Serial.printf("# onboard log: flash, all sessions, firmware %s\n", FC_GIT_REV);
-    } else {
-      Serial.printf("# onboard log: flash session %lu, firmware %s\n", static_cast<unsigned long>(session), FC_GIT_REV);
-    }
-    Serial.println(fc::csv::telemetry_header());
-    Serial.println(fc::csv::event_header());
-    Serial.println(fc::csv::gps_header());
-    DumpCtx ctx;
-    ctx.app = this;
-    log.read(session, [](void* c, uint32_t sess, const uint8_t* fr, size_t len) {
-      DumpCtx* d = static_cast<DumpCtx*>(c);
-      if (sess != d->session) {
-        d->session = sess;
-        Serial.printf("# session %lu\n", static_cast<unsigned long>(sess));
-      }
-      char line[fc::csv::kLineMax];
-      if (fc::csv::format_frame(fr, len, line, sizeof(line))) Serial.println(line);
-      if ((++d->n & 31) == 0) hal::watchdog_feed();
-      return true;
-    }, &ctx);
-    Serial.println("# end of log");
+    flog_dump(con, session);
   } else if (!strcmp(sub, "erase")) {
     if (!arg || strcmp(arg, "CONFIRM") != 0) {
-      Serial.println("usage: flog erase CONFIRM   (erases every stored session)");
+      con.println("usage: flog erase CONFIRM   (erases every stored session)");
       return;
     }
-    Serial.println("erasing the flash log (about a minute)...");
+    con.println("erasing the flash log (about a minute)...");
     log.erase_all([](void* c) {
       hal::watchdog_feed();
       static_cast<App*>(c)->pyro_tick();
     }, this);
-    Serial.println("flash log erased");
+    con.println("flash log erased");
   } else {
-    Serial.println("usage: flog [list] | flog dump <n>|all | flog erase CONFIRM");
+    con.println("usage: flog [list] | flog dump <n>|all | flog erase CONFIRM");
   }
 }
 
 void App::start_sim(bool live, uint32_t now) {
   if (sim_) {
-    Serial.println("a simulation already ran: 'reboot' first");
+    con.println("a simulation already ran: 'reboot' first");
     return;
   }
   fc::SimParams p;
@@ -422,8 +391,66 @@ void App::start_sim(bool live, uint32_t now) {
   baro_good_ = 0;
   beeper_.clear();
   start_countdown(now);
-  Serial.printf("[sim] simulated flight started (%s): ignition in %lu s. Sensors are FAKE "
+  con.printf("[sim] simulated flight started (%s): ignition in %lu s. Sensors are FAKE "
                 "until reboot.\n",
                 live ? "LIVE: pyro output WILL pulse" : "pyro output not driven",
                 static_cast<unsigned long>(p.ignition_ms / 1000));
+}
+
+void App::flog_list(Print& o) {
+  if (!flog_ok_) {
+    o.println("# flash log not available");
+    return;
+  }
+  fc::FlashLog& log = flog_.log();
+  flash_log_drain();
+  static fc::FlashLog::Session s[64];
+  const size_t n = log.list(s, 64);
+  o.printf("# flash log: %u KB, this boot is session %lu, %u session(s) stored, errors %lu\n",
+           static_cast<unsigned>(log.sectors() * 4), static_cast<unsigned long>(log.session()),
+           static_cast<unsigned>(n), static_cast<unsigned long>(log.errors()));
+  for (size_t i = 0; i < (n < 64 ? n : 64); ++i) {
+    o.printf("FLOG,%lu,%lu,%lu,%lu,%lu,%lu\n", static_cast<unsigned long>(s[i].session),
+             static_cast<unsigned long>(s[i].sectors), static_cast<unsigned long>(s[i].frames),
+             static_cast<unsigned long>(s[i].first_t_ms), static_cast<unsigned long>(s[i].last_t_ms),
+             static_cast<unsigned long>(s[i].bytes));
+  }
+  if (n > 64) o.println("# (only the oldest 64 sessions listed)");
+  o.println("# end of flash log list");
+}
+
+// Prints flash log `session` as CSV (0 = all sessions).
+void App::flog_dump(Print& o, uint32_t session) {
+  if (!flog_ok_) {
+    o.println("# flash log not available");
+    return;
+  }
+  fc::FlashLog& log = flog_.log();
+  flash_log_drain();
+  if (session == 0) {
+    o.printf("# onboard log: flash, all sessions, firmware %s\n", FC_GIT_REV);
+  } else {
+    o.printf("# onboard log: flash session %lu, firmware %s\n", static_cast<unsigned long>(session), FC_GIT_REV);
+  }
+  o.println(fc::csv::telemetry_header());
+  o.println(fc::csv::event_header());
+  o.println(fc::csv::gps_header());
+  DumpCtx ctx;
+  ctx.app = this;
+  ctx.o = &o;
+  log.read(session, [](void* c, uint32_t sess, const uint8_t* fr, size_t len) {
+    DumpCtx* d = static_cast<DumpCtx*>(c);
+    if (sess != d->session) {
+      d->session = sess;
+      d->o->printf("# session %lu\n", static_cast<unsigned long>(sess));
+    }
+    char line[fc::csv::kLineMax];
+    if (fc::csv::format_frame(fr, len, line, sizeof(line))) d->o->println(line);
+    if ((++d->n & 31) == 0) {
+      hal::watchdog_feed();
+      d->app->pyro_tick();
+    }
+    return true;
+  }, &ctx);
+  o.println("# end of log");
 }

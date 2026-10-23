@@ -128,10 +128,27 @@ static void test_radio_only_shell() {
   TEST_ASSERT_EQUAL_STRING("radio_freq_mhz=915\nradio_unlock=1\n", c.stored.c_str());
 }
 
+static void test_compact_mode() {
+  ParamShell sh(false);
+  Settings saved;
+  saved.launch_alt_m = 40;
+  sh.init(Settings{}, saved);
+  sh.set_compact(true);
+  Capture c;
+  run(sh, c, {"list"});
+  TEST_ASSERT_EQUAL_INT(1, count_prefix(c, "V,"));  // only the non-default one
+  TEST_ASSERT_EQUAL_INT(1, count_prefix(c, "V,launch_alt_m,40,"));
+  TEST_ASSERT_EQUAL_INT(0, count_prefix(c, "P,"));
+  TEST_ASSERT_EQUAL_INT(1, count_prefix(c, "PE,"));
+  run(sh, c, {"set", "pyro_pulse_ms", "500"});
+  TEST_ASSERT_EQUAL_INT(1, count_prefix(c, "V,pyro_pulse_ms,500,1000"));
+}
+
 int main(int, char**) {
   UNITY_BEGIN();
   RUN_TEST(test_list_and_line_format);
   RUN_TEST(test_set_save_and_refusals);
   RUN_TEST(test_radio_only_shell);
+  RUN_TEST(test_compact_mode);
   return UNITY_END();
 }

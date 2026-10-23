@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="-2 -2 1244 864" class="schem"><rect x="-2" y="-2" width="100%" height="100%" fill="#ffffff"/><style>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-2 -2 1244 1224" class="schem"><rect x="-2" y="-2" width="100%" height="100%" fill="#ffffff"/><style>
 .card{fill:#fbfcfc;stroke:#c9d2d6;stroke-width:1}
 .w{fill:none;stroke:#1e2a31;stroke-width:1.6;stroke-linejoin:round;stroke-linecap:round}
 .thick{stroke-width:4;stroke:#b4471f}
@@ -51,18 +51,19 @@ text{font-family:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace}
 <text class="nett" x="155.3" y="228" text-anchor="middle">LED_ON</text>
 <text class="pin" x="228" y="256" text-anchor="start">D4</text>
 <polyline class="w" points="220,252 190,252"/>
-<path class="net" d="M190,252L183,243H113.8V261H183Z"/>
-<text class="nett" x="148.4" y="256" text-anchor="middle">LED_LINK</text>
+<path class="net" d="M190,252L183,243H86.2V261H183Z"/>
+<text class="nett" x="134.6" y="256" text-anchor="middle">SENSE_LAUNCH</text>
 <text class="pin" x="228" y="284" text-anchor="start">D5</text>
 <polyline class="w" points="220,280 190,280"/>
-<text class="val" x="186" y="284" text-anchor="end">not connected</text>
+<path class="net hotnet" d="M190,280L183,271H93.1V289H183Z"/>
+<text class="nett" x="138.1" y="284" text-anchor="middle">LAUNCH_GATE</text>
 <text class="pin" x="228" y="312" text-anchor="start">D6</text>
 <polyline class="w" points="220,308 190,308"/>
-<text class="val" x="186" y="312" text-anchor="end">not connected</text>
+<path class="net" d="M190,308L183,299H113.8V317H183Z"/>
+<text class="nett" x="148.4" y="312" text-anchor="middle">LED_LINK</text>
 <text class="pin" x="362" y="144" text-anchor="end">5V</text>
 <polyline class="w" points="370,140 400,140"/>
-<path class="net" d="M400,140L407,131H434.8V149H407Z"/>
-<text class="nett" x="420.9" y="144" text-anchor="middle">5V</text>
+<text class="val" x="404" y="144" text-anchor="start">not connected</text>
 <text class="pin" x="362" y="172" text-anchor="end">GND</text>
 <polyline class="w" points="370,168 400,168"/>
 <polyline class="w" points="400,168 410,168"/>
@@ -79,7 +80,8 @@ text{font-family:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace}
 <polyline class="w" points="370,280 400,280"/>
 <text class="pin" x="362" y="312" text-anchor="end">D7</text>
 <polyline class="w" points="370,308 400,308"/>
-<text class="val" x="404" y="312" text-anchor="start">not connected</text>
+<path class="net" d="M400,308L407,299H448.6V317H407Z"/>
+<text class="nett" x="427.8" y="312" text-anchor="middle">MODE</text>
 <rect class="mod opt" x="400" y="210" width="184" height="84" rx="4"/>
 <text class="mname" x="492" y="228" text-anchor="middle">Wio-SX1262</text>
 <text class="val" x="492" y="243" text-anchor="middle">plugs onto B2B + D8–D10</text>
@@ -92,23 +94,28 @@ text{font-family:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace}
 <polyline class="w" points="325,340 325,366"/>
 <polyline class="w" points="325,366 325,366"/>
 <path class="sym" d="M315,366H335M319,370H331M322.5,374H327.5"/>
-<text class="note" x="14" y="414" text-anchor="start">USB-C: power bank or laptop (charges the cell).</text>
+<text class="note" x="14" y="414" text-anchor="start">USB-C: charging (slow for an 18650) or a power bank.</text>
 <text class="note" x="14" y="430" text-anchor="start">Antennas: Wio U.FL = 868 MHz LoRa,</text>
 <text class="note" x="14" y="446" text-anchor="start">XIAO U.FL = 2.4 GHz WiFi (D-Link).</text>
 </g>
 <g transform="translate(630,0)">
 <rect class="card" x="0" y="0" width="610" height="460" rx="6"/>
-<text class="ttl" x="14" y="24">Battery and battery sense (optional)</text>
-<text class="sub" x="14" y="41">same as the flight kit, without C1</text>
+<text class="ttl" x="14" y="24">Power and battery sense</text>
+<text class="sub" x="14" y="41">18650 on the XIAO BAT pads through the power switch</text>
 <polyline class="w" points="70,120 70,177"/>
 <polyline class="w" points="70,193 70,250"/>
 <path class="sym" d="M54,177H86M62,183H78M54,188H86M62,193H78"/>
 <text class="lbl" x="50" y="179" text-anchor="end">+</text>
 <text class="lbl" x="92" y="183" text-anchor="start">B1</text>
-<text class="val" x="92" y="197" text-anchor="start">1S Li-ion, protected</text>
+<text class="val" x="92" y="197" text-anchor="start">18650 Li-ion</text>
 <polyline class="w" points="70,250 70,264"/>
 <path class="sym" d="M60,264H80M64,268H76M67.5,272H72.5"/>
 <polyline class="w" points="70,120 70,80 150,80"/>
+<circle class="dot" cx="110" cy="80" r="3"/>
+<polyline class="w" points="110,80 110,56"/>
+<path class="net hotnet" d="M110,56L117,47H165.5V65H117Z"/>
+<text class="nett" x="141.2" y="60" text-anchor="middle">CELL+</text>
+<text class="val" x="176" y="60" text-anchor="start">to the ARM switch (before SW1)</text>
 <circle class="sym" cx="150" cy="80" r="3"/><circle class="sym" cx="200" cy="80" r="3"/>
 <path class="sym" d="M153,79L198,66"/>
 <text class="lbl" x="175" y="98" text-anchor="middle">SW1</text>
@@ -117,29 +124,158 @@ text{font-family:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace}
 <path class="net" d="M560,80L553,71H490.7V89H553Z"/>
 <text class="nett" x="521.9" y="84" text-anchor="middle">BAT+ sw</text>
 <text class="val" x="560" y="108" text-anchor="end">to XIAO BAT+ pad</text>
-<circle class="dot" cx="330" cy="80" r="3"/>
-<polyline class="w" points="330,80 330,109"/>
-<polyline class="w" points="330,141 330,170"/>
-<rect class="sym" x="324" y="109" width="12" height="32"/>
-<text class="lbl" x="342" y="123" text-anchor="start">R1</text>
-<text class="val" x="342" y="137" text-anchor="start">100k</text>
-<circle class="dot" cx="330" cy="170" r="3"/>
-<polyline class="w" points="330,170 330,199"/>
-<polyline class="w" points="330,231 330,260"/>
-<rect class="sym" x="324" y="199" width="12" height="32"/>
-<text class="lbl" x="342" y="213" text-anchor="start">R2</text>
-<text class="val" x="342" y="227" text-anchor="start">100k</text>
-<polyline class="w" points="330,260 330,274"/>
-<path class="sym" d="M320,274H340M324,278H336M327.5,282H332.5"/>
-<polyline class="w" points="330,170 400,170"/>
-<path class="net" d="M400,170L407,161H483.1V179H407Z"/>
-<text class="nett" x="445.1" y="174" text-anchor="middle">SENSE_BAT</text>
-<text class="note" x="14" y="330" text-anchor="start">Reports volts and % (# battery, UI: Radio link → Ground station).</text>
-<text class="note" x="14" y="346" text-anchor="start">On USB the reading is the charger voltage. No cell: leave out R1/R2.</text>
-<text class="note" x="14" y="362" text-anchor="start">No automatic cutoff: switch off when LOW (ON LED double-blinks).</text>
+<circle class="dot" cx="260" cy="80" r="3"/>
+<polyline class="w" points="260,80 260,136"/>
+<polyline class="w" points="260,144 260,200"/>
+<path class="sym" d="M248,136H272"/>
+<path class="sym" d="M248,146Q260,141 272,146"/>
+<text class="val" x="244" y="134" text-anchor="end">+</text>
+<text class="lbl" x="278" y="138" text-anchor="start">C1</text>
+<text class="val" x="278" y="152" text-anchor="start">1000 µF 16 V</text>
+<polyline class="w" points="260,200 260,214"/>
+<path class="sym" d="M250,214H270M254,218H266M257.5,222H262.5"/>
+<circle class="dot" cx="400" cy="80" r="3"/>
+<polyline class="w" points="400,80 400,109"/>
+<polyline class="w" points="400,141 400,170"/>
+<rect class="sym" x="394" y="109" width="12" height="32"/>
+<text class="lbl" x="412" y="123" text-anchor="start">R1</text>
+<text class="val" x="412" y="137" text-anchor="start">100k</text>
+<circle class="dot" cx="400" cy="170" r="3"/>
+<polyline class="w" points="400,170 400,199"/>
+<polyline class="w" points="400,231 400,260"/>
+<rect class="sym" x="394" y="199" width="12" height="32"/>
+<text class="lbl" x="412" y="213" text-anchor="start">R2</text>
+<text class="val" x="412" y="227" text-anchor="start">100k</text>
+<polyline class="w" points="400,260 400,274"/>
+<path class="sym" d="M390,274H410M394,278H406M397.5,282H402.5"/>
+<polyline class="w" points="400,170 470,170"/>
+<path class="net" d="M470,170L477,161H553.1V179H477Z"/>
+<text class="nett" x="515" y="174" text-anchor="middle">SENSE_BAT</text>
+<text class="note" x="14" y="330" text-anchor="start">BAT− is the pad nearest the USB connector.</text>
+<text class="note" x="14" y="346" text-anchor="start">Volts and % on the WiFi page (station pill). No automatic cutoff:</text>
+<text class="note" x="14" y="362" text-anchor="start">switch off when the ON LED double-blinks (battery low).</text>
+<text class="note" x="14" y="378" text-anchor="start">C1 rides through the launch pulse (mind the polarity).</text>
 </g>
 <g transform="translate(0,480)">
-<rect class="card" x="0" y="0" width="380" height="380" rx="6"/>
+<rect class="card" x="0" y="0" width="760" height="420" rx="6"/>
+<text class="ttl" x="14" y="24">Launch channel (motor igniter)</text>
+<text class="sub" x="14" y="41">thick line = high-current loop, ≥ 20 AWG; ARM switch rated ≥ 5 A</text>
+<path class="net hotnet" d="M70,90L63,81H14.5V99H63Z"/>
+<text class="nett" x="38.8" y="94" text-anchor="middle">CELL+</text>
+<polyline class="w thick" points="70,90 120,90"/>
+<circle class="sym" cx="120" cy="90" r="3"/><circle class="sym" cx="175" cy="90" r="3"/>
+<path class="sym" d="M123,89L173,76"/>
+<text class="lbl" x="147.5" y="108" text-anchor="middle">SW2</text>
+<text class="val" x="147.5" y="121" text-anchor="middle">ARM (toggle or key)</text>
+<polyline class="w thick" points="178,90 205,90"/>
+<polyline class="w" points="205,90 224,90"/>
+<polyline class="w" points="256,90 275,90"/>
+<rect class="sym" x="224" y="84" width="32" height="12"/>
+<text class="lbl" x="240" y="78" text-anchor="middle">R3</text>
+<text class="val" x="240" y="112" text-anchor="middle">1 Ω 5 W</text>
+<polyline class="w thick" points="275,90 330,90"/>
+<circle class="dot" cx="300" cy="90" r="3"/>
+<circle class="term" cx="334" cy="90" r="4.5"/>
+<path class="sym opt" d="M339,90 q12,-26 24,0 t24,0 t24,0"/>
+<text class="lbl" x="375" y="62" text-anchor="middle">igniter (launch leads)</text>
+<circle class="term" cx="416" cy="90" r="4.5"/>
+<text class="val" x="334" y="116" text-anchor="middle">J1</text>
+<text class="val" x="416" y="116" text-anchor="middle">J2</text>
+<polyline class="w thick" points="420,90 500,90 500,200"/>
+<circle class="dot" cx="450" cy="90" r="3"/>
+<polyline class="w" points="300,90 300,150"/>
+<polyline class="w" points="300,150 359,150"/>
+<polyline class="w" points="391,150 450,150"/>
+<rect class="sym" x="359" y="144" width="32" height="12"/>
+<text class="lbl" x="375" y="138" text-anchor="middle">R8</text>
+<text class="val" x="375" y="172" text-anchor="middle">100k bypass</text>
+<polyline class="w" points="450,150 450,90"/>
+<circle class="dot" cx="500" cy="120" r="3"/>
+<polyline class="w" points="500,120 660,120"/>
+<polyline class="w" points="660,120 660,144"/>
+<polyline class="w" points="660,176 660,200"/>
+<rect class="sym" x="654" y="144" width="12" height="32"/>
+<text class="lbl" x="672" y="158" text-anchor="start">R4</text>
+<text class="val" x="672" y="172" text-anchor="start">100k</text>
+<circle class="dot" cx="660" cy="200" r="3"/>
+<polyline class="w" points="660,200 660,224"/>
+<polyline class="w" points="660,256 660,280"/>
+<rect class="sym" x="654" y="224" width="12" height="32"/>
+<text class="lbl" x="672" y="238" text-anchor="start">R5</text>
+<text class="val" x="672" y="252" text-anchor="start">100k</text>
+<polyline class="w" points="660,280 660,292"/>
+<path class="sym" d="M650,292H670M654,296H666M657.5,300H662.5"/>
+<polyline class="w" points="640,200 660,200"/>
+<path class="net" d="M640,200L633,191H536.2V209H633Z"/>
+<text class="nett" x="584.6" y="204" text-anchor="middle">SENSE_LAUNCH</text>
+<circle class="sym thin" cx="492" cy="230" r="21"/>
+<polyline class="w" points="460,230 480,230"/>
+<path class="sym" d="M480,218V242M486,215V224M486,226V234M486,236V245"/>
+<polyline class="w" points="486,220 500,220 500,200"/>
+<polyline class="w" points="486,240 500,240 500,260"/>
+<polyline class="w" points="486,230 500,230 500,240"/>
+<path class="fill" d="M487,230L494,226L494,234Z"/>
+<text class="pin" x="506" y="214" text-anchor="start">D</text>
+<text class="pin" x="506" y="254" text-anchor="start">S</text>
+<text class="pin" x="462" y="225" text-anchor="start">G</text>
+<text class="lbl" x="520" y="228" text-anchor="start">Q1</text>
+<text class="val" x="520" y="242" text-anchor="start">IRLB8748</text>
+<polyline class="w thick" points="500,260 500,310"/>
+<polyline class="w" points="500,310 500,316"/>
+<path class="sym" d="M490,316H510M494,320H506M497.5,324H502.5"/>
+<path class="net hotnet" d="M130,230L123,221H33.1V239H123Z"/>
+<text class="nett" x="78" y="234" text-anchor="middle">LAUNCH_GATE</text>
+<polyline class="w" points="130,230 154,230"/>
+<polyline class="w" points="186,230 210,230"/>
+<rect class="sym" x="154" y="224" width="32" height="12"/>
+<text class="lbl" x="170" y="218" text-anchor="middle">R6</text>
+<text class="val" x="170" y="252" text-anchor="middle">100 Ω</text>
+<polyline class="w" points="210,230 460,230"/>
+<circle class="dot" cx="360" cy="230" r="3"/>
+<polyline class="w" points="360,230 360,254"/>
+<polyline class="w" points="360,286 360,310"/>
+<rect class="sym" x="354" y="254" width="12" height="32"/>
+<text class="lbl" x="348" y="268" text-anchor="end">R7</text>
+<text class="val" x="348" y="282" text-anchor="end">100k</text>
+<polyline class="w" points="360,310 360,322"/>
+<path class="sym" d="M350,322H370M354,326H366M357.5,330H362.5"/>
+<text class="note" x="14" y="356" text-anchor="start">SENSE_LAUNCH tells the firmware: 0 V = ARM off; ~2/3 battery = armed, no igniter (R8);</text>
+<text class="note" x="14" y="372" text-anchor="start">~battery = armed with an igniter. R7 keeps Q1 off during boot. Keep the station near the pad</text>
+<text class="note" x="14" y="388" text-anchor="start">with short launch leads; fire from the phone over WiFi at a safe distance.</text>
+</g>
+<g transform="translate(780,480)">
+<rect class="card" x="0" y="0" width="460" height="420" rx="6"/>
+<text class="ttl" x="14" y="24">Switches and button</text>
+<text class="sub" x="14" y="41">all to GND, internal pull-ups</text>
+<path class="net" d="M110,100L103,91H61.4V109H103Z"/>
+<text class="nett" x="82.2" y="104" text-anchor="middle">MODE</text>
+<polyline class="w" points="110,100 150,100"/>
+<circle class="sym" cx="153" cy="100" r="3"/><circle class="sym" cx="205" cy="100" r="3"/>
+<path class="sym" d="M156,99L203,86"/>
+<text class="lbl" x="179" y="118" text-anchor="middle">SW3</text>
+<text class="val" x="179" y="131" text-anchor="middle">MODE</text>
+<polyline class="w" points="208,100 260,100 260,130"/>
+<polyline class="w" points="260,130 260,134"/>
+<path class="sym" d="M250,134H270M254,138H266M257.5,142H262.5"/>
+<text class="lbl" x="290" y="96" text-anchor="start">open = FLIGHT</text>
+<text class="lbl" x="290" y="112" text-anchor="start">closed = BENCH</text>
+<path class="net" d="M110,230L103,221H47.6V239H103Z"/>
+<text class="nett" x="75.3" y="234" text-anchor="middle">BUTTON</text>
+<polyline class="w" points="110,230 150,230"/>
+<circle class="sym" cx="153" cy="230" r="3"/><circle class="sym" cx="213" cy="230" r="3"/>
+<path class="sym" d="M149,220H217M183,220V210M176,210H190"/>
+<text class="lbl" x="183" y="248" text-anchor="middle">S1</text>
+<text class="val" x="183" y="261" text-anchor="middle">push button</text>
+<polyline class="w" points="216,230 260,230 260,260"/>
+<polyline class="w" points="260,260 260,264"/>
+<path class="sym" d="M250,264H270M254,268H266M257.5,272H262.5"/>
+<text class="note" x="14" y="320" text-anchor="start">Button: ARM off: short = ping, hold 1.5 s = search mode.</text>
+<text class="note" x="14" y="336" text-anchor="start">ARM on: short = LAUNCH (countdown); again = abort.</text>
+<text class="note" x="14" y="352" text-anchor="start">MODE: the rocket follows it (bench mode); BENCH also</text>
+<text class="note" x="14" y="368" text-anchor="start">allows a launch-channel test without the rocket.</text>
+</g>
+<g transform="translate(0,920)">
+<rect class="card" x="0" y="0" width="380" height="300" rx="6"/>
 <text class="ttl" x="14" y="24">Buzzer</text>
 <text class="sub" x="14" y="41">active buzzer straight on the pin</text>
 <path class="net" d="M110,90L103,81H47.6V99H103Z"/>
@@ -154,68 +290,50 @@ text{font-family:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace}
 <text class="val" x="210" y="177" text-anchor="start">active, 3–5 V</text>
 <polyline class="w" points="190,200 190,214"/>
 <path class="sym" d="M180,214H200M184,218H196M187.5,222H192.5"/>
-<text class="note" x="14" y="300" text-anchor="start">Same as the flight kit. The firmware sets</text>
-<text class="note" x="14" y="316" text-anchor="start">the strongest pin drive (≈ 40 mA).</text>
 </g>
-<g transform="translate(400,480)">
-<rect class="card" x="0" y="0" width="300" height="380" rx="6"/>
-<text class="ttl" x="14" y="24">Push button</text>
-<text class="sub" x="14" y="41">momentary, normally open</text>
-<path class="net" d="M110,120L103,111H47.6V129H103Z"/>
-<text class="nett" x="75.3" y="124" text-anchor="middle">BUTTON</text>
-<polyline class="w" points="110,120 150,120"/>
-<circle class="sym" cx="153" cy="120" r="3"/><circle class="sym" cx="213" cy="120" r="3"/>
-<path class="sym" d="M149,110H217M183,110V100M176,100H190"/>
-<text class="lbl" x="183" y="138" text-anchor="middle">S1</text>
-<text class="val" x="183" y="151" text-anchor="middle"></text>
-<polyline class="w" points="216,120 260,120 260,150"/>
-<polyline class="w" points="260,150 260,154"/>
-<path class="sym" d="M250,154H270M254,158H266M257.5,162H262.5"/>
-<text class="note" x="14" y="220" text-anchor="start">Internal pull-up: no resistor.</text>
-<text class="note" x="14" y="236" text-anchor="start">Short press: ping. Hold 1.5 s: search mode.</text>
-<text class="note" x="14" y="252" text-anchor="start">Hold 3 s: manual ejection, only within</text>
-<text class="note" x="14" y="268" text-anchor="start">60 s after &quot;Enable station button&quot; (UI).</text>
-</g>
-<g transform="translate(720,480)">
-<rect class="card" x="0" y="0" width="520" height="380" rx="6"/>
+<g transform="translate(400,920)">
+<rect class="card" x="0" y="0" width="840" height="300" rx="6"/>
 <text class="ttl" x="14" y="24">LEDs</text>
 <text class="sub" x="14" y="41">ON and &quot;rocket connected&quot;</text>
-<path class="net" d="M105,90L98,81H42.6V99H98Z"/>
-<text class="nett" x="70.3" y="94" text-anchor="middle">LED_ON</text>
-<polyline class="w" points="105,90 114,90"/>
-<polyline class="w" points="146,90 155,90"/>
-<rect class="sym" x="114" y="84" width="32" height="12"/>
-<text class="lbl" x="130" y="78" text-anchor="middle">R3</text>
-<text class="val" x="130" y="112" text-anchor="middle">330 Ω</text>
-<polyline class="w" points="155,90 180,90 180,130"/>
-<polyline class="w" points="180,130 180,156"/>
-<polyline class="w" points="180,174 180,200"/>
-<path class="sym" d="M170,156H190L180,174Z M170,174H190"/>
-<path class="sym thin" d="M193,159l9,-7m-5,0h5v5"/>
-<path class="sym thin" d="M193,168l9,-7m-5,0h5v5"/>
-<text class="lbl" x="210" y="163" text-anchor="start">LED1</text>
-<text class="val" x="210" y="177" text-anchor="start">green</text>
-<polyline class="w" points="180,200 180,214"/>
-<path class="sym" d="M170,214H190M174,218H186M177.5,222H182.5"/>
-<path class="net" d="M355,90L348,81H278.8V99H348Z"/>
-<text class="nett" x="313.4" y="94" text-anchor="middle">LED_LINK</text>
-<polyline class="w" points="355,90 364,90"/>
-<polyline class="w" points="396,90 405,90"/>
-<rect class="sym" x="364" y="84" width="32" height="12"/>
-<text class="lbl" x="380" y="78" text-anchor="middle">R4</text>
-<text class="val" x="380" y="112" text-anchor="middle">330 Ω</text>
-<polyline class="w" points="405,90 430,90 430,130"/>
-<polyline class="w" points="430,130 430,156"/>
-<polyline class="w" points="430,174 430,200"/>
-<path class="sym" d="M420,156H440L430,174Z M420,174H440"/>
-<path class="sym thin" d="M443,159l9,-7m-5,0h5v5"/>
-<path class="sym thin" d="M443,168l9,-7m-5,0h5v5"/>
-<text class="lbl" x="460" y="163" text-anchor="start">LED2</text>
-<text class="val" x="460" y="177" text-anchor="start">blue</text>
-<polyline class="w" points="430,200 430,214"/>
-<path class="sym" d="M420,214H440M424,218H436M427.5,222H432.5"/>
-<text class="note" x="14" y="280" text-anchor="start">≈ 4 mA each. ON: steady = running, double blink = battery low,</text>
-<text class="note" x="14" y="296" text-anchor="start">fast = radio failed. CONNECTED: on while frames arrive,</text>
-<text class="note" x="14" y="312" text-anchor="start">off for an instant at each frame. Both alternate: eject button</text>
-<text class="note" x="14" y="328" text-anchor="start">enabled; both blink together: ejection in progress.</text>
+<path class="net" d="M115,90L108,81H52.6V99H108Z"/>
+<text class="nett" x="80.3" y="94" text-anchor="middle">LED_ON</text>
+<polyline class="w" points="115,90 124,90"/>
+<polyline class="w" points="156,90 165,90"/>
+<rect class="sym" x="124" y="84" width="32" height="12"/>
+<text class="lbl" x="140" y="78" text-anchor="middle">R9</text>
+<text class="val" x="140" y="112" text-anchor="middle">330 Ω</text>
+<polyline class="w" points="165,90 190,90 190,130"/>
+<polyline class="w" points="190,130 190,156"/>
+<polyline class="w" points="190,174 190,200"/>
+<path class="sym" d="M180,156H200L190,174Z M180,174H200"/>
+<path class="sym thin" d="M203,159l9,-7m-5,0h5v5"/>
+<path class="sym thin" d="M203,168l9,-7m-5,0h5v5"/>
+<text class="lbl" x="220" y="163" text-anchor="start">LED1</text>
+<text class="val" x="220" y="177" text-anchor="start">green</text>
+<polyline class="w" points="190,200 190,214"/>
+<path class="sym" d="M180,214H200M184,218H196M187.5,222H192.5"/>
+<path class="net" d="M375,90L368,81H298.8V99H368Z"/>
+<text class="nett" x="333.4" y="94" text-anchor="middle">LED_LINK</text>
+<polyline class="w" points="375,90 384,90"/>
+<polyline class="w" points="416,90 425,90"/>
+<rect class="sym" x="384" y="84" width="32" height="12"/>
+<text class="lbl" x="400" y="78" text-anchor="middle">R10</text>
+<text class="val" x="400" y="112" text-anchor="middle">330 Ω</text>
+<polyline class="w" points="425,90 450,90 450,130"/>
+<polyline class="w" points="450,130 450,156"/>
+<polyline class="w" points="450,174 450,200"/>
+<path class="sym" d="M440,156H460L450,174Z M440,174H460"/>
+<path class="sym thin" d="M463,159l9,-7m-5,0h5v5"/>
+<path class="sym thin" d="M463,168l9,-7m-5,0h5v5"/>
+<text class="lbl" x="480" y="163" text-anchor="start">LED2</text>
+<text class="val" x="480" y="177" text-anchor="start">blue</text>
+<polyline class="w" points="450,200 450,214"/>
+<path class="sym" d="M440,214H460M444,218H456M447.5,222H452.5"/>
+<text class="note" x="540" y="80" text-anchor="start">ON: steady = running;</text>
+<text class="note" x="540" y="96" text-anchor="start">2 Hz = ARMED;</text>
+<text class="note" x="540" y="112" text-anchor="start">fast = countdown / firing</text>
+<text class="note" x="540" y="128" text-anchor="start">  or radio failed;</text>
+<text class="note" x="540" y="144" text-anchor="start">double blink = battery low.</text>
+<text class="note" x="540" y="160" text-anchor="start">CONNECTED: on while rocket</text>
+<text class="note" x="540" y="176" text-anchor="start">frames arrive.</text>
 </g></svg>

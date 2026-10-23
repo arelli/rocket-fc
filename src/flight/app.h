@@ -32,6 +32,7 @@
 #include "hal/pyro_channel.h"
 #include "hal/radio_link.h"
 #include "hal/settings_store.h"
+#include "console_out.h"
 #include "flash_log_sink.h"
 #include "ram_log.h"
 
@@ -70,6 +71,12 @@ class App {
   void check_remote_fire(uint32_t now);
   // Ground station connectivity check and manual ejection (setting manual_eject).
   void handle_ping(const fc::tlm::Uplink& u, uint32_t now);
+  void handle_text(const fc::tlm::Text& t, uint32_t now);
+  // Rocket WiFi (log download through the ground station, app_wifi.cpp).
+  void wifi_command(const char* a, const char* b, const char* c, uint32_t now);
+  void wifi_poll(uint32_t now);
+  void wifi_stop(const char* why);
+  bool wifi_allowed() const;
   void handle_eject(const fc::tlm::Uplink& u, uint32_t now);
   fc::RemoteFireEnd eject_conditions() const;
   void check_eject(uint32_t now);
@@ -110,7 +117,9 @@ class App {
   void print_config();
   void print_csv_line(uint32_t now);
   void i2c_scan();
-  void dump_log();
+  void dump_log(Print& o);
+  void flog_list(Print& o);
+  void flog_dump(Print& o, uint32_t session);  // 0 = all
   bool safe_to_interrupt() const;
  public:
   void pyro_tick() { pyro_.update(millis()); }  // keep pulse timing during long console work
@@ -139,6 +148,19 @@ class App {
   char config_problem_[160] = {0};  // why not (self-test FAULT 3)
   fc::Axis up_ = fc::Axis::PosX;
   uint32_t rx_window_ms_ = 150;     // listen after each TX on the ground
+  uint32_t rx_window_flight_ms_ = 100;  // ...and in flight with manual ejection
+  // Console by radio: output frame being sent, last command (repeats ignored).
+  char text_buf_[fc::tlm::kMaxText];
+  size_t text_len_ = 0;
+  uint8_t buf2_[fc::tlm::kMaxTextFrameLen];
+  uint32_t airtime_text_us_ = 0;
+  uint16_t last_text_seq_ = 0;
+  bool have_text_seq_ = false;
+  // WiFi client (rocket joins the ground station's access point to send logs).
+  bool wifi_on_ = false;
+  bool wifi_joined_ = false;
+  uint32_t wifi_since_ = 0;
+  void* web_ = nullptr;  // WebServer (app_wifi.cpp)
 
   // Bench mode: test commands (sim, test fire, remote fire). RAM only: off at
   // every boot, switched on/off over USB or by radio, off at launch detection.

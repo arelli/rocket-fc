@@ -1,63 +1,52 @@
-// Ground station firmware (second XIAO ESP32-S3 + Wio-SX1262 kit on USB).
+// Ground station firmware (second XIAO ESP32-S3 + Wio-SX1262 kit).
 //
 // Receives the flight computer's LoRa frames and prints one CSV line per
-// frame on USB serial (format: lib/fc_core/src/fc/csv.h) with the radio
-// signal quality appended:   ...,rssi_dbm,snr_db
-// Lines starting with '#' are comments/diagnostics, including
-//   # noise <dBm>                 channel noise floor, every 2 s
-//   # uplink on|off beep=<s> ...  heartbeat settings and count, on change and every 10 s
-//   # stats: ...                  packet counters, every 10 s
+// frame (format: lib/fc_core/src/fc/csv.h) with the radio signal quality
+// appended:   ...,rssi_dbm,snr_db
+// Everything printed goes to USB and to the browsers on the station's WiFi
+// (src/ground/web.h); commands are accepted from both. The UI is
+// tools/ground_station.html, served over WiFi.
 //
-// Uplink: while the rocket is on the ground, each received rocket frame is
-// answered (at most about once per second) with a heartbeat that tells the
-// rocket the pad beep period. See fc/uplink.h. Commands (below) replace one
-// heartbeat each.
+// Lines starting with '#' are status / diagnostics:
+//   # station mode=flight|bench arm=0|1 cont=0|1 ready=0|1 launch=idle|countdown|firing left=<s>
+//             search=0|1 vbat=<V> pct=<%> low=0|1        (on change, and every 1-5 s)
+//   # launch ...   # ping ...   # eject ...   # noise <dBm>   # stats ...   # uplink ...   # wifi ...
+// Rocket console output (command sent with "r"): RC,<line>
+// Rocket setting definitions ("rdefs"): D,<same fields as a P line>
 //
-// Panel (optional, pins::ground, docs/HARDWARE.md): push button (short press
-// = ping, 1.5 s hold = search mode on/off, 3 s hold = manual ejection when
-// enabled with "eject button"), buzzer, ON LED, "rocket connected" LED and
-// battery sense. Status lines:
-//   # panel search=on|off eject_button=<s left> buzzer=on|off
-//   # battery <V> V <pct> % [LOW]   or   # battery none
-//   # ping ...  /  # eject ...
+// Uplink: each rocket frame may be answered 15 ms later (the rocket listens
+// right after transmitting) with, in this order: a queued command (ping,
+// manual ejection, bench mode), a queued console line, or a heartbeat (pad
+// beep period and real time, fc/uplink.h).
 //
-// USB commands (one per line):
-//   beep <0..255>   pad beep period in seconds (0 = rocket stays silent on the pad)
-//   uplink on|off   send heartbeats or not
-//   time <unix ms>  real time from the computer, passed to the rocket in heartbeats
-//   rf arm <ms>     remote test fire, step 1 (rocket must run the BENCH build)
-//   rf fire         step 2, after the rocket reported REMOTE_ARMED
-//   rf disarm       cancel
-//   bench on|off    switch the rocket's bench mode by radio (it answers BENCH_MODE)
-//   ping            connectivity check: the rocket beeps and answers PONG; this
-//                   station beeps 0.5 s after the answer arrives
-//   search on|off   search mode: beeps faster the stronger the rocket's signal
-//   eject [ms]      MANUAL EJECTION: arm + fire in one go (the rocket must have
-//                   manual_eject = 1, or be in bench mode on the pad)
-//   eject button    let a 3 s button hold send the ejection (for 60 s)
-//   eject cancel    drop a queued ejection / the button enable
-//   param ...       radio settings of this kit (same as the flight computer's
-//                   "param", radio group only); they apply after "reboot"
-//   reboot          restart this kit
-//   wifi [on|off | ssid <name> | pass <8..63 chars> | channel <1..13>]
-//                   WiFi access point serving the UI (src/ground/web.h); applies after reboot
-//   (empty line)    re-print the CSV headers
+// Commands (one per line):
+//   launch / abort      launch channel: start the countdown / stop it
+//   ping                connectivity check (the rocket beeps and answers)
+//   search on|off       search mode: beeps faster the stronger the rocket's signal
+//   eject [ms] | eject cancel   manual ejection (rocket setting manual_eject, or bench mode on the pad)
+//   r <command>         run a console command on the rocket (output: RC lines)
+//   rdefs               print the rocket's setting definitions (D lines)
+//   rwifi               tell the rocket to join this station's WiFi (log download)
+//   beep <0..255>       pad beep period in seconds;  uplink on|off;  time <unix ms>
+//   param ...           this station's settings;  wifi ...;  reboot
+//   (empty line)        re-print the CSV headers
 //
-// Everything printed goes to USB and, when WiFi is on, to every browser
-// connected over WiFi; commands are accepted from both.
-//
-// tools/ground_station.html shows and controls all of this.
+// Panel (docs/HARDWARE.md "Ground station"): MODE switch (FLIGHT/BENCH, the
+// rocket's bench mode follows it), ARM switch (in the igniter circuit), push
+// button, buzzer, ON and CONNECTED LEDs, battery sense, launch channel.
 #include <Arduino.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "board_pins.h"
+#include "fc/battery.h"
+#include "fc/crc16.h"
 #include "fc/csv.h"
+#include "fc/indicators.h"
+#include "fc/launch.h"
 #include "fc/param_shell.h"
 #include "fc/radio_budget.h"
 #include "fc/remote_fire.h"
-#include "fc/battery.h"
-#include "fc/indicators.h"
 #include "fc/settings.h"
 #include "fc/station.h"
 #include "fc/telemetry.h"
@@ -69,6 +58,9 @@
 #include "web.h"
 
 namespace {
+
+using fc::FlightState;
+using fc::tlm::UplinkKind;
 
 // Output to USB and to the WiFi browsers, line by line.
 class Tee : public Print {
@@ -91,86 +83,101 @@ class Tee : public Print {
   }
 
  private:
-  char line_[256];
+  char line_[512];
   size_t len_ = 0;
 };
 Tee out;
 web::Config wifi;
 bool wifi_up = false;
 
-// Delay between receiving a rocket frame and replying, so the rocket has
-// certainly switched back to receive (it does so right after transmitting).
-constexpr uint32_t kReplyDelayMs = 15;
-
+// --- radio --------------------------------------------------------------------
+constexpr uint32_t kReplyDelayMs = 15;  // the rocket switches to receive right after sending
 hal::RadioLink radio;
+bool radio_ok = false;
 fc::UplinkPolicy policy;
-// Radio settings (fc/settings.h, kParamShared): loaded at boot from flash.
-fc::Settings set;
-fc::ParamShell params(true);
-hal::SettingsStore store;
-bool settings_ok = true;
-char settings_problem[160] = {0};
 fc::DutyCycleLimiter duty(0.08f, 72000);
 uint32_t uplink_airtime_us = 0;
 uint8_t beep_period_s = 10;
 uint16_t uplink_seq = 0;
 uint32_t uplink_sent = 0;
-bool reply_pending = false;
 int64_t utc_base_ms = 0;  // real time at millis() == 0; 0 = not set
-
-// Remote test fire: a command waits for the next rocket frame (the rocket
-// only listens right after transmitting), then replaces that heartbeat.
-constexpr uint32_t kRfCommandTimeoutMs = 5000;
-bool rf_pending = false;
-fc::tlm::UplinkKind rf_kind = fc::tlm::UplinkKind::FireDisarm;
-uint16_t rf_pulse_ms = 0;
-uint32_t rf_since = 0;
-bool rf_have_nonce = false;
-uint32_t rf_nonce = 0;
-uint32_t rf_nonce_at = 0;
-bool reply_is_rf = false;
+enum class Reply : uint8_t { None, Command, Text, Heartbeat };
+Reply reply = Reply::None;
 uint32_t reply_due = 0;
 
-// --- Panel: button, buzzer, LEDs, battery ------------------------------------
-using fc::tlm::UplinkKind;
+// One queued command (ping, ejection, bench mode): waits for the next rocket frame.
+constexpr uint32_t kCommandTimeoutMs = 5000;
+bool cmd_pending = false;
+UplinkKind cmd_kind = UplinkKind::Ping;
+uint16_t cmd_arg = 0;  // pulse_ms field
+uint32_t cmd_since = 0;
+uint32_t eject_nonce = 0;
+
+// One queued console line for the rocket ("r <command>").
+bool text_pending = false;
+char text_cmd[fc::tlm::kMaxCmdText + 1];
+uint32_t text_since = 0;
+char rc_line[256];  // rocket output being reassembled into lines
+size_t rc_len = 0;
+
+// --- settings -------------------------------------------------------------------
+fc::Settings set;  // radio + station settings, loaded at boot
+fc::ParamShell params(true);
+hal::SettingsStore store;
+bool settings_ok = true;
+char settings_problem[160] = {0};
+
+// --- the rocket, as last heard --------------------------------------------------
+bool have_frame = false;
+uint32_t last_frame_ms = 0, last_tlm_ms = 0;
+float frame_rssi = 0;
+FlightState rocket_state = FlightState::Init;
+uint8_t rocket_link = 0;  // link bits of the last telemetry frame
+bool flying() {
+  return rocket_state == FlightState::Boost || rocket_state == FlightState::Coast ||
+         rocket_state == FlightState::Descent;
+}
+bool rocket_recent(uint32_t now) { return have_frame && now - last_frame_ms < 3000; }
+
+// --- panel ------------------------------------------------------------------------
 fc::PanelButton button;
 fc::BeepSequencer beeper;
-hal::DigitalOut buzzer, led_power, led_link;
-hal::AnalogIn batt_adc;
+hal::DigitalOut buzzer, led_power, led_link, gate;
+hal::AnalogIn batt_adc, launch_adc;
 float vbat = 0;
-bool radio_ok = false;
-bool warn_sound = false;          // the beeper plays an ejection warning: always audible
+bool warn_sound = false;  // the beeper plays a warning: always audible
 bool search_on = false;
 uint32_t t_search_beep = 0;
-uint32_t eject_button_until = 0;  // 0 = button ejection disabled
-constexpr uint32_t kEjectButtonWindowMs = 60000;
-constexpr uint32_t kEjectHoldMs = 3000;
 constexpr uint32_t kSearchHoldMs = 1500;
-// Last good rocket frame (link LED, search mode, command checks).
-bool have_frame = false;
-uint32_t last_frame_ms = 0;
-float frame_rssi = 0;
-uint8_t rocket_link = 0;          // link bits of the last telemetry frame
-// Ping (connectivity check).
+// MODE switch (debounced): true = BENCH.
+bool mode_bench = false, mode_raw = false;
+uint32_t mode_raw_since = 0, t_mode_sync = 0;
+// Launch channel.
+fc::LaunchControl launch;
+uint8_t sense_class = 0, sense_cand = 0, sense_count = 0;  // 0 disarmed, 1 armed/open, 2 armed + igniter
+float sense_frac = 0;
+uint32_t t_sense = 0, t_armed_chirp = 0, gate_on_since = 0;
+// Ping.
 uint16_t ping_id = 0;
 bool ping_wait = false;
-uint32_t ping_sent_ms = 0;        // 0 = queued, not sent yet
-uint32_t pong_beep_at = 0;        // 0 = none
-constexpr uint32_t kPingReplyMs = 3000;
-constexpr uint32_t kPongBeepDelayMs = 500;
+uint32_t ping_sent_ms = 0, pong_beep_at = 0;
 // Manual ejection.
 enum class Eject : uint8_t { Idle, Arming, Firing };
 Eject ej = Eject::Idle;
 uint32_t ej_since = 0;
+uint16_t ej_pulse = 0;
 
-uint32_t n_ok = 0, n_bad = 0, t_stats = 0, t_noise = 0;
+uint32_t n_ok = 0, n_bad = 0, t_stats = 0, t_noise = 0, t_status = 0;
 float noise_sum = 0;
 int noise_n = 0;
-float last_rssi = 0, last_snr = 0;
-char cmd[112];
+char status_last[200] = {0};
+char cmdline[160];
 size_t cmd_len = 0;
 
-// The password is printed only on request ("wifi"), so it does not end up in saved logs.
+// =================================================================================
+// Output helpers
+// =================================================================================
+
 void print_wifi(bool with_pass = false) {
   if (!wifi.on) {
     out.println("# wifi off");
@@ -179,6 +186,105 @@ void print_wifi(bool with_pass = false) {
   out.printf("# wifi %s ssid=%s%s%s channel=%u ip=192.168.4.1 url=http://rocketfc.local clients=%d\n",
              wifi_up ? "on" : "failed", wifi.ssid, with_pass ? " pass=" : "", with_pass ? wifi.pass : "",
              wifi.channel, web::clients());
+}
+
+void print_headers() {
+  out.printf("# rocket-fc ground station %s  %.3f MHz SF%lu BW%.1f sync 0x%02lX %ld dBm  settings crc %08lX\n",
+             FC_GIT_REV, static_cast<double>(set.radio_freq_mhz), static_cast<unsigned long>(set.radio_sf),
+             static_cast<double>(fc::radio_bw_khz(set)), static_cast<unsigned long>(set.radio_sync),
+             static_cast<long>(set.radio_power_dbm), static_cast<unsigned long>(fc::settings_crc(set)));
+  if (!settings_ok) out.printf("# ERROR: settings invalid (%s): running on the defaults\n", settings_problem);
+  out.printf("%s,rssi_dbm,snr_db\n", fc::csv::telemetry_header());
+  out.printf("%s,rssi_dbm,snr_db\n", fc::csv::event_header());
+  out.printf("%s,rssi_dbm,snr_db\n", fc::csv::gps_header());
+  print_wifi();
+}
+
+void print_uplink() {
+  out.printf("# uplink %s beep=%u sent=%lu time=%s\n", policy.enabled() ? "on" : "off", beep_period_s,
+             static_cast<unsigned long>(uplink_sent), utc_base_ms ? "set" : "unset");
+}
+
+uint64_t utc_now_ms() {
+  return utc_base_ms ? static_cast<uint64_t>(utc_base_ms + static_cast<int64_t>(millis())) : 0;
+}
+
+bool rocket_ready(uint32_t now) {
+  // In PAD (calibrated, deployment logic armed for launch detection), in flight mode.
+  return have_frame && now - last_tlm_ms < 3000 && rocket_state == FlightState::Pad &&
+         !(rocket_link & fc::tlm::kLinkBenchMode);
+}
+
+bool armed() { return sense_class >= 1 || launch.state() == fc::LaunchState::Firing; }
+bool continuity() { return sense_class == 2 || launch.state() == fc::LaunchState::Firing; }
+
+fc::LaunchInputs launch_inputs(uint32_t now) {
+  fc::LaunchInputs in;
+  in.armed = armed();
+  in.continuity = continuity();
+  in.bench = mode_bench;
+  in.need_pad = set.gs_launch_need_pad;
+  in.rocket_ready = rocket_ready(now);
+  return in;
+}
+
+// One status line; printed when it changes (ignoring the voltage) and periodically.
+void print_status(uint32_t now, bool force) {
+  const char* ls = launch.state() == fc::LaunchState::Countdown ? "countdown"
+                   : launch.state() == fc::LaunchState::Firing  ? "firing"
+                                                                : "idle";
+  char core[200];
+  snprintf(core, sizeof(core), "mode=%s arm=%d cont=%d ready=%d launch=%s left=%lu search=%d",
+           mode_bench ? "bench" : "flight", armed() ? 1 : 0, continuity() ? 1 : 0, rocket_ready(now) ? 1 : 0, ls,
+           static_cast<unsigned long>((launch.remaining_ms(now) + 999) / 1000), search_on ? 1 : 0);
+  const bool changed = strcmp(core, status_last) != 0;
+  const uint32_t period = (armed() || launch.state() != fc::LaunchState::Idle) ? 1000 : 5000;
+  if (!force && !changed && now - t_status < period) return;
+  strncpy(status_last, core, sizeof(status_last) - 1);
+  t_status = now;
+  const bool cell = vbat >= set.batt_present_v;
+  out.printf("# station %s vbat=%.2f pct=%.0f low=%d\n", core, static_cast<double>(cell ? vbat : 0),
+             static_cast<double>(cell ? fc::liion_percent(vbat) : 0), cell && vbat < set.gs_batt_low_v ? 1 : 0);
+}
+
+void warn_beeps(uint8_t n, uint16_t on, uint16_t off) {
+  beeper.clear();
+  warn_sound = true;
+  beeper.beeps(n, on, off, 0);
+}
+
+// =================================================================================
+// Settings
+// =================================================================================
+
+void serial_line(void*, const char* line) { out.println(line); }
+void defs_line(void*, const char* line) {
+  if (!strncmp(line, "P,", 2)) out.printf("D,%s\n", line + 2);
+}
+bool store_text(void* ctx, const char* text, size_t len) {
+  return static_cast<hal::SettingsStore*>(ctx)->save(text, len);
+}
+
+void load_settings() {
+  static char text[hal::SettingsStore::kMaxText];
+  bool read_ok = true;
+  const size_t n = store.load(text, sizeof(text), &read_ok);
+  fc::Settings stored;
+  fc::LoadReport rep;
+  if (n) fc::settings_from_text(stored, text, n, &rep);
+  settings_ok = true;
+  if (!read_ok) {
+    settings_ok = false;
+    snprintf(settings_problem, sizeof(settings_problem), "flash read error");
+  } else if (rep.errors) {
+    settings_ok = false;
+    snprintf(settings_problem, sizeof(settings_problem), "%s", rep.first_problem);
+  } else if (!fc::validate_radio(stored, settings_problem, sizeof(settings_problem))) {
+    settings_ok = false;
+  }
+  set = settings_ok ? stored : fc::Settings{};
+  params.init(set, stored);
+  duty = fc::DutyCycleLimiter(set.radio_duty_pct / 100.0f, set.radio_burst_s * 1000u);
 }
 
 void wifi_command(const char* a, const char* b) {
@@ -213,80 +319,15 @@ void wifi_command(const char* a, const char* b) {
   out.printf("# wifi saved (on=%u ssid=%s channel=%u): applies after 'reboot'\n", c.on ? 1u : 0u, c.ssid, c.channel);
 }
 
-void print_headers() {
-  out.printf("# rocket-fc ground station %s  %.3f MHz SF%lu BW%.1f sync 0x%02lX %ld dBm  settings crc %08lX\n",
-                FC_GIT_REV, static_cast<double>(set.radio_freq_mhz), static_cast<unsigned long>(set.radio_sf),
-                static_cast<double>(fc::radio_bw_khz(set)), static_cast<unsigned long>(set.radio_sync),
-                static_cast<long>(set.radio_power_dbm), static_cast<unsigned long>(fc::settings_crc(set)));
-  if (!settings_ok) out.printf("# ERROR: radio settings invalid (%s): running on the defaults\n", settings_problem);
-  out.printf("%s,rssi_dbm,snr_db\n", fc::csv::telemetry_header());
-  out.printf("%s,rssi_dbm,snr_db\n", fc::csv::event_header());
-  out.printf("%s,rssi_dbm,snr_db\n", fc::csv::gps_header());
-  print_wifi();
-}
+// =================================================================================
+// Commands to the rocket
+// =================================================================================
 
-uint64_t utc_now_ms() {
-  return utc_base_ms ? static_cast<uint64_t>(utc_base_ms + static_cast<int64_t>(millis())) : 0;
-}
-
-void print_uplink() {
-  out.printf("# uplink %s beep=%u sent=%lu time=%s\n", policy.enabled() ? "on" : "off",
-                beep_period_s, static_cast<unsigned long>(uplink_sent),
-                utc_base_ms ? "set" : "unset");
-}
-
-void serial_line(void*, const char* line) { out.println(line); }
-bool store_text(void* ctx, const char* text, size_t len) {
-  return static_cast<hal::SettingsStore*>(ctx)->save(text, len);
-}
-
-void load_settings() {
-  static char text[hal::SettingsStore::kMaxText];
-  bool read_ok = true;
-  const size_t n = store.load(text, sizeof(text), &read_ok);
-  fc::Settings stored;
-  fc::LoadReport rep;
-  if (n) fc::settings_from_text(stored, text, n, &rep);
-  settings_ok = true;
-  if (!read_ok) {
-    settings_ok = false;
-    snprintf(settings_problem, sizeof(settings_problem), "flash read error");
-  } else if (rep.errors) {
-    settings_ok = false;
-    snprintf(settings_problem, sizeof(settings_problem), "%s", rep.first_problem);
-  } else if (!fc::validate_radio(stored, settings_problem, sizeof(settings_problem))) {
-    settings_ok = false;
-  }
-  set = settings_ok ? stored : fc::Settings{};
-  params.init(set, stored);
-  duty = fc::DutyCycleLimiter(set.radio_duty_pct / 100.0f, set.radio_burst_s * 1000u);
-}
-
-bool eject_button_enabled(uint32_t now) {
-  return eject_button_until != 0 && static_cast<int32_t>(eject_button_until - now) > 0;
-}
-
-void print_panel(uint32_t now) {
-  const uint32_t left = eject_button_enabled(now) ? (eject_button_until - now + 999) / 1000 : 0;
-  out.printf("# panel search=%s eject_button=%lu buzzer=%s\n", search_on ? "on" : "off",
-             static_cast<unsigned long>(left), set.gs_buzzer_on ? "on" : "off");
-}
-
-void print_battery() {
-  if (vbat < set.batt_present_v) {
-    out.println("# battery none");
-    return;
-  }
-  out.printf("# battery %.2f V %.0f %%%s\n", static_cast<double>(vbat),
-             static_cast<double>(fc::liion_percent(vbat)), vbat < set.gs_batt_low_v ? " LOW" : "");
-}
-
-// Queues a command for the next rocket frame (one slot; the newest wins).
-void queue_rf(UplinkKind kind, uint16_t pulse_ms, uint32_t now) {
-  rf_kind = kind;
-  rf_pulse_ms = pulse_ms;
-  rf_since = now;
-  rf_pending = true;
+void queue_command(UplinkKind kind, uint16_t arg, uint32_t now) {
+  cmd_kind = kind;
+  cmd_arg = arg;
+  cmd_since = now;
+  cmd_pending = true;
 }
 
 void ping_end(const char* why) {
@@ -307,31 +348,37 @@ void start_ping(uint32_t now, const char* source) {
   ping_wait = true;
   ping_sent_ms = 0;
   pong_beep_at = 0;
-  queue_rf(UplinkKind::Ping, ping_id, now);
+  queue_command(UplinkKind::Ping, ping_id, now);
   out.printf("# ping queued id=%u (%s)\n", ping_id, source);
 }
 
-void eject_end(const char* what, uint32_t now) {
+void eject_end(const char* what) {
   ej = Eject::Idle;
-  if (rf_pending && (rf_kind == UplinkKind::EjectArm || rf_kind == UplinkKind::Eject)) rf_pending = false;
+  if (cmd_pending && (cmd_kind == UplinkKind::EjectArm || cmd_kind == UplinkKind::Eject)) cmd_pending = false;
   out.printf("# eject %s\n", what);
-  beeper.clear();
-  warn_sound = true;
-  beeper.beeps(3, 60, 90, 0);
-  print_panel(now);
+  warn_beeps(3, 60, 90);
 }
 
-void start_eject(uint16_t pulse_ms, uint32_t now, const char* source) {
+void start_eject(uint16_t pulse_ms, uint32_t now) {
   ping_wait = false;
   pong_beep_at = 0;
   ej = Eject::Arming;
   ej_since = now;
-  queue_rf(UplinkKind::EjectArm, pulse_ms, now);
-  out.printf("# eject queued: arming (%s, pulse %s)\n", source, pulse_ms ? "set" : "rocket's pyro_pulse_ms");
-  // Warning: always audible.
-  beeper.clear();
-  warn_sound = true;
-  beeper.beeps(4, 40, 40, 0);
+  ej_pulse = pulse_ms;
+  queue_command(UplinkKind::EjectArm, pulse_ms, now);
+  out.println("# eject queued: arming");
+  warn_beeps(4, 40, 40);
+}
+
+void queue_text(const char* line, uint32_t now) {
+  const size_t n = strlen(line);
+  if (n == 0 || n > fc::tlm::kMaxCmdText) {
+    out.printf("RC,! command must be 1..%u characters\n", static_cast<unsigned>(fc::tlm::kMaxCmdText));
+    return;
+  }
+  memcpy(text_cmd, line, n + 1);
+  text_pending = true;
+  text_since = now;
 }
 
 void set_search(bool on, uint32_t now) {
@@ -342,10 +389,27 @@ void set_search(bool on, uint32_t now) {
     if (on) beeper.beeps(2, 60, 80, 300);
     else beeper.push(250, 0);
   }
-  print_panel(now);
+  print_status(now, true);
+}
+
+void start_launch(uint32_t now, const char* source) {
+  const fc::LaunchEnd why = launch.start(now, launch_inputs(now), set.gs_launch_countdown_s * 1000u);
+  if (why != fc::LaunchEnd::None) {
+    out.printf("# launch refused: %s\n", fc::to_string(why));
+    warn_beeps(3, 60, 90);
+    return;
+  }
+  out.printf("# launch countdown %lu s (%s)\n", static_cast<unsigned long>(set.gs_launch_countdown_s), source);
+  print_status(now, true);
 }
 
 void exec(char* line) {
+  const uint32_t now = millis();
+  // "r <rest of the line>" goes to the rocket unchanged.
+  if (line[0] == 'r' && line[1] == ' ') {
+    queue_text(line + 2, now);
+    return;
+  }
   char* save = nullptr;
   const char* argv[6] = {};
   int argc = 0;
@@ -354,6 +418,37 @@ void exec(char* line) {
   const char* a = argv[1];
   if (!c) {
     print_headers();
+  } else if (!strcmp(c, "launch")) {
+    start_launch(now, "command");
+  } else if (!strcmp(c, "abort")) {
+    if (launch.state() == fc::LaunchState::Idle) out.println("# launch: nothing to abort");
+    launch.abort();
+  } else if (!strcmp(c, "ping")) {
+    start_ping(now, "command");
+  } else if (!strcmp(c, "search")) {
+    if (a) set_search(!strcmp(a, "on"), now);
+    else print_status(now, true);
+  } else if (!strcmp(c, "eject")) {
+    if (a && !strcmp(a, "cancel")) {
+      if (ej != Eject::Idle) eject_end("cancelled (the rocket disarms by itself within 10 s)");
+    } else {
+      const long ms = a ? strtol(a, nullptr, 10) : 0;
+      if (ms < 0 || ms > fc::RemoteFire::kMaxPulseMs) {
+        out.println("# eject error: pulse must be 1..2000 ms (or none = the rocket's pyro_pulse_ms)");
+        return;
+      }
+      start_eject(static_cast<uint16_t>(ms), now);
+    }
+  } else if (!strcmp(c, "rdefs")) {
+    static fc::ParamShell defs(false);  // the rocket's settings table, with the defaults
+    defs.init(fc::Settings{}, fc::Settings{});
+    const char* list[] = {"list"};
+    defs.exec(1, list, false, defs_line, store_text, &store);
+    out.println("# end of rocket definitions");
+  } else if (!strcmp(c, "rwifi")) {
+    char t[fc::tlm::kMaxCmdText + 1];
+    snprintf(t, sizeof(t), "wifi join %s %s", wifi.ssid, wifi.pass);
+    queue_text(t, now);
   } else if (!strcmp(c, "param")) {
     params.exec(argc - 1, argv + 1, true, serial_line, store_text, &store);
   } else if (!strcmp(c, "wifi")) {
@@ -361,13 +456,8 @@ void exec(char* line) {
   } else if (!strcmp(c, "reboot")) {
     out.println("# rebooting");
     Serial.flush();
+    gate.set(false);
     ESP.restart();
-  } else if (!strcmp(c, "bench") && a && (!strcmp(a, "on") || !strcmp(a, "off"))) {
-    rf_since = millis();
-    rf_kind = fc::tlm::UplinkKind::BenchMode;
-    rf_pulse_ms = !strcmp(a, "on") ? 1 : 0;
-    rf_pending = true;
-    out.printf("# rf queued bench %s\n", a);
   } else if (!strcmp(c, "beep") && a) {
     const long v = strtol(a, nullptr, 10);
     beep_period_s = static_cast<uint8_t>(v < 0 ? 0 : v > 255 ? 255 : v);
@@ -378,159 +468,286 @@ void exec(char* line) {
       utc_base_ms = static_cast<int64_t>(v) - static_cast<int64_t>(millis());
       print_uplink();
     }
-  } else if (!strcmp(c, "rf") && a) {
-    const char* b = argv[2];
-    rf_since = millis();
-    if (!strcmp(a, "arm") && b) {
-      const long ms = strtol(b, nullptr, 10);
-      if (ms < 1 || ms > fc::RemoteFire::kMaxPulseMs) {
-        out.println("# rf error: pulse must be 1..2000 ms");
-        return;
-      }
-      rf_pulse_ms = static_cast<uint16_t>(ms);
-      rf_kind = fc::tlm::UplinkKind::FireArm;
-      rf_have_nonce = false;
-      rf_pending = true;
-      out.printf("# rf queued arm %u ms\n", rf_pulse_ms);
-    } else if (!strcmp(a, "fire")) {
-      if (!rf_have_nonce || millis() - rf_nonce_at >= fc::RemoteFire::kWindowMs) {
-        out.println("# rf error: rocket is not armed (no REMOTE_ARMED received)");
-        return;
-      }
-      rf_kind = fc::tlm::UplinkKind::Fire;
-      rf_pending = true;
-      out.println("# rf queued fire");
-    } else if (!strcmp(a, "disarm")) {
-      rf_kind = fc::tlm::UplinkKind::FireDisarm;
-      rf_have_nonce = false;
-      rf_pending = true;
-      out.println("# rf queued disarm");
-    }
-  } else if (!strcmp(c, "ping")) {
-    start_ping(millis(), "command");
-  } else if (!strcmp(c, "search") && a && (!strcmp(a, "on") || !strcmp(a, "off"))) {
-    set_search(!strcmp(a, "on"), millis());
-  } else if (!strcmp(c, "search")) {
-    print_panel(millis());
-  } else if (!strcmp(c, "eject")) {
-    const uint32_t now = millis();
-    if (a && !strcmp(a, "cancel")) {
-      eject_button_until = 0;
-      if (ej != Eject::Idle) eject_end("cancelled (the rocket disarms by itself within 10 s)", now);
-      else out.println("# eject cancelled");
-      print_panel(now);
-    } else if (a && !strcmp(a, "button")) {
-      eject_button_until = now + kEjectButtonWindowMs;
-      if (!eject_button_until) eject_button_until = 1;
-      out.printf("# eject button ENABLED for %lu s: hold the button %lu s to eject\n",
-                 static_cast<unsigned long>(kEjectButtonWindowMs / 1000),
-                 static_cast<unsigned long>(kEjectHoldMs / 1000));
-      print_panel(now);
-    } else {
-      const long ms = a ? strtol(a, nullptr, 10) : 0;
-      if (ms < 0 || ms > fc::RemoteFire::kMaxPulseMs) {
-        out.println("# eject error: pulse must be 1..2000 ms (or none = the rocket's pyro_pulse_ms)");
-        return;
-      }
-      start_eject(static_cast<uint16_t>(ms), now, "command");
-    }
   } else if (!strcmp(c, "uplink") && a) {
     policy.set_enabled(!strcmp(a, "on"));
     print_uplink();
   } else {
-    out.println("# commands: beep <0..255 s>, uplink on|off, time <unix ms>, rf arm <ms>|fire|disarm, "
-                   "bench on|off, ping, search on|off, eject [ms]|button|cancel, param ..., wifi ..., "
-                   "reboot, empty line = headers");
+    out.println("# commands: launch, abort, ping, search on|off, eject [ms]|cancel, r <rocket command>, rdefs, "
+                "rwifi, beep <s>, uplink on|off, time <unix ms>, param ..., wifi ..., reboot");
   }
 }
 
-void send_rf(uint32_t now) {
-  const bool is_ping = rf_kind == UplinkKind::Ping;
-  const bool is_eject = rf_kind == UplinkKind::EjectArm || rf_kind == UplinkKind::Eject;
-  if (!duty.try_consume(now, uplink_airtime_us)) {
-    if (is_ping) ping_end("radio duty-cycle budget exhausted");
-    else if (is_eject) eject_end("FAILED: radio duty-cycle budget exhausted", now);
-    else out.println("# rf error: radio duty-cycle budget exhausted, try again later");
-    return;
-  }
+// =================================================================================
+// Radio
+// =================================================================================
+
+bool send_frame(const uint8_t* buf, size_t n, uint32_t now) {
+  if (!duty.try_consume(now, fc::lora_airtime_us(fc::lora_modulation(set), n))) return false;
+  if (!radio.send(buf, n)) return false;
+  ++uplink_sent;
+  return true;
+}
+
+void send_command(uint32_t now) {
   fc::tlm::Uplink u;
   u.seq = uplink_seq++;
   u.t_ms = now;
-  u.kind = rf_kind;
-  u.pulse_ms = rf_pulse_ms;
-  if (rf_kind == fc::tlm::UplinkKind::Fire) {
-    u.code = fc::remote_fire_code(rf_nonce, set.rf_key);
-    rf_have_nonce = false;  // one use
-  } else if (rf_kind == fc::tlm::UplinkKind::BenchMode) {
-    u.code = fc::bench_mode_code(rf_pulse_ms != 0, set.rf_key);
-  } else if (rf_kind == UplinkKind::Eject) {
-    u.code = fc::remote_fire_code(rf_nonce, set.rf_key);
-    rf_have_nonce = false;
-  }
+  u.kind = cmd_kind;
+  u.pulse_ms = cmd_arg;
+  if (cmd_kind == UplinkKind::Eject) u.code = fc::remote_fire_code(eject_nonce, set.rf_key);
+  if (cmd_kind == UplinkKind::BenchMode) u.code = fc::bench_mode_code(cmd_arg != 0, set.rf_key);
   uint8_t buf[fc::tlm::kUplinkLen];
-  const size_t n = fc::tlm::encode(u, buf, sizeof(buf));
-  const char* what = rf_kind == fc::tlm::UplinkKind::FireArm     ? "arm"
-                     : rf_kind == fc::tlm::UplinkKind::Fire      ? "fire"
-                     : rf_kind == fc::tlm::UplinkKind::BenchMode ? (rf_pulse_ms ? "bench on" : "bench off")
-                                                                 : "disarm";
-  const bool sent = radio.send(buf, n);
-  if (sent) ++uplink_sent;
-  if (is_ping) {
+  const bool sent = send_frame(buf, fc::tlm::encode(u, buf, sizeof(buf)), now);
+  if (cmd_kind == UplinkKind::Ping) {
     if (sent) {
       ping_sent_ms = now ? now : 1;
       out.printf("# ping sent id=%u\n", ping_id);
     } else {
-      ping_end("radio busy");
+      ping_end("radio busy or duty-cycle budget exhausted");
     }
-  } else if (is_eject) {
-    if (sent) out.printf("# eject sent %s\n", rf_kind == UplinkKind::EjectArm ? "arm" : "FIRE");
-    else eject_end("FAILED: radio busy", now);
-  } else if (sent) {
-    out.printf("# rf sent %s\n", what);
-  } else {
-    out.printf("# rf error: %s not sent (radio busy)\n", what);
+  } else if (cmd_kind == UplinkKind::EjectArm || cmd_kind == UplinkKind::Eject) {
+    if (sent) out.printf("# eject sent %s\n", cmd_kind == UplinkKind::EjectArm ? "arm" : "FIRE");
+    else eject_end("FAILED: radio busy or duty-cycle budget exhausted");
   }
 }
 
+void send_text(uint32_t now) {
+  fc::tlm::Text t;
+  t.cmd = true;
+  t.seq = uplink_seq++;
+  t.t_ms = now;
+  t.len = static_cast<uint8_t>(strlen(text_cmd));
+  memcpy(t.text, text_cmd, t.len);
+  t.code = fc::text_code(t.seq, fc::crc16_ccitt(reinterpret_cast<const uint8_t*>(t.text), t.len), set.rf_key);
+  static uint8_t buf[fc::tlm::kMaxTextFrameLen];
+  if (!send_frame(buf, fc::tlm::encode(t, buf, sizeof(buf)), now))
+    out.println("RC,! not sent (radio busy or duty-cycle budget): try again");
+}
+
 void send_heartbeat(uint32_t now) {
-  if (!duty.try_consume(now, uplink_airtime_us)) return;
   fc::tlm::Uplink u;
   u.seq = uplink_seq++;
   u.t_ms = now;
   u.beep_period_s = beep_period_s;
   u.utc_ms = utc_now_ms();
   uint8_t buf[fc::tlm::kUplinkLen];
-  const size_t n = fc::tlm::encode(u, buf, sizeof(buf));
-  if (radio.send(buf, n)) ++uplink_sent;
+  send_frame(buf, fc::tlm::encode(u, buf, sizeof(buf)), now);
 }
 
-// Button, beeps, LEDs, battery. Runs every loop.
-void update_panel(uint32_t now) {
-  // Button.
-  const bool eject_btn = eject_button_enabled(now);
-  if (eject_button_until != 0 && !eject_btn) {
-    eject_button_until = 0;
-    out.println("# eject button disabled (60 s passed)");
-    print_panel(now);
-  }
-  const auto act = button.update(digitalRead(pins::ground::kButton) == LOW, now,
-                                 eject_btn ? kEjectHoldMs : kSearchHoldMs);
-  if (act == fc::PanelButton::Action::Short) {
-    start_ping(now, "button");
-  } else if (act == fc::PanelButton::Action::Long) {
-    if (eject_btn) {
-      eject_button_until = 0;
-      start_eject(0, now, "button");
-      print_panel(now);
-    } else {
-      set_search(!search_on, now);
+// Rocket console output: whole lines become "RC,<line>".
+void rocket_text(const fc::tlm::Text& t) {
+  for (size_t i = 0; i < t.len; ++i) {
+    const char ch = t.text[i];
+    if (ch == '\n' || rc_len == sizeof(rc_line) - 1) {
+      rc_line[rc_len] = '\0';
+      out.printf("RC,%s\n", rc_line);
+      const char* ip = strstr(rc_line, "wifi: joined ip=");
+      if (ip) web::set_rocket_ip(ip + 16);
+      if (strstr(rc_line, "wifi: off")) web::set_rocket_ip("");
+      rc_len = 0;
+      if (ch == '\n') continue;
     }
-  } else if (eject_btn && button.held_ms(now) >= fc::PanelButton::kShortMaxMs && !beeper.busy()) {
-    warn_sound = true;  // hold-to-eject countdown chirps
-    beeper.push(40, 160);
+    rc_line[rc_len++] = ch;
+  }
+}
+
+void on_event(const fc::tlm::Event& ev, uint32_t now, float rssi, float snr) {
+  if (ev.code == fc::EventCode::Pong && ping_wait && static_cast<uint16_t>(ev.arg) == ping_id) {
+    ping_wait = false;
+    pong_beep_at = now + 500;  // the second sound of the connectivity check
+    if (!pong_beep_at) pong_beep_at = 1;
+    out.printf("# ping reply id=%u rtt=%lu ms rssi=%.1f snr=%.2f\n", ping_id,
+               static_cast<unsigned long>(ping_sent_ms ? now - ping_sent_ms : 0), static_cast<double>(rssi),
+               static_cast<double>(snr));
+  }
+  if (ev.code == fc::EventCode::EjectArmed && ej == Eject::Arming) {
+    // Answer this very frame with the fire command (the rocket listens now).
+    eject_nonce = static_cast<uint32_t>(ev.arg);
+    ej = Eject::Firing;
+    queue_command(UplinkKind::Eject, ej_pulse, now);
+    out.println("# eject rocket armed: sending FIRE");
+  }
+  if (ev.code == fc::EventCode::ManualEject) {
+    ej = Eject::Idle;
+    out.printf("# eject FIRED at %.1f m\n", static_cast<double>(ev.arg) / 100.0);
+    warn_beeps(1, 1000, 0);
+  }
+  if (ej != Eject::Idle && (ev.code == fc::EventCode::RemoteRefused || ev.code == fc::EventCode::RemoteDisarmed)) {
+    char what[80];
+    snprintf(what, sizeof(what), "refused by the rocket: %s", fc::to_string(static_cast<fc::RemoteFireEnd>(ev.arg)));
+    eject_end(what);
+  }
+}
+
+// A rocket frame arrived: decide what (if anything) to send back in 15 ms.
+void plan_reply(uint32_t now) {
+  if (reply != Reply::None) return;
+  if (cmd_pending) {
+    const bool any_state = cmd_kind != UplinkKind::BenchMode;
+    const bool listens = !flying() || (rocket_link & (fc::tlm::kLinkManualEject | fc::tlm::kLinkBenchMode));
+    if (!listens) {
+      cmd_pending = false;
+      if (cmd_kind == UplinkKind::Ping) ping_end("the rocket does not listen in flight (manual_eject = 0)");
+      else if (cmd_kind != UplinkKind::BenchMode) eject_end("FAILED: the rocket does not listen in flight (manual_eject = 0)");
+      return;
+    }
+    if (any_state || !flying()) {
+      cmd_pending = false;
+      reply = Reply::Command;
+      reply_due = now + kReplyDelayMs;
+      return;
+    }
+  }
+  if (text_pending && !flying()) {
+    text_pending = false;
+    reply = Reply::Text;
+    reply_due = now + kReplyDelayMs;
+    return;
+  }
+  if (policy.on_rocket_frame(rocket_state, now)) {
+    reply = Reply::Heartbeat;
+    reply_due = now + kReplyDelayMs;
+  }
+}
+
+void receive(uint32_t now) {
+  static uint8_t buf[fc::tlm::kMaxTextFrameLen + 8];
+  float rssi = 0, snr = 0;
+  bool crc_error = false;
+  const size_t n = radio.receive(buf, sizeof(buf), &rssi, &snr, &crc_error);
+  if (n == 0) return;
+  fc::tlm::FrameType type;
+  if (crc_error || fc::tlm::frame_type(buf, n, &type) != fc::tlm::DecodeResult::Ok ||
+      type == fc::tlm::FrameType::Uplink || type == fc::tlm::FrameType::TextCmd) {
+    ++n_bad;
+    out.printf("# bad frame: %u bytes, %s, rssi %.1f snr %.2f\n", static_cast<unsigned>(n),
+               crc_error ? "LoRa CRC error" : "not a rocket-fc frame", static_cast<double>(rssi),
+               static_cast<double>(snr));
+    return;
+  }
+  ++n_ok;
+  have_frame = true;
+  last_frame_ms = now;
+  frame_rssi = rssi;
+  rocket_state = static_cast<FlightState>(buf[3]);  // header byte 3: the rocket's flight state
+  if (type == fc::tlm::FrameType::TextOut) {
+    static fc::tlm::Text t;
+    if (fc::tlm::decode(buf, n, &t) == fc::tlm::DecodeResult::Ok) rocket_text(t);
+  } else {
+    fc::tlm::Telemetry tf;
+    if (fc::tlm::decode(buf, n, &tf) == fc::tlm::DecodeResult::Ok) {
+      rocket_link = tf.link;
+      last_tlm_ms = now;
+    }
+    fc::tlm::Event ev;
+    if (fc::tlm::decode(buf, n, &ev) == fc::tlm::DecodeResult::Ok) on_event(ev, now, rssi, snr);
+    char line[fc::csv::kLineMax];
+    if (fc::csv::format_frame(buf, n, line, sizeof(line)))
+      out.printf("%s,%.1f,%.2f\n", line, static_cast<double>(rssi), static_cast<double>(snr));
+  }
+  plan_reply(now);
+}
+
+// =================================================================================
+// Panel: switches, launch channel, button, beeps, LEDs
+// =================================================================================
+
+void update_mode(uint32_t now) {
+  const bool raw = digitalRead(pins::ground::kModeSwitch) == LOW;  // closed = BENCH
+  if (raw != mode_raw) {
+    mode_raw = raw;
+    mode_raw_since = now;
+  }
+  if (mode_raw != mode_bench && now - mode_raw_since >= 50) {
+    mode_bench = mode_raw;
+    out.printf("# mode %s\n", mode_bench ? "BENCH" : "FLIGHT");
+    if (!warn_sound) {
+      beeper.clear();
+      beeper.beeps(mode_bench ? 2 : 1, 200, 150, 0);
+    }
+    t_mode_sync = 0;
+    print_status(now, true);
+  }
+  // The rocket's bench mode follows the switch (on the ground; it ends by itself at launch).
+  const bool rocket_bench = (rocket_link & fc::tlm::kLinkBenchMode) != 0;
+  if (!cmd_pending && have_frame && now - last_tlm_ms < 3000 && !flying() && rocket_bench != mode_bench &&
+      (t_mode_sync == 0 || now - t_mode_sync >= 3000)) {
+    t_mode_sync = now ? now : 1;
+    queue_command(UplinkKind::BenchMode, mode_bench ? 1 : 0, now);
+  }
+}
+
+void update_launch(uint32_t now) {
+  // ARM and igniter from the launch drain: 0 = ARM off; ~2/3 of the battery =
+  // armed, no igniter (100k bypass); ~battery = armed with an igniter.
+  if (now - t_sense >= 50) {
+    t_sense = now;
+    const float v = launch_adc.read_volts(4);
+    sense_frac = vbat > 2.5f ? v / vbat : 0.0f;
+    const uint8_t cls = sense_frac < 0.2f ? 0 : sense_frac < 0.85f ? 1 : 2;
+    if (launch.state() != fc::LaunchState::Firing) {  // the drain reads ~0 while firing
+      if (cls == sense_cand) {
+        if (sense_count < 3) ++sense_count;
+      } else {
+        sense_cand = cls;
+        sense_count = 1;
+      }
+      if (sense_count >= 3 && cls != sense_class) {
+        const bool was_armed = sense_class >= 1;
+        sense_class = cls;
+        if (!was_armed && cls >= 1) {
+          out.println("# launch ARMED");
+          warn_beeps(3, 80, 80);
+          t_armed_chirp = now;
+        } else if (was_armed && cls == 0) {
+          out.println("# launch disarmed");
+          warn_beeps(1, 400, 0);
+        }
+        print_status(now, true);
+      }
+    }
   }
 
-  // Delayed answer beep of the connectivity check.
+  const fc::LaunchControl::Output o = launch.update(now, launch_inputs(now), set.gs_launch_pulse_ms);
+  if (o.tick_s >= 0) {
+    out.printf("# launch %ld\n", static_cast<long>(o.tick_s));
+    warn_beeps(1, 150, 0);
+  }
+  if (o.fired_now) {
+    out.println("# launch FIRING");
+    beeper.clear();
+    warn_sound = true;
+    beeper.push(static_cast<uint16_t>(set.gs_launch_pulse_ms), 0);
+    gate_on_since = now;
+  }
+  // Independent cap on the gate: never longer than the pulse setting + 0.5 s.
+  const bool on = o.gate && now - gate_on_since < set.gs_launch_pulse_ms + 500;
+  gate.set(on);
+  if (o.ended == fc::LaunchEnd::Fired) {
+    out.println("# launch fired");
+  } else if (o.ended != fc::LaunchEnd::None) {
+    out.printf("# launch aborted: %s\n", fc::to_string(o.ended));
+    warn_beeps(3, 60, 90);
+  }
+  if (o.ended != fc::LaunchEnd::None) print_status(now, true);
+  // Armed and waiting: a short chirp every 2 s so nobody forgets.
+  if (armed() && launch.state() == fc::LaunchState::Idle && now - t_armed_chirp >= 2000 && !beeper.busy()) {
+    t_armed_chirp = now;
+    warn_sound = true;
+    beeper.push(30, 0);
+  }
+}
+
+void update_panel(uint32_t now) {
+  const auto act = button.update(digitalRead(pins::ground::kButton) == LOW, now, kSearchHoldMs);
+  if (act == fc::PanelButton::Action::Short) {
+    if (launch.state() != fc::LaunchState::Idle) launch.abort();
+    else if (armed()) start_launch(now, "button");
+    else start_ping(now, "button");
+  } else if (act == fc::PanelButton::Action::Long && !armed()) {
+    set_search(!search_on, now);
+  }
+
   if (pong_beep_at && static_cast<int32_t>(now - pong_beep_at) >= 0) {
     pong_beep_at = 0;
     if (!warn_sound) {
@@ -540,10 +757,9 @@ void update_panel(uint32_t now) {
   }
 
   // Search mode: beep rate from the last frame's signal strength.
-  if (search_on && !beeper.busy() && !ping_wait && !pong_beep_at && ej == Eject::Idle) {
-    if (have_frame && now - last_frame_ms < 8000) {
-      if (now - t_search_beep >= fc::SearchBeep::interval_ms(frame_rssi, set.gs_search_lo_dbm,
-                                                              set.gs_search_hi_dbm)) {
+  if (search_on && !beeper.busy() && !ping_wait && !pong_beep_at && ej == Eject::Idle && !armed()) {
+    if (rocket_recent(now) || (have_frame && now - last_frame_ms < 8000)) {
+      if (now - t_search_beep >= fc::SearchBeep::interval_ms(frame_rssi, set.gs_search_lo_dbm, set.gs_search_hi_dbm)) {
         t_search_beep = now;
         beeper.push(30, 0);
       }
@@ -557,7 +773,6 @@ void update_panel(uint32_t now) {
   if (!beeper.busy()) warn_sound = false;
   buzzer.set(sound && (set.gs_buzzer_on || warn_sound));
 
-  // Battery: every 2 s (the divider is high impedance; a few samples average it).
   static uint32_t t_batt = 0;
   if (now - t_batt >= 2000) {
     t_batt = now;
@@ -565,22 +780,19 @@ void update_panel(uint32_t now) {
   }
   const bool batt_low = vbat >= set.batt_present_v && vbat < set.gs_batt_low_v;
 
-  // LEDs. ON: steady; double blink = battery low; fast blink = radio failed.
-  // CONNECTED: on while rocket frames arrive (< 3 s old), briefly off at each frame.
+  // ON LED: steady; 2 Hz blink = ARMED; fast = countdown/firing or radio failed; double blink = battery low.
+  // CONNECTED LED: on while rocket frames arrive (< 3 s), off for an instant at each frame.
   bool p = true;
-  bool l = have_frame && now - last_frame_ms < 3000 && now - last_frame_ms >= 80;
-  if (!radio_ok) {
-    p = (now / 100) % 2 == 0;
+  bool l = rocket_recent(now) && now - last_frame_ms >= 80;
+  if (launch.state() != fc::LaunchState::Idle || !radio_ok) {
+    p = (now / 80) % 2 == 0;
+  } else if (armed()) {
+    p = (now / 250) % 2 == 0;
   } else if (batt_low) {
     const uint32_t ph = now % 2000;
     p = !(ph < 120 || (ph >= 240 && ph < 360));
   }
-  if (ej != Eject::Idle) {  // ejection in progress: both blink fast together
-    p = l = (now / 60) % 2 == 0;
-  } else if (eject_btn) {   // button ejection enabled: alternate
-    p = (now / 125) % 2 == 0;
-    l = !p;
-  }
+  if (ej != Eject::Idle) p = l = (now / 60) % 2 == 0;
   led_power.set(p);
   led_link.set(l);
 }
@@ -588,24 +800,27 @@ void update_panel(uint32_t now) {
 }  // namespace
 
 void setup() {
-  // Buzzer (straight on the pin) off first.
-  buzzer.begin(pins::ground::kBuzzer, true, true);
+  // The launch gate low before anything else (it also has a 100k pull-down).
+  gate.begin(pins::ground::kLaunchGate);
+  buzzer.begin(pins::ground::kBuzzer, true, true);  // buzzer straight on the pin
   led_power.begin(pins::ground::kLedPower);
   led_link.begin(pins::ground::kLedLink);
   led_power.set(true);
   pinMode(pins::ground::kButton, INPUT_PULLUP);
+  pinMode(pins::ground::kModeSwitch, INPUT_PULLUP);
   Serial.begin(115200);
   Serial.setTxTimeoutMs(20);
   // Note: GPIO21 is the Wio-SX1262 button and the XIAO LED: never drive it.
 
-  const hal::RadioLink::Pins p{pins::kLoraSck,  pins::kLoraMiso,  pins::kLoraMosi,
-                               pins::kLoraNss,  pins::kLoraDio1,  pins::kLoraReset,
-                               pins::kLoraBusy, pins::kLoraRfSw};
   load_settings();
   batt_adc.begin(pins::ground::kBattSense, set.gs_batt_divider);
+  launch_adc.begin(pins::ground::kLaunchSense, set.gs_launch_divider);
   vbat = batt_adc.read_volts();
+  mode_raw = mode_bench = digitalRead(pins::ground::kModeSwitch) == LOW;
   wifi = web::load_config();
   wifi_up = web::begin(wifi);
+  const hal::RadioLink::Pins p{pins::kLoraSck,  pins::kLoraMiso, pins::kLoraMosi, pins::kLoraNss,
+                               pins::kLoraDio1, pins::kLoraReset, pins::kLoraBusy, pins::kLoraRfSw};
   const hal::RadioLink::Params r{set.radio_freq_mhz,
                                  fc::radio_bw_khz(set),
                                  static_cast<uint8_t>(set.radio_sf),
@@ -615,7 +830,7 @@ void setup() {
                                  static_cast<uint16_t>(set.radio_preamble),
                                  radio_cfg::kTcxoVolts,
                                  set.radio_rx_boost};
-  delay(1500);  // give the USB host time to open the port and see the header
+  delay(1500);  // give a USB host time to open the port and see the header
   print_headers();
   uplink_airtime_us = fc::lora_airtime_us(fc::lora_modulation(set), fc::tlm::kUplinkLen);
   duty.reset(millis());
@@ -628,133 +843,42 @@ void setup() {
     out.println("# listening");
     beeper.push(80, 0);  // powered up
   }
+  out.printf("# mode %s\n", mode_bench ? "BENCH" : "FLIGHT");
   print_uplink();
-  print_panel(millis());
-  print_battery();
+  print_status(millis(), true);
 }
 
 void loop() {
   radio.poll();
   const uint32_t now = millis();
 
-  if (reply_pending && !radio.busy() && now - reply_due < 0x80000000u) {
-    reply_pending = false;
-    if (reply_is_rf) {
-      send_rf(now);
-    } else {
-      send_heartbeat(now);
-    }
+  if (reply != Reply::None && !radio.busy() && now - reply_due < 0x80000000u) {
+    const Reply r = reply;
+    reply = Reply::None;
+    if (r == Reply::Command) send_command(now);
+    else if (r == Reply::Text) send_text(now);
+    else send_heartbeat(now);
   }
-  if (rf_pending && now - rf_since > kRfCommandTimeoutMs) {
-    rf_pending = false;
-    if (rf_kind == UplinkKind::Ping) ping_end("no rocket frame heard within 5 s");
-    else if (rf_kind == UplinkKind::EjectArm || rf_kind == UplinkKind::Eject)
-      eject_end("FAILED: no rocket frame heard within 5 s", now);
-    else out.println("# rf error: no rocket frame heard within 5 s, command dropped");
+  if (cmd_pending && now - cmd_since > kCommandTimeoutMs) {
+    cmd_pending = false;
+    if (cmd_kind == UplinkKind::Ping) ping_end("no rocket frame heard within 5 s");
+    else if (cmd_kind != UplinkKind::BenchMode) eject_end("FAILED: no rocket frame heard within 5 s");
   }
-  if (ping_wait && ping_sent_ms && now - ping_sent_ms > kPingReplyMs) ping_end("no answer within 3 s");
-  if (ej != Eject::Idle && now - ej_since > fc::RemoteFire::kWindowMs + 2000)
-    eject_end("FAILED: no answer from the rocket", now);
+  if (text_pending && now - text_since > kCommandTimeoutMs) {
+    text_pending = false;
+    out.println("RC,! not sent: no rocket frame heard within 5 s (rocket off, out of range, or in flight)");
+  }
+  if (ping_wait && ping_sent_ms && now - ping_sent_ms > 3000) ping_end("no answer within 3 s");
+  if (ej != Eject::Idle && now - ej_since > fc::RemoteFire::kWindowMs + 2000) eject_end("FAILED: no answer from the rocket");
 
-  uint8_t buf[64];
-  float rssi = 0, snr = 0;
-  bool crc_error = false;
-  const size_t n = radio.receive(buf, sizeof(buf), &rssi, &snr, &crc_error);
-  if (n > 0) {
-    last_rssi = rssi;
-    last_snr = snr;
-    char line[fc::csv::kLineMax];
-    if (!crc_error && fc::csv::format_frame(buf, n, line, sizeof(line))) {
-      ++n_ok;
-      // Byte 3 of every rocket frame is its flight state.
-      const fc::FlightState rocket_state = static_cast<fc::FlightState>(buf[3]);
-      have_frame = true;
-      last_frame_ms = now;
-      frame_rssi = rssi;
-      fc::tlm::Telemetry tf;
-      if (fc::tlm::decode(buf, n, &tf) == fc::tlm::DecodeResult::Ok) rocket_link = tf.link;
-      fc::tlm::Event ev;
-      const bool is_event = fc::tlm::decode(buf, n, &ev) == fc::tlm::DecodeResult::Ok;
-      if (is_event && ev.code == fc::EventCode::RemoteArmed) {
-        rf_nonce = static_cast<uint32_t>(ev.arg);
-        rf_nonce_at = now;
-        rf_have_nonce = true;
-        out.println("# rf rocket armed: send 'rf fire' within 10 s");
-      }
-      if (is_event && ev.code == fc::EventCode::Pong && ping_wait &&
-          static_cast<uint16_t>(ev.arg) == ping_id) {
-        ping_wait = false;
-        pong_beep_at = now + kPongBeepDelayMs;
-        if (!pong_beep_at) pong_beep_at = 1;
-        out.printf("# ping reply id=%u rtt=%lu ms rssi=%.1f snr=%.2f\n", ping_id,
-                   static_cast<unsigned long>(ping_sent_ms ? now - ping_sent_ms : 0),
-                   static_cast<double>(rssi), static_cast<double>(snr));
-      }
-      if (is_event && ev.code == fc::EventCode::EjectArmed && ej == Eject::Arming) {
-        // Answer this very frame with the fire command (the rocket listens now).
-        rf_nonce = static_cast<uint32_t>(ev.arg);
-        rf_have_nonce = true;
-        ej = Eject::Firing;
-        queue_rf(UplinkKind::Eject, rf_pulse_ms, now);
-        out.println("# eject rocket armed: sending FIRE");
-      }
-      if (is_event && ev.code == fc::EventCode::ManualEject) {
-        if (ej != Eject::Idle) ej = Eject::Idle;
-        out.printf("# eject FIRED at %.1f m\n", static_cast<double>(ev.arg) / 100.0);
-        beeper.clear();
-        warn_sound = true;
-        beeper.push(1000, 0);
-      }
-      if (is_event && ej != Eject::Idle &&
-          (ev.code == fc::EventCode::RemoteRefused || ev.code == fc::EventCode::RemoteDisarmed)) {
-        char what[80];
-        snprintf(what, sizeof(what), "refused by the rocket: %s",
-                 fc::to_string(static_cast<fc::RemoteFireEnd>(ev.arg)));
-        eject_end(what, now);
-      }
-      if (rf_pending && !reply_pending) {
-        rf_pending = false;
-        const bool flying = rocket_state == fc::FlightState::Boost ||
-                            rocket_state == fc::FlightState::Coast ||
-                            rocket_state == fc::FlightState::Descent;
-        const bool any_ground_state = rf_kind == fc::tlm::UplinkKind::FireDisarm ||
-                                      rf_kind == fc::tlm::UplinkKind::BenchMode;
-        const bool any_state = rf_kind == UplinkKind::Ping || rf_kind == UplinkKind::EjectArm ||
-                               rf_kind == UplinkKind::Eject;
-        // In flight the rocket listens only with manual_eject (or a bench simulation).
-        const bool listens_in_flight =
-            (rocket_link & (fc::tlm::kLinkManualEject | fc::tlm::kLinkBenchMode)) != 0;
-        if (any_state && flying && !listens_in_flight) {
-          if (rf_kind == UplinkKind::Ping) ping_end("the rocket does not listen in flight (manual_eject = 0)");
-          else eject_end("FAILED: the rocket does not listen in flight (manual_eject = 0)", now);
-        } else if (rocket_state == fc::FlightState::Pad || (any_ground_state && !flying) || any_state) {
-          reply_pending = true;
-          reply_is_rf = true;
-          reply_due = now + kReplyDelayMs;
-        } else {
-          out.printf("# rf error: rocket is in %s: command dropped\n",
-                        fc::to_string(rocket_state));
-        }
-      } else if (policy.on_rocket_frame(rocket_state, now)) {
-        reply_pending = true;
-        reply_is_rf = false;
-        reply_due = now + kReplyDelayMs;
-      }
-      out.printf("%s,%.1f,%.2f\n", line, static_cast<double>(rssi), static_cast<double>(snr));
-    } else {
-      ++n_bad;
-      out.printf("# bad frame: %u bytes, %s, rssi %.1f snr %.2f\n", static_cast<unsigned>(n),
-                    crc_error ? "LoRa CRC error" : "not a rocket-fc frame",
-                    static_cast<double>(rssi), static_cast<double>(snr));
-    }
-  }
+  receive(now);
 
   // Noise floor: average of instantaneous channel RSSI samples, every 2 s.
   if (now - t_noise >= 100) {
     t_noise = now;
-    const float r = radio.channel_rssi_dbm();
-    if (!isnan(r)) {
-      noise_sum += r;
+    const float rs = radio.channel_rssi_dbm();
+    if (!isnan(rs)) {
+      noise_sum += rs;
       ++noise_n;
     }
     if (noise_n >= 20) {
@@ -766,29 +890,27 @@ void loop() {
   if (now - t_stats >= 10000) {
     t_stats = now;
     if (wifi.on) print_wifi();
-    print_panel(now);
-    print_battery();
-    out.printf("# stats: %lu ok, %lu bad, last rssi %.1f dBm snr %.2f dB\n",
-                  static_cast<unsigned long>(n_ok), static_cast<unsigned long>(n_bad),
-                  static_cast<double>(last_rssi), static_cast<double>(last_snr));
+    out.printf("# stats: %lu ok, %lu bad\n", static_cast<unsigned long>(n_ok), static_cast<unsigned long>(n_bad));
     print_uplink();
   }
 
+  update_mode(now);
+  update_launch(now);
   update_panel(now);
+  print_status(now, false);
 
-  // Commands from WiFi browsers, same as USB.
-  char wcmd[sizeof(cmd)];
+  // Commands from WiFi browsers and USB.
+  char wcmd[sizeof(cmdline)];
   while (web::poll_command(wcmd, sizeof(wcmd))) exec(wcmd);
-
   while (Serial.available() > 0) {
-    const int c = Serial.read();
-    if (c == '\r') continue;
-    if (c == '\n') {
-      cmd[cmd_len] = '\0';
+    const int ch = Serial.read();
+    if (ch == '\r') continue;
+    if (ch == '\n') {
+      cmdline[cmd_len] = '\0';
       cmd_len = 0;
-      exec(cmd);
-    } else if (cmd_len < sizeof(cmd) - 1) {
-      cmd[cmd_len++] = static_cast<char>(c);
+      exec(cmdline);
+    } else if (cmd_len < sizeof(cmdline) - 1) {
+      cmdline[cmd_len++] = static_cast<char>(ch);
     }
   }
 }

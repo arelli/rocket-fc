@@ -42,7 +42,7 @@ Header, 10 bytes, common to all frame types:
 |---|---|---|
 | 0 | u8 | magic = 0xA5 |
 | 1 | u8 | version = 4 (2: attitude quaternion; 3: ground link fields, uplink; 4: real time and remote fire in the uplink) |
-| 2 | u8 | type: 1 = telemetry, 2 = event, 4 = GPS (rocket → ground); 3 = uplink (ground → rocket) |
+| 2 | u8 | type: 1 = telemetry, 2 = event, 4 = GPS, 6 = console text (rocket → ground); 3 = uplink, 5 = console command (ground → rocket) |
 | 3 | u8 | flight state (0 INIT, 1 FAULT, 2 PAD, 3 BOOST, 4 COAST, 5 DESCENT, 6 LANDED) |
 | 4 | u16 | sequence number (separate counters for radio and log; gaps on the radio = lost packets) |
 | 6 | u32 | time since boot [ms] |
@@ -180,7 +180,9 @@ link bit 1 shows whether the rocket has real time.
 The rocket accepts it on the ground only (never in flight), answers
 BENCH_MODE(1 or 0), or REMOTE_REFUSED(6) for a wrong code.
 
-**Remote test fire (bench mode only).** For ejection charge ground tests:
+**Remote test fire (bench mode only).** Kept in the rocket firmware; the
+ground station now uses the manual ejection command (kinds 7/8) instead, which
+gives the same test pulse on the pad in bench mode. Protocol:
 
 1. ground → arm(pulse). The rocket checks: bench mode, PAD state, igniter
    continuity, output idle. If all hold, it picks a random 32-bit nonce, sends
@@ -226,19 +228,42 @@ automatically in reply to the EJECT_ARMED frame. The rocket accepts:
 With `manual_eject` = 1 the rocket keeps its listen window after every
 transmission in flight too (fewer telemetry frames per second).
 
-Ground station USB commands: `beep <0..255>` (seconds), `uplink on|off`,
-`time <unix ms>`, `rf arm <ms>`, `rf fire`, `rf disarm`, `bench on|off`,
-`ping`, `search on|off`, `eject [ms]`, `eject button` (button ejection for
-60 s), `eject cancel`, `param ...` (radio and station settings), `wifi ...`,
-`reboot`; an empty line re-prints the CSV headers. Status lines:
-`# panel search=on|off eject_button=<s left> buzzer=on|off`,
-`# battery <V> V <pct> % [LOW]` or `# battery none`, `# ping ...`,
-`# eject ...`.
+Ground station commands (USB or WiFi): `launch`, `abort`, `ping`,
+`search on|off`, `eject [ms]`, `eject cancel`, `r <rocket command>`, `rdefs`,
+`rwifi` (the rocket joins the station's WiFi for the log download),
+`beep <0..255>`, `uplink on|off`, `time <unix ms>`, `param ...` (radio and
+station settings), `wifi ...`, `reboot`; an empty line re-prints the CSV
+headers. Status: `# station mode=flight|bench arm=0|1 cont=0|1 ready=0|1
+launch=idle|countdown|firing left=<s> search=0|1 vbat=<V> pct=<%> low=0|1`
+(on change, every 1 s while armed, else every 5 s), `# launch ...`,
+`# ping ...`, `# eject ...`, `# mode ...`. The rocket's bench mode follows the
+station's MODE switch (bench mode uplink, on the ground).
 
-The same lines and commands are available over the ground station's WiFi
-(src/ground/web.h): `GET /events` streams every output line as Server-Sent
-Events (`data: <line>`), `POST /cmd` takes command lines; `GET /` serves the UI. It reports `# uplink on beep=10 sent=N time=set`
-and `# rf ...` lines.
+Over WiFi (src/ground/web.h): `GET /events` streams every output line as
+Server-Sent Events (`data: <line>`), `POST /cmd` takes command lines, `GET /`
+serves the UI, `GET /rocket/<path>` relays to the rocket's log server.
+
+### Console text frames (variable length, never logged)
+
+The rocket's console works over the radio: the ground station command
+`r <command>` sends a TextCmd; the rocket runs it as if typed on USB and
+returns the output in TextOut frames (sent after events, before telemetry).
+The station prints each output line as `RC,<line>`.
+
+| Offset | TextCmd (type 5, ground → rocket) | TextOut (type 6, rocket → ground) |
+|---|---|---|
+| 10 | u32 code = `fc::text_code(seq, crc16(text), rf_key)` | u8 n (≤ 200) |
+| 14 / 11 | u8 n (≤ 120), then n bytes of text | n bytes of text (lines end in `\n`) |
+| end | u16 CRC | u16 CRC |
+
+- Accepted only on the ground (never in flight), with the right code; a
+  repeated sequence number is ignored. Settings print compactly
+  (`V,<key>,<value>,<running>`, only non-default values for `param list`);
+  the station supplies the definitions (`rdefs` → `D,` lines, same fields as
+  `P,`). Refused by radio: `fire` (use the ejection command), `dump`,
+  `flog dump`, `csv` (too long: use the WiFi log download).
+- On the ground the rocket listens up to `15 ms + airtime(longest command) +
+  60 ms` after each transmission.
 
 ## CSV
 
@@ -270,9 +295,11 @@ with the optional GPS one GPS frame per position report) goes to two logs:
   Format: [lib/fc_core/src/fc/flash_log.h](../lib/fc_core/src/fc/flash_log.h).
 - **RAM log** (2 MB PSRAM, this boot only, lost at power-off): `dump`.
 
-After recovery: remove the arm link, then switch off whenever convenient.
-Connect USB; in the UI's Flight computer panel click **List sessions** and
-**Download** the flight session (usually the one before the current boot), or
+After recovery: remove the arm link. On the WiFi page, Logs: **Rocket WiFi
+on** (the rocket joins the station's WiFi), **List onboard logs**, and save
+the flight session (usually the one before the current boot). The rocket
+serves `GET /flog` (sessions), `/flog?s=N` (CSV) and `/ram`; the station
+relays them at `/rocket/...`. Or connect USB and
 type `flog list` / `flog dump <session>` in the console. `flog erase CONFIRM`
 clears the flash log.
 

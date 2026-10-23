@@ -38,6 +38,11 @@ const char* to_string(RemoteFireEnd r);
 
 // Keyed mixing of the nonce (splitmix-style). Same function on both ends.
 uint32_t remote_fire_code(uint32_t nonce, uint32_t key);
+// Code of a console command by radio (TextCmd): ties the frame's sequence
+// number and text checksum to the pairing key.
+inline uint32_t text_code(uint16_t seq, uint16_t text_crc, uint32_t key) {
+  return remote_fire_code((static_cast<uint32_t>(seq) << 16) | text_crc, key ^ 0x54455854u);
+}
 // Code of a bench mode on/off request by radio (fixed per key and direction).
 inline uint32_t bench_mode_code(bool on, uint32_t key) {
   return remote_fire_code(0xBE4C4D00u | (on ? 1u : 0u), key);
