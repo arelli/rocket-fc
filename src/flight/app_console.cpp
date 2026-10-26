@@ -1,7 +1,7 @@
 // USB serial console of the flight computer (115200 baud, line based).
 // Commands that block for a while are only accepted when nothing can happen
 // (INIT, PAD, FAULT, LANDED). Test commands need bench mode ('bench on', RAM
-// only: every boot starts in flight mode).
+// only; at boot it follows the setting bench_at_boot).
 #include <stdlib.h>
 #include <string.h>
 

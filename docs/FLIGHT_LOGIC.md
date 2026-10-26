@@ -88,9 +88,11 @@ Also from COAST if the rocket came down without an apogee decision.
 
 **Bench mode** adds test firing: over USB (`fire <ms> CONFIRM`) and by radio
 from the ground station UI (two-step arm/fire with a one-time code, only in
-PAD with continuity; see docs/TELEMETRY.md). Bench mode is kept in RAM only:
-every boot starts in flight mode, and a detected launch ends it. In flight
-mode test pulses and remote fire requests are refused (docs/SETTINGS.md).
+PAD with continuity; see docs/TELEMETRY.md). Bench mode is kept in RAM;
+every boot starts in it (setting `bench_at_boot`, never after a reset in
+flight), and a detected launch ends it. It does not change the flight logic.
+In flight mode test pulses and remote fire requests are refused
+(docs/SETTINGS.md).
 
 **Manual ejection by radio** (setting `manual_eject`, off by default) is the
 one deliberate bypass of layers 4, 5 and 8: after launch detection a two-step

@@ -64,7 +64,6 @@ void App::setup() {
   load_settings();
   apply_settings();
   led_.begin(pins::kStatusLed, 0, static_cast<uint8_t>(set_.led_bright_pct));
-  con.println("mode: FLIGHT (bench mode off: 'bench on' enables the test commands until reboot)");
   if (set_.manual_eject)
     con.println("WARNING: manual_eject = 1: the ground station can fire the ejection charge IN FLIGHT "
                    "(two-step coded command). Set manual_eject = 0 if you do not intend to use it.");
@@ -99,6 +98,9 @@ void App::setup() {
   event(EventCode::Config, static_cast<int32_t>(set_crc_), now);
   try_resume(now);
   if (!resumed_) start_countdown(now);
+  // Bench mode at boot (setting bench_at_boot), never when resuming a flight.
+  if (set_.bench_at_boot && !resumed_) set_bench(true, 1, now, "bench_at_boot");
+  else con.println("mode: FLIGHT (bench mode off)");
 
   update_battery(now);
   hal::watchdog_begin(cfg::kWatchdogS);
@@ -1021,7 +1023,7 @@ uint32_t App::gps_period_ms() const {
   return fc_.state() == FlightState::Landed ? set_.tlm_landed_ms : set_.gps_tlm_ms;
 }
 
-// Bench mode: test commands allowed. Never saved: every boot starts in flight mode.
+// Bench mode: test commands allowed. RAM only; at boot it follows the setting bench_at_boot.
 void App::set_bench(bool on, int32_t why, uint32_t now, const char* source) {
   bench_ = on;
   if (!on && remote_.armed()) {
@@ -1036,7 +1038,7 @@ void App::set_bench(bool on, int32_t why, uint32_t now, const char* source) {
   }
   event(EventCode::BenchMode, why, now);
   con.printf("[%lu] BENCH MODE %s (%s)%s\n", static_cast<unsigned long>(now), on ? "ON" : "OFF", source,
-                on ? ": test commands enabled until reboot, 'bench off' or launch" : "");
+                on ? ": test commands enabled until 'bench off' or launch" : "");
 }
 
 // --- Battery sag during a pyro pulse -----------------------------------------

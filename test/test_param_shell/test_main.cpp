@@ -58,7 +58,7 @@ static void test_list_and_line_format() {
   sh.format_line(*find_param("rf_key"), line, sizeof(line));
   TEST_ASSERT_EQUAL_INT(0, strncmp("P,rf_key,radio,u32,0x6B1D4F37,0x6B1D4F37,0x6B1D4F37,0,4294967295,,RH,,", line, 70));
   run(sh, c, {"list", "deploy"});
-  TEST_ASSERT_EQUAL_INT(9, count_prefix(c, "P,"));
+  TEST_ASSERT_EQUAL_INT(10, count_prefix(c, "P,"));
   run(sh, c, {"get", "gs_buzzer_on"});
   TEST_ASSERT_EQUAL_INT(1, count_prefix(c, "PERR,gs_buzzer_on,unknown"));
 }

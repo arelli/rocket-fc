@@ -90,6 +90,8 @@ enum ParamFlags : uint8_t {
     "Backup: fire this long after launch if apogee was not detected. 0 = off. Use simulated apogee time + 1-2 s.") \
   X(U32, pyro_pulse_ms,     "deploy",   1000, 10, 2000, "ms", kParamSafety, "", \
     "Igniter on-time at deployment (the driver caps any pulse at 2000 ms).") \
+  X(Bool, bench_at_boot,     "deploy",   1, 0, 1, "", 0, "", \
+    "Start every boot in bench mode (test commands on). Launch detection ends it; the ground station's MODE overrides it. 0 = start in flight mode.") \
   X(Bool, manual_eject,      "deploy",   0, 0, 1, "", kParamSafety, "", \
     "Allow a manual parachute ejection command from the ground station IN FLIGHT. The rocket then listens after every transmission in flight, and a command fires the charge at once after launch detection, overriding the apogee logic. Off unless you need it.") \
   X(F32, continuity_frac,   "deploy",   0.6, 0.1, 0.95, "", 0, "", \

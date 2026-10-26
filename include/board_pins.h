@@ -55,7 +55,7 @@ constexpr int kLedPower = 4;    // D3: "on" LED (330R)
 constexpr int kLaunchSense = 5; // D4 / A4: launch channel drain, 100k/100k divider (ARM + continuity)
 constexpr int kLaunchGate = 6;  // D5: launch MOSFET gate (100R series, 100k pull-down)
 constexpr int kLedLink = 43;    // D6: "rocket connected" LED (330R; flickers at boot: ROM log)
-constexpr int kModeSwitch = 44; // D7: FLIGHT/BENCH switch to GND (internal pull-up; open = FLIGHT)
+constexpr int kModeSwitch = 44; // D7: MODE switch to GND (internal pull-up; open = BENCH, closed = FLIGHT)
 }  // namespace ground
 
 }  // namespace pins

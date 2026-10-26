@@ -257,8 +257,8 @@ text{font-family:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace}
 <polyline class="w" points="208,100 260,100 260,130"/>
 <polyline class="w" points="260,130 260,134"/>
 <path class="sym" d="M250,134H270M254,138H266M257.5,142H262.5"/>
-<text class="lbl" x="290" y="96" text-anchor="start">open = FLIGHT</text>
-<text class="lbl" x="290" y="112" text-anchor="start">closed = BENCH</text>
+<text class="lbl" x="290" y="96" text-anchor="start">open = BENCH</text>
+<text class="lbl" x="290" y="112" text-anchor="start">closed = FLIGHT</text>
 <path class="net" d="M110,230L103,221H47.6V239H103Z"/>
 <text class="nett" x="75.3" y="234" text-anchor="middle">BUTTON</text>
 <polyline class="w" points="110,230 150,230"/>

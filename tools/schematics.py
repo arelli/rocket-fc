@@ -341,7 +341,7 @@ def ground():
     c = Card(780, 480, 460, 420, 'Switches and button', 'all to GND, internal pull-ups')
     c.net(110, 100, 'MODE', 'left')
     c.w((110, 100), (150, 100)); c.sw_h(153, 205, 100, 'SW3', 'MODE'); c.w((208, 100), (260, 100), (260, 130)); c.gnd(260, 130, 4)
-    c.t(290, 96, 'open = FLIGHT', 'lbl'); c.t(290, 112, 'closed = BENCH', 'lbl')
+    c.t(290, 96, 'open = BENCH', 'lbl'); c.t(290, 112, 'closed = FLIGHT', 'lbl')
     c.net(110, 230, 'BUTTON', 'left')
     c.w((110, 230), (150, 230)); c.button_h(153, 213, 230, 'S1', 'push button'); c.w((216, 230), (260, 230), (260, 260)); c.gnd(260, 260, 4)
     c.note(14, 320, ['Button: ARM off: short = ping, hold 1.5 s = search mode.',

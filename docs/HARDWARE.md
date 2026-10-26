@@ -201,7 +201,7 @@ box, powered by an 18650 cell. It is also the launch controller. Schematic:
 | D4 / A4 | 5 | Launch sense | 100k/100k divider from the launch MOSFET drain |
 | D5 | 6 | Launch MOSFET gate | 100 Ω series, 100k pull-down, IRLB8748 |
 | D6 | 43 | CONNECTED LED | 330 Ω (flickers at boot) |
-| D7 | 44 | MODE switch | to GND (internal pull-up): open = FLIGHT, closed = BENCH |
+| D7 | 44 | MODE switch | to GND (internal pull-up): open = BENCH, closed = FLIGHT |
 | U.FL on the XIAO | | WiFi antenna | 2.4 GHz (D-Link) |
 | U.FL on the Wio-SX1262 | | LoRa antenna | 868 MHz |
 
@@ -217,7 +217,7 @@ box, powered by an 18650 cell. It is also the launch controller. Schematic:
   armed without an igniter, and the battery voltage when armed with an
   igniter connected. Thick wire for the whole loop; keep the launch leads
   short (put the station near the pad and use the phone at a distance).
-- **MODE switch:** FLIGHT (open) or BENCH (closed). The station keeps the
+- **MODE switch:** BENCH (open) or FLIGHT (closed). The station keeps the
   rocket's bench mode equal to it (by radio, on the ground). In FLIGHT a
   launch needs the rocket heard in PAD (`gs_launch_need_pad`); BENCH allows
   a launch channel test without the rocket.
@@ -242,7 +242,7 @@ missing, and the WiFi page keeps every control:
 
 | Missing | What happens |
 |---|---|
-| MODE switch | Boots in FLIGHT; FLIGHT/BENCH buttons on the page (with a switch, the latest of switch or page wins) |
+| MODE switch | Boots in BENCH; BENCH/FLIGHT buttons on the page (with a switch, the latest of switch or page wins) |
 | ARM switch / whole launch channel | Reads "ARM off": LAUNCH refused, the button pings. Nothing else changes |
 | Push button | Ping, search, launch from the page |
 | Buzzer, LEDs | Silent / dark; the page shows everything |

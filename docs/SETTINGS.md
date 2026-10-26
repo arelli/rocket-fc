@@ -111,13 +111,16 @@ commands: `sim` / `sim live` (simulated flight), `fire <ms> CONFIRM` (USB test
 pulse), the ejection charge test from the ground station on the pad, and the
 rocket's WiFi for the log download.
 
-- Kept in RAM only: **every boot starts in flight mode**.
-- Normally set by the ground station's **MODE switch**: the station sends the
+- **Every boot starts in bench mode** (setting `bench_at_boot` = 1; 0 = start
+  in flight mode). Not after a processor reset in flight (the flight resumes).
+- Normally set by the ground station's **MODE** (switch open or page = BENCH,
+  switch closed = FLIGHT; the station also starts in BENCH): the station sends the
   rocket's bench mode by radio until it matches (on the ground only). The
   request carries a code derived from the pairing key `rf_key`. Over USB:
   `bench on|off` (the station switches it back to match its switch).
 - A detected launch switches it off (BENCH_MODE event, argument 2).
-- Telemetry link bit 3 and the BENCH_MODE event report it; the UI shows a
-  banner while it is on.
+- Telemetry link bit 3 and the BENCH_MODE event report it.
+- **Before a real flight switch the station to FLIGHT:** in BENCH, LAUNCH
+  does not check that the rocket is ready (in PAD, in flight mode).
 - Bench mode does not change the flight logic: launch detection and apogee
   deployment work the same. It only adds the test commands.

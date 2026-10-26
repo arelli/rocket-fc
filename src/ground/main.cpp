@@ -32,7 +32,7 @@
 //   param ...           this station's settings;  wifi ...;  reboot
 //   (empty line)        re-print the CSV headers
 //
-// Panel (docs/HARDWARE.md "Ground station"): MODE switch (FLIGHT/BENCH, the
+// Panel (docs/HARDWARE.md "Ground station"): MODE switch (open BENCH / closed FLIGHT, the
 // rocket's bench mode follows it), ARM switch (in the igniter circuit), push
 // button, buzzer, ON and CONNECTED LEDs, battery sense, launch channel.
 #include <Arduino.h>
@@ -723,9 +723,10 @@ void receive(uint32_t now) {
 // =================================================================================
 
 // MODE: the switch sets it when flipped, the page ("mode flight|bench") at any
-// time; the latest wins. Without a switch (D7 open) the station boots in FLIGHT.
+// time; the latest wins. Open (or no switch) = BENCH, closed = FLIGHT: the
+// station boots in BENCH unless the switch is in FLIGHT.
 void update_mode(uint32_t now) {
-  const bool raw = digitalRead(pins::ground::kModeSwitch) == LOW;  // closed = BENCH
+  const bool raw = digitalRead(pins::ground::kModeSwitch) == HIGH;  // open = BENCH
   if (raw != mode_raw) {
     mode_raw = raw;
     mode_raw_since = now;
@@ -886,7 +887,7 @@ void setup() {
   batt_adc.begin(pins::ground::kBattSense, set.gs_batt_divider);
   launch_adc.begin(pins::ground::kLaunchSense, set.gs_launch_divider);
   vbat = batt_adc.read_volts();
-  mode_raw = mode_switch = mode_bench = digitalRead(pins::ground::kModeSwitch) == LOW;
+  mode_raw = mode_switch = mode_bench = digitalRead(pins::ground::kModeSwitch) == HIGH;  // open = BENCH
   wifi = web::load_config();
   wifi_up = web::begin(wifi);
   const hal::RadioLink::Pins p{pins::kLoraSck,  pins::kLoraMiso, pins::kLoraMosi, pins::kLoraNss,

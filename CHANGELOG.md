@@ -103,3 +103,8 @@ First version: not yet flown.
   nose up, measures gravity for 1 s and saves the IMU nose axis
   (imu_up_axis); refuses if moving or the IMU is mounted at an angle
   (fc/mount.h, tested). UI shows the rocket's tilt from vertical.
+- Bench mode is the default: the rocket boots in bench mode (setting
+  bench_at_boot, never after a reset in flight) and the station's MODE
+  switch is swapped (open or missing = BENCH, closed = FLIGHT).
+- Simpler UI: two columns (Launch, Flight, GPS, Battery, Rocket, Events),
+  setting help as tooltips, Settings/Logs/Console folded; nothing removed.

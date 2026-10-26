@@ -12,162 +12,161 @@
 -->
 <style>
 :root {
-  --bg: #eef1f2; --card: #ffffff; --ink: #172026; --muted: #5f6d75; --line: #d3dadd;
-  --ok: #1d7a46; --warn: #a86a00; --bad: #c3302b; --accent: #1f5f8b; --chip: #e7ecee;
+  --bg: #eef1f2; --card: #fff; --ink: #172026; --muted: #64727a; --line: #d6dde0;
+  --ok: #1d7a46; --warn: #a86a00; --bad: #c3302b; --accent: #1f5f8b; --chip: #e8edef;
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) { :root {
   --bg: #0f1416; --card: #182024; --ink: #e2e9ec; --muted: #8d9ba2; --line: #2a353a;
-  --ok: #46c27f; --warn: #e3a33a; --bad: #ff6a5f; --accent: #6fb1e0; --chip: #222c31;
+  --ok: #46c27f; --warn: #e3a33a; --bad: #ff6a5f; --accent: #6fb1e0; --chip: #232d32;
   color-scheme: dark; } }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  padding: 0 max(12px, env(safe-area-inset-right)) 40px max(12px, env(safe-area-inset-left)); }
-.num, code, .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-variant-numeric: tabular-nums; }
-header { position: sticky; top: 0; z-index: 5; background: var(--bg); padding: 10px 0 8px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-.state { font: 700 20px system-ui; padding: 4px 12px; border-radius: 8px; background: var(--chip); }
+  padding: 0 max(12px, env(safe-area-inset-right)) 32px max(12px, env(safe-area-inset-left)); }
+.num { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-variant-numeric: tabular-nums; }
+header { position: sticky; top: 0; z-index: 5; background: var(--bg); padding: 10px 0; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.state { font-weight: 700; font-size: 18px; padding: 3px 10px; border-radius: 7px; background: var(--chip); }
 .state.PAD { background: var(--accent); color: #fff; } .state.BOOST, .state.COAST, .state.DESCENT { background: var(--warn); color: #000; }
 .state.LANDED { background: var(--ok); color: #fff; } .state.FAULT { background: var(--bad); color: #fff; }
-.pill { display: inline-block; padding: 2px 8px; border-radius: 99px; background: var(--chip); font-size: 13px; white-space: nowrap; }
+.pill { padding: 2px 8px; border-radius: 99px; background: var(--chip); font-size: 13px; white-space: nowrap; }
 .pill.ok { background: var(--ok); color: #fff; } .pill.warn { background: var(--warn); color: #000; } .pill.bad { background: var(--bad); color: #fff; }
-.spacer { flex: 1; }
-.banner { background: var(--warn); color: #000; padding: 6px 12px; border-radius: 8px; font-weight: 600; margin-bottom: 10px; }
-main { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); align-items: start; }
+.grow { flex: 1; }
+main { display: grid; gap: 12px; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+@media (max-width: 700px) { main { grid-template-columns: minmax(0, 1fr); } }
 section, details { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px; min-width: 0; }
-h2, summary { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 8px; font-weight: 600; }
-summary { cursor: pointer; margin: 0; } details[open] summary { margin-bottom: 8px; }
-.wide { grid-column: 1 / -1; }
-.kv { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; }
-.kv span:nth-child(odd) { color: var(--muted); }
-.big { font: 700 34px ui-monospace, Menlo, monospace; }
-.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 6px 0; }
-button { font: inherit; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--line); background: var(--chip); color: var(--ink); cursor: pointer; }
-button:disabled { opacity: .45; cursor: default; }
-button.seg { padding: 4px 12px; font-size: 13px; }
-button.seg.on { background: var(--ink); color: var(--card); }
-button.go { background: var(--bad); color: #fff; border-color: var(--bad); font-weight: 700; font-size: 18px; padding: 12px 22px; }
-button.stop { background: var(--ink); color: var(--card); font-weight: 700; font-size: 18px; padding: 12px 22px; }
+.full { grid-column: 1 / -1; }
+h2, summary { font-size: 12px; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); margin: 0 0 8px; font-weight: 600; }
+summary { cursor: pointer; margin: 0; } details[open] summary { margin-bottom: 10px; }
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; }
+.kv > :nth-child(odd) { color: var(--muted); }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px; }
+button { font: inherit; padding: 7px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--chip); color: var(--ink); cursor: pointer; }
+button:disabled { opacity: .4; cursor: default; }
+button.on { background: var(--ink); color: var(--card); }
+button.go { background: var(--bad); color: #fff; border-color: var(--bad); font-weight: 700; font-size: 18px; flex: 1; padding: 12px; }
+button.stop { font-weight: 700; font-size: 18px; flex: 1; padding: 12px; }
 input, select { font: inherit; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); min-width: 0; }
+.big { font: 700 32px ui-monospace, Menlo, monospace; }
 .muted { color: var(--muted); font-size: 13px; }
-.countdown { font: 800 64px ui-monospace, Menlo, monospace; text-align: center; color: var(--muted); }
-.countdown.live { color: var(--bad); }
-canvas { width: 100%; height: 170px; display: block; }
-.events { max-height: 260px; overflow: auto; font-size: 13px; }
+.count { font: 800 48px ui-monospace, Menlo, monospace; text-align: center; color: var(--bad); margin: 4px 0; }
+canvas { display: block; width: 100%; }
+#plot { height: 120px; margin-top: 8px; }
+#att { width: 44px; height: 44px; flex: none; }
+.events { max-height: 180px; overflow: auto; font-size: 13px; }
 .events div { padding: 2px 0; border-bottom: 1px solid var(--line); }
+.scroll { max-height: 420px; overflow: auto; }
 table { width: 100%; border-collapse: collapse; font-size: 14px; }
-td { padding: 4px 6px 4px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+td { padding: 4px 6px 4px 0; border-bottom: 1px solid var(--line); }
 td.k { font-family: ui-monospace, Menlo, monospace; font-size: 13px; }
 td input, td select { width: 100%; }
 tr.changed td.k { color: var(--accent); font-weight: 700; }
-.help { color: var(--muted); font-size: 12px; }
-.scroll { max-height: 420px; overflow: auto; }
-pre { margin: 0; max-height: 260px; overflow: auto; font-size: 12px; white-space: pre-wrap; }
+pre { margin: 8px 0 0; max-height: 240px; overflow: auto; font-size: 12px; white-space: pre-wrap; }
 </style>
 </head>
 <body>
 <header>
   <span id="st" class="state">—</span>
-  <span class="num" id="hdr-alt">— m</span>
-  <span class="pill" id="p-link">no rocket</span>
-  <span class="pill" id="p-gps">GPS</span>
-  <span class="pill" id="p-eject" hidden>MANUAL EJECT</span>
-  <span class="spacer"></span>
-  <span class="pill" id="p-mode">—</span>
-  <span class="pill" id="p-arm">—</span>
-  <span class="pill" id="p-gsbatt">—</span>
-  <span class="pill" id="p-conn">connecting</span>
+  <span class="num" id="h-alt"></span>
+  <span class="pill" id="h-link">no rocket</span>
+  <span class="pill" id="h-eject" hidden>MANUAL EJECT</span>
+  <span class="grow"></span>
+  <span class="pill" id="h-mode">—</span>
+  <span class="pill" id="h-conn">connecting</span>
 </header>
-<div id="banner" class="banner" hidden></div>
 
 <main>
   <section>
     <h2>Launch</h2>
-    <div class="row">
-      <span class="muted">Mode</span>
-      <button id="b-mflight" class="seg">FLIGHT</button><button id="b-mbench" class="seg">BENCH</button>
+    <div class="row" style="margin:0">
+      <button id="b-mbench">BENCH</button><button id="b-mflight">FLIGHT</button>
+      <span class="grow"></span><span id="l-state" class="muted"></span>
     </div>
-    <div class="row">
-      <span class="pill" id="l-arm">ARM —</span>
-      <span class="pill" id="l-cont">igniter —</span>
-      <span class="pill" id="l-ready">rocket —</span>
-    </div>
-    <div id="l-count" class="countdown">—</div>
-    <div class="row" style="justify-content:center">
-      <button id="b-launch" class="go" disabled>LAUNCH</button>
-      <button id="b-abort" class="stop">ABORT</button>
-    </div>
-    <div id="l-msg" class="muted" style="text-align:center">—</div>
+    <div id="l-count" class="count">—</div>
+    <div class="row"><button id="b-launch" class="go" disabled>LAUNCH</button><button id="b-abort" class="stop">ABORT</button></div>
+    <div id="l-msg" class="muted" style="margin-top:6px"></div>
   </section>
 
   <section>
     <h2>Flight</h2>
-    <div class="kv">
-      <span>Altitude</span><span class="num"><b id="f-alt">—</b> m (max <span id="f-max">—</span>)</span>
-      <span>Vertical speed</span><span class="num" id="f-vel">—</span>
-      <span>Rocket battery</span><span class="num" id="f-batt">—</span>
-      <span>Signal</span><span class="num" id="f-sig">—</span>
-      <span>Sensors</span><span id="f-flags">—</span>
+    <div class="row" style="margin:0;align-items:baseline">
+      <span class="big" id="f-alt">—</span><span class="muted">m</span>
+      <span class="grow"></span><span class="num muted" id="f-vel"></span>
     </div>
-    <div class="row">
-      <canvas id="att" style="width:64px;height:64px;flex:none"></canvas>
-      <div style="flex:1;min-width:0">
-        <div class="num" id="f-tilt">—</div>
-        <button id="b-upright">Set upright</button>
-        <div class="muted" id="f-upright">Stand the rocket nose up and keep it still, then press.</div>
-      </div>
+    <div class="row" style="margin-top:2px">
+      <canvas id="att"></canvas>
+      <span class="muted grow" id="f-tilt"></span>
+      <button id="b-upright" title="Stand the rocket nose up and keep it still">Set upright</button>
     </div>
     <canvas id="plot"></canvas>
   </section>
 
   <section>
-    <h2>Recovery</h2>
-    <div class="row"><button id="b-ping">Ping</button><span id="r-ping" class="muted">—</span></div>
-    <div class="row"><label><input type="checkbox" id="c-search"> Search mode</label><span class="num big" id="r-rssi" style="font-size:22px"></span></div>
+    <h2>GPS</h2>
     <div class="kv">
-      <span>GPS</span><span class="num" id="r-gps">—</span>
-      <span>From pad</span><span class="num" id="r-dist">—</span>
+      <span>Position</span><span class="num" id="g-pos">—</span>
+      <span>From pad</span><span class="num" id="g-dist">—</span>
     </div>
-    <div class="row"><a id="r-map" href="#" target="_blank" rel="noopener" hidden>Open in Maps</a></div>
-    <div class="row"><button id="b-eject">Eject parachute</button><span id="r-eject" class="muted">—</span></div>
+    <div class="row"><a id="g-map" href="#" target="_blank" rel="noopener" hidden>Open in Maps</a></div>
+  </section>
+
+  <section>
+    <h2>Battery</h2>
+    <div class="kv">
+      <span>Rocket</span><span class="num" id="b-rocket">—</span>
+      <span>Station</span><span class="num" id="b-station">—</span>
+    </div>
+  </section>
+
+  <section>
+    <h2>Rocket</h2>
+    <div class="kv">
+      <span>Signal</span><span class="num" id="r-sig">—</span>
+      <span>Sensors</span><span id="r-sens">—</span>
+    </div>
+    <div class="row">
+      <button id="b-ping">Ping</button>
+      <button id="b-search">Search</button>
+      <button id="b-eject">Eject</button>
+    </div>
+    <div id="r-msg" class="muted" style="margin-top:6px"></div>
   </section>
 
   <section>
     <h2>Events</h2>
-    <div id="events" class="events"><div class="muted">No events yet.</div></div>
+    <div id="events" class="events"></div>
   </section>
 
-  <details class="wide" id="set-box">
+  <details class="full" id="set-box">
     <summary>Settings</summary>
-    <div class="row">
+    <div class="row" style="margin:0">
       <select id="s-kit"><option value="rocket">Rocket</option><option value="station">Station</option></select>
-      <button id="b-sload">Read</button>
       <input id="s-filter" placeholder="filter" style="flex:1">
-      <span id="s-state" class="muted"></span>
+      <button id="b-sload">Read</button><button id="b-ssave">Save</button><button id="b-sreboot">Reboot</button>
     </div>
+    <div id="s-state" class="muted" style="margin:6px 0"></div>
     <div class="scroll"><table id="s-table"></table></div>
-    <div class="row">
-      <button id="b-ssave">Save</button>
-      <button id="b-sreboot">Reboot</button>
-      <span class="muted">Changes apply after save and reboot. Radio settings change on both kits.</span>
-    </div>
   </details>
 
   <details id="log-box">
     <summary>Logs</summary>
-    <div class="row"><button id="b-save">Save received data</button><span id="g-count" class="muted"></span></div>
-    <div class="row"><button id="b-rwifi">Rocket WiFi on</button><button id="b-rwifioff">off</button><span id="w-state" class="muted">—</span></div>
-    <div class="row"><button id="b-flist">List onboard logs</button><button id="b-ram">RAM log</button></div>
+    <div class="row" style="margin:0">
+      <button id="b-save">Save received</button>
+      <button id="b-rwifi">Rocket WiFi</button>
+      <button id="b-flist">Onboard logs</button>
+      <button id="b-ram">RAM log</button>
+    </div>
+    <div id="w-state" class="muted" style="margin-top:6px"></div>
     <div id="f-list" class="row"></div>
   </details>
 
   <details id="con-box">
     <summary>Console</summary>
-    <div class="row">
+    <div class="row" style="margin:0">
       <select id="c-kit"><option value="r">Rocket</option><option value="">Station</option></select>
-      <input id="c-in" class="mono" style="flex:1" placeholder="status" autocomplete="off" autocapitalize="off">
+      <input id="c-in" class="num" style="flex:1" placeholder="status" autocomplete="off" autocapitalize="off">
       <button id="b-send">Send</button>
     </div>
-    <pre id="c-out" class="mono"></pre>
+    <pre id="c-out" class="num"></pre>
   </details>
 </main>
 
@@ -180,58 +179,54 @@ const T_COLS = ['type', 'seq', 't_ms', 'state', 'alt_m', 'vel_mps', 'ax_g', 'ay_
 const G_COLS = ['type', 'seq', 't_ms', 'state', 'fix', 'sats', 'hdop', 'lat', 'lon', 'alt_msl_m', 'speed_mps', 'course_deg', 'age_ms', 'utc_s', 'rssi', 'snr'];
 const REASONS = ['fired', 'not in bench mode', 'not in PAD', 'no continuity', 'bad pulse', 'not armed', 'wrong code (rf_key?)',
   'window expired', 'cancelled', 'busy', 'manual_eject is off', 'already fired', 'no launch detected'];
+// Events worth listing (the others are status the page shows anyway).
 const EVENTS = {
   BOOT: 'Rocket started', SELFTEST_OK: 'Self-test OK', SELFTEST_FAIL: 'SELF-TEST FAILED (fault %)', LAUNCH: 'LAUNCH',
-  BURNOUT: 'Burnout at %m', APOGEE: 'Apogee %m', PYRO_FIRE: 'Parachute fired at %m', PYRO_BACKUP_FIRE: 'Backup timer fired at %m',
-  LANDED: 'Landed (max %m)', APOGEE_NO_DEPLOY: 'Apogee too low to deploy (%m)', BATT_LOW: 'Battery low', BATT_CRITICAL: 'Battery critical',
+  BURNOUT: 'Burnout %m', APOGEE: 'Apogee %m', PYRO_FIRE: 'Parachute fired %m', PYRO_BACKUP_FIRE: 'Backup timer fired %m',
+  LANDED: 'Landed (max %m)', APOGEE_NO_DEPLOY: 'Too low to deploy (%m)', BATT_LOW: 'Rocket battery low', BATT_CRITICAL: 'Rocket battery critical',
   PYRO_OPEN: 'Igniter burned through', SENSOR_LOST: 'Sensor lost', RESUMED: 'Resumed after a reset', BENCH_FIRE: 'Test pulse fired',
-  GROUND_LINK: null, TIME_SYNC: null, CONFIG: null, PONG: null, PYRO_SAG: null, REMOTE_ARMED: 'Test fire armed',
-  REMOTE_DISARMED: 'Disarmed: %r', REMOTE_REFUSED: 'Refused: %r', BENCH_MODE: null, GPS: null,
-  EJECT_ARMED: 'Ejection armed', MANUAL_EJECT: 'MANUAL EJECTION at %m',
+  REMOTE_DISARMED: 'Disarmed: %r', REMOTE_REFUSED: 'Refused: %r', EJECT_ARMED: 'Ejection armed', MANUAL_EJECT: 'MANUAL EJECTION %m',
 };
-const S = {
-  t: null, tAt: 0, g: null, pad: null, maxAlt: 0, series: [], events: [], lines: [], rx: 0,
-  station: {}, defs: new Map(), rvals: new Map(), rpe: null, sdefs: new Map(), spe: null, conOut: [],
-};
+const BAD_EVENTS = ['SELFTEST_FAIL', 'BATT_CRITICAL', 'SENSOR_LOST', 'REMOTE_REFUSED'];
+const LIION = [[3.30, 0], [3.40, 2], [3.50, 5], [3.60, 12], [3.70, 28], [3.80, 45], [3.90, 62], [4.00, 78], [4.10, 90], [4.20, 100]];  // = fc::liion_percent
+const S = { t: null, tAt: 0, g: null, pad: null, maxAlt: 0, series: [], lines: [], station: {}, tiltMsgAt: 0,
+  defs: new Map(), rvals: new Map(), rpe: null, sdefs: new Map(), spe: null, conOut: [] };
 
 // ---------------------------------------------------------------- connection
-let es = null;
 function connect() {
-  es = new EventSource('/events');
+  const es = new EventSource('/events');
   es.onopen = () => { setConn(true); send(''); send('time ' + Date.now()); };
   es.onerror = () => setConn(false);
   es.onmessage = e => onLine(e.data);
 }
-function setConn(ok) { const p = $('p-conn'); p.textContent = ok ? 'station' : 'no station'; p.className = 'pill ' + (ok ? 'ok' : 'bad'); }
+function setConn(ok) { pill($('h-conn'), ok ? 'station' : 'no station', ok ? 'ok' : 'bad'); }
 function send(cmd) { return fetch('/cmd', { method: 'POST', body: cmd + '\n' }).catch(() => setConn(false)); }
 
-// ---------------------------------------------------------------- lines
+// ---------------------------------------------------------------- incoming lines
 function onLine(line) {
   if (!line) return;
   S.lines.push(line);
   if (S.lines.length > 200000) S.lines.splice(0, 50000);
-  if (line.startsWith('T,')) return onTelemetry(line.split(','));
-  if (line.startsWith('E,')) return onEvent(line.split(','));
-  if (line.startsWith('G,')) return onGps(line.split(','));
+  const c2 = line.slice(0, 2);
+  if (c2 === 'T,') return onTelemetry(line.split(','));
+  if (c2 === 'E,') return onEvent(line.split(','));
+  if (c2 === 'G,') return onGps(line.split(','));
   if (line.startsWith('RC,')) return onRocketText(line.slice(3));
-  if (line.startsWith('D,')) { const d = parseP(line); S.defs.set(d.key, d); return renderSettings(); }
-  if (line.startsWith('P,')) { const d = parseP(line); S.sdefs.set(d.key, d); return renderSettings(); }
+  if (c2 === 'D,') { const d = parseP(line); S.defs.set(d.key, d); return renderSettings(); }
+  if (c2 === 'P,') { const d = parseP(line); S.sdefs.set(d.key, d); return renderSettings(); }
   if (line.startsWith('PE,')) { S.spe = line.split(','); return renderSettings(); }
-  if (line.startsWith('PERR,') || line.startsWith('PSAVED,')) { conAppend('station: ' + line); return; }
-  if (line.startsWith('# station ')) return onStation(line);
+  if (line.startsWith('PERR,') || line.startsWith('PSAVED,')) return conAppend('station: ' + line);
+  if (line.startsWith('# station ')) { const st = {}; line.slice(10).split(' ').forEach(kv => { const [k, v] = kv.split('='); st[k] = v; }); S.station = st; return; }
   if (line.startsWith('# launch')) { $('l-msg').textContent = line.slice(9); if (/aborted|refused|fired/.test(line)) addEvent(line.slice(2)); return; }
   if (line.startsWith('# ping')) return onPing(line);
-  if (line.startsWith('# eject')) { $('r-eject').textContent = line.slice(8); if (/FIRED|refused|FAILED/.test(line)) addEvent(line.slice(2)); return; }
-  if (line.startsWith('# mode')) addEvent('Station ' + line.slice(2));
-  if (line.startsWith('# ') && !line.startsWith('# noise') && !line.startsWith('# stats') && !line.startsWith('# uplink')) conAppend(line);
+  if (line.startsWith('# eject')) { $('r-msg').textContent = 'Eject: ' + line.slice(8); if (/FIRED|refused|FAILED/.test(line)) addEvent(line.slice(2)); return; }
+  if (line.startsWith('# ') && !/^# (noise|stats|uplink|mode)/.test(line)) conAppend(line);
 }
-
 function onTelemetry(p) {
   const f = {};
   T_COLS.forEach((c, i) => f[c] = c === 'type' || c === 'state' ? p[i] : Number(p[i]));
-  f.flags = parseInt(p[18]); f.link = parseInt(p[23]);
-  if (S.t && f.t_ms < S.t.t_ms - 5000) { S.series = []; S.maxAlt = 0; }  // rocket restarted
-  S.t = f; S.tAt = performance.now(); S.rx++;
+  if (S.t && f.t_ms < S.t.t_ms - 5000) { S.series = []; S.maxAlt = 0; }  // the rocket restarted
+  S.t = f; S.tAt = performance.now();
   if (['BOOST', 'COAST', 'DESCENT', 'LANDED'].includes(f.state)) S.maxAlt = Math.max(S.maxAlt, f.alt_m);
   S.series.push([f.t_ms / 1000, f.alt_m]);
   if (S.series.length > 20000) S.series.splice(0, 5000);
@@ -240,45 +235,42 @@ function onEvent(p) {
   const name = p[4], a = Number(p[5]);
   if (name === 'LAUNCH') { S.series = []; S.maxAlt = 0; }
   const tpl = EVENTS[name];
-  if (tpl === null) return;
-  const txt = (tpl || name).replace('%m', fmt(a / 100) + ' m').replace('%r', REASONS[a] || a).replace('%', a);
-  addEvent(txt, ['SELFTEST_FAIL', 'BATT_CRITICAL', 'SENSOR_LOST', 'REMOTE_REFUSED'].includes(name) ? 'bad' : '');
+  if (!tpl) return;
+  addEvent(tpl.replace('%m', fmt(a / 100) + ' m').replace('%r', REASONS[a] || a).replace('%', a), BAD_EVENTS.includes(name));
 }
 function onGps(p) {
   const g = {};
   G_COLS.forEach((c, i) => g[c] = c === 'type' || c === 'state' ? p[i] : Number(p[i]));
   S.g = g;
-  if (g.fix > 0 && p[3] === 'PAD') S.pad = { lat: g.lat, lon: g.lon };
-}
-function addEvent(text, cls = '') {
-  const ev = $('events');
-  if (ev.firstChild && ev.firstChild.className === 'muted') ev.textContent = '';
-  const d = document.createElement('div');
-  d.textContent = new Date().toLocaleTimeString() + '  ' + text;
-  if (cls) d.style.color = 'var(--' + cls + ')';
-  $('events').prepend(d);
-  while ($('events').childNodes.length > 100) $('events').lastChild.remove();
-}
-function onStation(line) {
-  const st = {};
-  line.slice(10).split(' ').forEach(kv => { const [k, v] = kv.split('='); st[k] = v; });
-  S.station = st;
+  if (g.fix > 0 && g.state === 'PAD') S.pad = { lat: g.lat, lon: g.lon };
 }
 function onPing(line) {
   let m;
-  if ((m = /reply id=\d+ rtt=(\d+) ms rssi=([-\d.]+)/.exec(line))) { $('r-ping').textContent = `answered in ${m[1]} ms, ${m[2]} dBm`; }
-  else if (line.startsWith('# ping no reply')) $('r-ping').textContent = 'no answer ' + line.replace(/^# ping no reply id=\d+ /, '');
-  else if (line.startsWith('# ping queued')) $('r-ping').textContent = 'waiting…';
+  if ((m = /reply id=\d+ rtt=(\d+) ms rssi=([-\d.]+)/.exec(line))) $('r-msg').textContent = `Ping: answered in ${m[1]} ms (${m[2]} dBm)`;
+  else if (line.startsWith('# ping no reply')) $('r-msg').textContent = 'Ping: no answer';
 }
 function onRocketText(t) {
   conAppend('rocket: ' + t);
   if (t.startsWith('V,')) { const [, k, v, r] = t.split(','); S.rvals.set(k, { v, r }); renderSettings(); }
   else if (t.startsWith('PE,')) { S.rpe = t.split(','); renderSettings(); }
-  else if (t.startsWith('wifi:')) $('w-state').textContent = t;
-  else if (t.startsWith('imu upright:')) {
-    $('f-upright').textContent = t.slice(13);
-    if (t.includes('OK:') && !t.includes('same as now') && confirm('Nose axis saved. Reboot the rocket now to use it?')) send('r reboot');
+  else if (t.startsWith('wifi:')) {
+    if (t.startsWith('wifi: joined')) S.rwifi = true;
+    if (t.startsWith('wifi: off') || t.includes('refused')) S.rwifi = false;
+    $('w-state').textContent = t.startsWith('wifi: key') ? 'Rocket WiFi: connecting…' : 'Rocket ' + t;
+    $('b-rwifi').className = S.rwifi ? 'on' : '';
   }
+  else if (t.startsWith('imu upright:') && !t.includes('gravity')) {
+    $('f-tilt').textContent = t.slice(13);
+    S.tiltMsgAt = performance.now();
+    if (t.includes('OK:') && !t.includes('same as now') && confirm('Saved. Reboot the rocket to use it?')) send('r reboot');
+  }
+}
+function addEvent(text, bad) {
+  const box = $('events'), d = document.createElement('div');
+  d.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) + '  ' + text;
+  if (bad) d.style.color = 'var(--bad)';
+  box.prepend(d);
+  while (box.childNodes.length > 100) box.lastChild.remove();
 }
 function conAppend(t) {
   S.conOut.push(t);
@@ -288,61 +280,52 @@ function conAppend(t) {
 
 // ---------------------------------------------------------------- render (4 Hz)
 function pill(el, text, cls) { el.textContent = text; el.className = 'pill' + (cls ? ' ' + cls : ''); }
+function liion(v) {
+  if (!(v > LIION[0][0])) return 0;
+  for (let i = 1; i < LIION.length; i++) if (v <= LIION[i][0])
+    return LIION[i - 1][1] + (v - LIION[i - 1][0]) / (LIION[i][0] - LIION[i - 1][0]) * (LIION[i][1] - LIION[i - 1][1]);
+  return 100;
+}
 function render() {
-  const f = S.t, age = f ? (performance.now() - S.tAt) / 1000 : Infinity, live = age < 4;
-  const st = $('st');
-  st.textContent = f ? f.state + (live ? '' : ' ?') : '—';
-  st.className = 'state ' + (f && live ? f.state : '');
-  $('hdr-alt').textContent = f ? fmt(f.alt_m) + ' m' : '— m';
-  pill($('p-link'), f ? (live ? fmt(f.rssi, 0) + ' dBm' : 'lost ' + fmt(age, 0) + ' s') : 'no rocket', f ? (live ? 'ok' : 'bad') : '');
-  const gd = f && (f.link & 16), gf = f && (f.link & 32);
-  pill($('p-gps'), 'GPS', gf ? 'ok' : gd ? 'warn' : '');
-  $('p-eject').hidden = !(f && (f.link & 64)); pill($('p-eject'), 'MANUAL EJECT', 'bad');
-  // station
-  const s = S.station, armed = s.arm === '1', bench = s.mode === 'bench';
-  pill($('p-mode'), s.mode ? s.mode.toUpperCase() : '—', bench ? 'warn' : '');
-  $('b-mflight').className = 'seg' + (s.mode === 'flight' ? ' on' : '');
-  $('b-mbench').className = 'seg' + (bench ? ' on' : '');
-  pill($('p-arm'), armed ? 'ARMED' : 'safe', armed ? 'bad' : '');
-  pill($('p-gsbatt'), s.vbat && s.vbat !== '0.00' ? `station ${s.pct}%` : 'station USB', s.low === '1' ? 'bad' : '');
-  const rb = f && (f.link & 8);
-  $('banner').hidden = !(bench || rb);
-  $('banner').textContent = rb ? 'Rocket in BENCH mode: test commands on (switch the station to FLIGHT)' : 'Station in BENCH mode';
+  const f = S.t, age = f ? (performance.now() - S.tAt) / 1000 : Infinity, live = age < 4, s = S.station;
+  // header
+  $('st').textContent = f ? f.state + (live ? '' : ' ?') : '—';
+  $('st').className = 'state ' + (f && live ? f.state : '');
+  $('h-alt').textContent = f ? fmt(f.alt_m) + ' m' : '';
+  pill($('h-link'), f ? (live ? fmt(f.rssi, 0) + ' dBm' : 'lost ' + fmt(age, 0) + ' s') : 'no rocket', f ? (live ? 'ok' : 'bad') : '');
+  $('h-eject').hidden = !(f && (f.link & 64)); pill($('h-eject'), 'MANUAL EJECT', 'bad');
+  const bench = s.mode === 'bench', rb = f && (f.link & 8);
+  pill($('h-mode'), bench ? 'BENCH' : s.mode ? 'FLIGHT' : '—', bench ? 'warn' : '');
   // launch
-  pill($('l-arm'), armed ? 'ARMED' : 'ARM off', armed ? 'bad' : '');
-  pill($('l-cont'), s.cont === '1' ? 'igniter OK' : armed ? 'NO igniter' : 'igniter —', s.cont === '1' ? 'ok' : armed ? 'bad' : '');
-  pill($('l-ready'), bench ? 'bench: no rocket check' : s.ready === '1' ? 'rocket ready' : 'rocket not ready', bench ? 'warn' : s.ready === '1' ? 'ok' : '');
+  const armed = s.arm === '1', cont = s.cont === '1', ready = s.ready === '1';
+  $('b-mbench').className = bench ? 'on' : ''; $('b-mflight').className = s.mode === 'flight' ? 'on' : '';
+  $('l-state').textContent = !armed ? 'ARM off' : !cont ? 'armed · no igniter' : bench ? 'armed · igniter OK' : ready ? 'armed · rocket ready' : 'armed · rocket not ready';
+  $('l-state').style.color = armed ? 'var(--bad)' : '';
   $('l-count').textContent = s.launch === 'countdown' ? s.left : s.launch === 'firing' ? 'FIRE' : armed ? 'ARMED' : '—';
-  $('l-count').className = 'countdown' + (armed ? ' live' : '');
-  $('b-launch').disabled = !(armed && s.cont === '1' && (bench || s.ready === '1') && s.launch === 'idle');
+  $('l-count').style.color = armed ? '' : 'var(--line)';
+  $('b-launch').disabled = !(armed && cont && (bench || ready) && s.launch === 'idle');
   // flight
   $('f-alt').textContent = f ? fmt(f.alt_m) : '—';
-  $('f-max').textContent = fmt(S.maxAlt);
-  $('f-vel').textContent = f ? fmt(f.vel_mps) + ' m/s' : '—';
-  $('f-batt').textContent = f ? fmt(f.batt_v, 2) + ' V (' + fmt(liion(f.batt_v), 0) + ' %)' : '—';
-  $('f-sig').textContent = f ? `${fmt(f.rssi, 0)} dBm, SNR ${fmt(f.snr)} dB` : '—';
-  $('f-flags').textContent = f ? ['IMU', 'MAG', 'BARO'].filter((_, i) => f.flags & (8 << i)).join(' ') +
-    (f.flags & 1 ? '  CHARGE OK' : '  charge open') + (f.flags & 4 ? '  FIRED' : '') : '—';
-  drawPlot();
+  $('f-vel').textContent = f ? `max ${fmt(S.maxAlt)} m · ${fmt(f.vel_mps)} m/s` : '';
   drawAttitude(f);
-  // recovery
-  $('r-rssi').textContent = s.search === '1' && f ? fmt(f.rssi, 0) + ' dBm' : '';
-  $('c-search').checked = s.search === '1';
+  drawPlot();
+  // GPS
   const g = S.g;
-  $('r-gps').textContent = g ? (g.fix ? `${g.lat.toFixed(6)}, ${g.lon.toFixed(6)} (${g.sats} sats)` : `no fix (${g.sats} sats)`) : 'no GPS';
+  $('g-pos').textContent = !g ? 'no GPS' : g.fix ? `${g.lat.toFixed(6)}, ${g.lon.toFixed(6)}` : `no fix (${g.sats} sats)`;
   if (g && g.fix) {
-    $('r-map').hidden = false;
-    $('r-map').href = `https://www.google.com/maps/search/?api=1&query=${g.lat},${g.lon}`;
-    if (S.pad) { const [d, b] = distBearing(S.pad, g); $('r-dist').textContent = `${fmt(d, 0)} m, bearing ${fmt(b, 0)}°`; }
+    $('g-map').hidden = false;
+    $('g-map').href = `https://www.google.com/maps/search/?api=1&query=${g.lat},${g.lon}`;
+    if (S.pad) { const [d, b] = distBearing(S.pad, g); $('g-dist').textContent = `${fmt(d, 0)} m at ${fmt(b, 0)}°`; }
   }
-  $('g-count').textContent = S.rx ? S.lines.length + ' lines' : '';
-}
-function liion(v) {
-  // Same curve as fc::liion_percent (lib/fc_core/src/fc/battery.cpp).
-  const c = [[3.30, 0], [3.40, 2], [3.50, 5], [3.60, 12], [3.70, 28], [3.80, 45], [3.90, 62], [4.00, 78], [4.10, 90], [4.20, 100]];
-  if (!(v > c[0][0])) return 0;
-  for (let i = 1; i < c.length; i++) if (v <= c[i][0]) return c[i - 1][1] + (v - c[i - 1][0]) / (c[i][0] - c[i - 1][0]) * (c[i][1] - c[i - 1][1]);
-  return 100;
+  // battery
+  $('b-rocket').textContent = f ? `${fmt(f.batt_v, 2)} V · ${fmt(liion(f.batt_v), 0)} %` + (f.link & 4 ? ' · USB' : '') : '—';
+  $('b-station').textContent = !s.vbat ? '—' : s.vbat === '0.00' ? 'USB' : `${s.vbat} V · ${s.pct} %` + (s.low === '1' ? ' · LOW' : '');
+  $('b-station').style.color = s.low === '1' ? 'var(--bad)' : '';
+  // rocket
+  $('r-sig').textContent = f ? `${fmt(f.rssi, 0)} dBm · SNR ${fmt(f.snr)} dB` : '—';
+  $('r-sens').textContent = f ? ['IMU', 'MAG', 'BARO'].filter((_, i) => f.flags & (8 << i)).join(' ') +
+    (f.flags & 1 ? ' · charge OK' : ' · charge open') + (f.flags & 4 ? ' · FIRED' : '') + (rb ? ' · bench mode' : '') : '—';
+  $('b-search').className = s.search === '1' ? 'on' : '';
 }
 function distBearing(a, b) {
   const R = 6371000, r = Math.PI / 180, dLat = (b.lat - a.lat) * r, dLon = (b.lon - a.lon) * r;
@@ -350,43 +333,35 @@ function distBearing(a, b) {
   const y = Math.sin(dLon) * Math.cos(b.lat * r), x = Math.cos(a.lat * r) * Math.sin(b.lat * r) - Math.sin(a.lat * r) * Math.cos(b.lat * r) * Math.cos(dLon);
   return [2 * R * Math.asin(Math.sqrt(h)), (Math.atan2(y, x) / r + 360) % 360];
 }
-// Side view of the rocket: tilt from vertical, leaning toward its compass bearing (or
-// right when there is no magnetometer).
-function attitude(f) {
-  const c = Math.max(-1, Math.min(1, 1 - 2 * (f.qx * f.qx + f.qy * f.qy)));
-  const tilt = Math.acos(c) * 180 / Math.PI;
-  // nose direction in the earth frame (NWU)
-  const nx = 2 * (f.qx * f.qz + f.qw * f.qy), ny = 2 * (f.qy * f.qz - f.qw * f.qx);
-  const bearing = (Math.atan2(-ny, nx) * 180 / Math.PI + 360) % 360;
-  return { tilt, bearing };
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n);
+function sizeCanvas(c) {
+  const dpr = devicePixelRatio || 1, w = c.clientWidth, h = c.clientHeight;
+  if (c.width !== Math.round(w * dpr)) { c.width = Math.round(w * dpr); c.height = Math.round(h * dpr); }
+  const x = c.getContext('2d'); x.setTransform(dpr, 0, 0, dpr, 0, 0); x.clearRect(0, 0, w, h);
+  return [x, w, h];
 }
+// Side view: tilt from vertical, from the attitude quaternion (rocket -> earth).
 function drawAttitude(f) {
-  const cv = $('att'), dpr = devicePixelRatio || 1, w = cv.clientWidth, h = cv.clientHeight;
-  if (cv.width !== w * dpr) { cv.width = w * dpr; cv.height = h * dpr; }
-  const x = cv.getContext('2d'); x.setTransform(dpr, 0, 0, dpr, 0, 0); x.clearRect(0, 0, w, h);
-  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n);
-  x.strokeStyle = css('--line'); x.beginPath(); x.moveTo(w / 2, 4); x.lineTo(w / 2, h - 4); x.stroke();
-  if (!f || !(f.flags & 8)) { $('f-tilt').textContent = 'Orientation: no IMU'; return; }
-  const a = attitude(f);
-  $('f-tilt').textContent = `Tilt ${fmt(a.tilt, 0)}° from vertical` + ((f.flags & 16) && a.tilt > 3 ? `, toward ${fmt(a.bearing, 0)}°` : '');
-  x.save(); x.translate(w / 2, h / 2); x.rotate(a.tilt * Math.PI / 180);
-  x.fillStyle = css('--accent');
-  x.beginPath(); x.moveTo(0, -26); x.lineTo(6, -14); x.lineTo(6, 20); x.lineTo(-6, 20); x.lineTo(-6, -14); x.closePath(); x.fill();
-  x.beginPath(); x.moveTo(-6, 12); x.lineTo(-12, 24); x.lineTo(-6, 20); x.moveTo(6, 12); x.lineTo(12, 24); x.lineTo(6, 20); x.fill();
+  const [x, w, h] = sizeCanvas($('att'));
+  const msg = performance.now() - S.tiltMsgAt < 8000;  // keep a Set upright result visible for a while
+  if (!f || !(f.flags & 8)) { if (!msg) $('f-tilt').textContent = 'no IMU'; return; }
+  const tilt = Math.acos(Math.max(-1, Math.min(1, 1 - 2 * (f.qx * f.qx + f.qy * f.qy)))) * 180 / Math.PI;
+  if (!msg) $('f-tilt').textContent = `tilt ${fmt(tilt, 0)}°`;
+  x.strokeStyle = css('--line'); x.beginPath(); x.moveTo(w / 2, 2); x.lineTo(w / 2, h - 2); x.stroke();
+  x.save(); x.translate(w / 2, h / 2); x.rotate(tilt * Math.PI / 180); x.fillStyle = css('--accent');
+  x.beginPath(); x.moveTo(0, -19); x.lineTo(4, -10); x.lineTo(4, 14); x.lineTo(-4, 14); x.lineTo(-4, -10); x.closePath(); x.fill();
+  x.beginPath(); x.moveTo(-4, 8); x.lineTo(-9, 17); x.lineTo(-4, 14); x.moveTo(4, 8); x.lineTo(9, 17); x.lineTo(4, 14); x.fill();
   x.restore();
 }
 function drawPlot() {
-  const c = $('plot'), dpr = devicePixelRatio || 1, w = c.clientWidth, h = c.clientHeight;
-  if (c.width !== w * dpr) { c.width = w * dpr; c.height = h * dpr; }
-  const x = c.getContext('2d'); x.setTransform(dpr, 0, 0, dpr, 0, 0); x.clearRect(0, 0, w, h);
-  const pts = S.series.slice(-3000), css = n => getComputedStyle(document.documentElement).getPropertyValue(n);
-  x.fillStyle = css('--muted'); x.font = '11px system-ui';
-  if (pts.length < 2) { x.fillText('altitude plot: waiting for telemetry', 8, 16); return; }
+  const [x, w, h] = sizeCanvas($('plot'));
+  const pts = S.series.slice(-3000);
+  if (pts.length < 2) return;
   const t0 = pts[0][0], t1 = pts[pts.length - 1][0];
   let lo = 0, hi = 5; for (const p of pts) { lo = Math.min(lo, p[1]); hi = Math.max(hi, p[1]); }
-  const X = t => 34 + (t - t0) / Math.max(1e-3, t1 - t0) * (w - 40), Y = v => h - 16 - (v - lo) / (hi - lo) * (h - 26);
-  x.strokeStyle = css('--line'); x.beginPath(); x.moveTo(34, Y(0)); x.lineTo(w - 4, Y(0)); x.stroke();
-  x.fillText(fmt(hi, 0) + ' m', 2, Y(hi) + 4); x.fillText(fmt(t1 - t0, 0) + ' s', w - 34, h - 2);
+  const X = t => (t - t0) / Math.max(1e-3, t1 - t0) * (w - 2) + 1, Y = v => h - 2 - (v - lo) / (hi - lo) * (h - 14);
+  x.strokeStyle = css('--line'); x.beginPath(); x.moveTo(0, Y(0)); x.lineTo(w, Y(0)); x.stroke();
+  x.fillStyle = css('--muted'); x.font = '11px system-ui'; x.fillText(fmt(hi, 0) + ' m', 2, 10);
   x.strokeStyle = css('--accent'); x.lineWidth = 2; x.beginPath();
   pts.forEach((p, i) => i ? x.lineTo(X(p[0]), Y(p[1])) : x.moveTo(X(p[0]), Y(p[1]))); x.stroke();
 }
@@ -394,52 +369,43 @@ function drawPlot() {
 // ---------------------------------------------------------------- settings
 function parseP(line) {
   const p = line.split(',');
-  return { key: p[1], group: p[2], type: p[3], value: p[4], running: p[5], def: p[6], min: p[7], max: p[8], unit: p[9],
-    flags: p[10], options: p[11] ? p[11].split('|') : [], help: p.slice(12).join(',') };
+  return { key: p[1], group: p[2], type: p[3], value: p[4], running: p[5], def: p[6], unit: p[9], flags: p[10],
+    options: p[11] ? p[11].split('|') : [], help: p.slice(12).join(',') };
 }
 let renderKey = '';
 function renderSettings() {
   if (!$('set-box').open) return;
-  const kit = $('s-kit').value, filt = $('s-filter').value.toLowerCase();
-  const rows = [];
-  const add = (d, value, running) => {
-    if (filt && !(d.key + ' ' + d.group + ' ' + d.help).toLowerCase().includes(filt)) return;
-    rows.push({ d, value, running });
-  };
-  if (kit === 'rocket') {
-    for (const d of S.defs.values()) { const v = S.rvals.get(d.key); add(d, v ? v.v : d.def, v ? v.r : d.def); }
-  } else {
-    for (const d of S.sdefs.values()) add(d, d.value, d.running);
-  }
+  const kit = $('s-kit').value, filt = $('s-filter').value.toLowerCase(), rows = [];
+  const add = (d, value) => { if (!filt || (d.key + ' ' + d.group + ' ' + d.help).toLowerCase().includes(filt)) rows.push({ d, value }); };
+  if (kit === 'rocket') for (const d of S.defs.values()) { const v = S.rvals.get(d.key); add(d, v ? v.v : d.def); }
+  else for (const d of S.sdefs.values()) add(d, d.value);
   const pe = kit === 'rocket' ? S.rpe : S.spe;
-  $('s-state').textContent = !pe ? (kit === 'rocket' ? 'press Read (rocket on the ground, in range)' : 'press Read') :
-    pe[2] !== pe[4] ? 'unsaved changes' : pe[4] !== pe[3] ? 'saved: reboot to apply' : pe[5] === 'ok' ? 'in use' : pe.slice(5).join(',');
+  $('s-state').textContent = !pe ? 'Press Read' + (kit === 'rocket' ? ' (rocket on the ground, in range)' : '') :
+    pe[2] !== pe[4] ? 'Unsaved changes' : pe[4] !== pe[3] ? 'Saved: reboot to apply' : pe[5] === 'ok' ? 'In use' : pe.slice(5).join(',');
   const key = kit + filt + rows.map(r => r.d.key + r.value).join();
   if (key === renderKey) return;
   renderKey = key;
   const tb = $('s-table'); tb.textContent = '';
   let group = '';
   for (const r of rows) {
-    if (r.d.group !== group) { group = r.d.group; const tr = tb.insertRow(); const td = tr.insertCell(); td.colSpan = 2; td.innerHTML = `<b>${group}</b>`; }
-    const tr = tb.insertRow(), d = r.d;
+    const d = r.d;
+    if (d.group !== group) { group = d.group; const td = tb.insertRow().insertCell(); td.colSpan = 2; td.innerHTML = '<b></b>'; td.firstChild.textContent = group; }
+    const tr = tb.insertRow();
     if (r.value !== d.def) tr.className = 'changed';
-    const k = tr.insertCell(); k.className = 'k';
-    k.innerHTML = `${d.key}${d.unit ? ' <span class="help">[' + d.unit + ']</span>' : ''}<div class="help"></div>`;
-    k.lastChild.textContent = d.help;
-    const v = tr.insertCell(); let e;
+    const k = tr.insertCell(); k.className = 'k'; k.textContent = d.key + (d.unit ? ' [' + d.unit + ']' : ''); k.title = d.help;
+    let e;
     if (d.type === 'bool') { e = document.createElement('input'); e.type = 'checkbox'; e.checked = r.value === '1'; e.style.width = 'auto'; }
     else if (d.type === 'enum') { e = document.createElement('select'); d.options.forEach(o => e.add(new Option(o, o))); e.value = r.value; }
     else { e = document.createElement('input'); e.value = r.value; e.inputMode = 'decimal'; }
+    e.title = d.help;
     e.onchange = () => setParam(kit, d, d.type === 'bool' ? (e.checked ? '1' : '0') : e.value.trim());
-    v.append(e);
+    tr.insertCell().append(e);
   }
 }
 const CONFIRM_ON = {
-  manual_eject: 'ENABLE MANUAL EJECTION IN FLIGHT?\n\nThe station can then fire the ejection charge at any moment after ' +
-    'launch, overriding the apogee logic. A mistaken press during the climb ejects at full speed (torn or stripped ' +
-    'parachute). Enable it only if you intend to use it, and set it back to off afterwards.',
-  radio_unlock: 'Allow radio settings outside the EU 869.40-869.65 MHz band and its 10 % duty-cycle limit?\n\n' +
-    'You are responsible for using a frequency, power and duty cycle that are legal where you operate.',
+  manual_eject: 'Enable manual ejection in flight?\n\nThe station can then fire the ejection charge at any moment after launch, ' +
+    'overriding the apogee logic. A mistaken press during the climb ejects at full speed.',
+  radio_unlock: 'Allow radio settings outside the EU band and duty-cycle limit?\n\nYou are responsible for legal use where you operate.',
 };
 function setParam(kit, d, value) {
   if (CONFIRM_ON[d.key] && value === '1' && !confirm(CONFIRM_ON[d.key])) { renderKey = ''; renderSettings(); return; }
@@ -462,51 +428,53 @@ function download(name, text) {
 }
 const stamp = () => new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
 async function fetchRocket(path, name) {
-  $('w-state').textContent = 'downloading ' + path + '…';
+  $('w-state').textContent = 'Downloading…';
   try {
-    const r = await fetch('/rocket' + path);
-    const t = await r.text();
+    const r = await fetch('/rocket' + path), t = await r.text();
     if (!r.ok) throw new Error(t.trim());
-    if (name) { download(name, t); $('w-state').textContent = 'saved ' + name; }
+    if (name) { download(name, t); $('w-state').textContent = 'Saved ' + name; }
     return t;
-  } catch (e) { $('w-state').textContent = 'failed: ' + e.message; }
+  } catch (e) { $('w-state').textContent = e.message + ' (press Rocket WiFi first)'; }
 }
 async function listLogs() {
   const t = await fetchRocket('/flog');
   if (!t) return;
-  $('w-state').textContent = 'onboard logs:';
   const box = $('f-list'); box.textContent = '';
+  $('w-state').textContent = '';
   t.split('\n').filter(l => l.startsWith('FLOG,')).reverse().forEach(l => {
     const [, s, , frames, t0, t1] = l.split(',');
     const b = document.createElement('button');
-    b.textContent = `session ${s}: ${frames} frames, ${fmt((t1 - t0) / 1000, 0)} s`;
+    b.textContent = `#${s} · ${fmt((t1 - t0) / 1000, 0)} s`;
+    b.title = frames + ' frames';
     b.onclick = () => fetchRocket('/flog?s=' + s, `rocket-session-${s}.csv`);
     box.append(b);
   });
-  if (!box.childNodes.length) box.textContent = 'no sessions';
+  if (!box.childNodes.length) $('w-state').textContent = 'No onboard logs';
 }
 
 // ---------------------------------------------------------------- controls
 $('b-launch').onclick = () => send('launch');
-$('b-upright').onclick = () => { $('f-upright').textContent = 'measuring… hold still'; send('r imu upright'); };
-$('b-mflight').onclick = () => send('mode flight');
-$('b-mbench').onclick = () => send('mode bench');
 $('b-abort').onclick = () => send('abort');
-$('b-ping').onclick = () => { $('r-ping').textContent = 'waiting…'; send('ping'); };
-$('c-search').onchange = e => send('search ' + (e.target.checked ? 'on' : 'off'));
+$('b-mbench').onclick = () => send('mode bench');
+$('b-mflight').onclick = () => send('mode flight');
+$('b-upright').onclick = () => { $('f-tilt').textContent = 'measuring… hold still'; S.tiltMsgAt = performance.now(); send('r imu upright'); };
+$('b-ping').onclick = () => { $('r-msg').textContent = 'Ping: waiting…'; send('ping'); };
+$('b-search').onclick = () => send('search ' + (S.station.search === '1' ? 'off' : 'on'));
 $('b-eject').onclick = () => { if (confirm('Fire the ejection charge now?')) send('eject'); };
 $('b-sload').onclick = readSettings;
 $('s-kit').onchange = () => { renderKey = ''; renderSettings(); };
 $('s-filter').oninput = () => renderSettings();
-$('set-box').ontoggle = () => { renderKey = ''; if ($('set-box').open && !S.defs.size && !S.sdefs.size) readSettings(); renderSettings(); };
+$('set-box').ontoggle = () => { renderKey = ''; if ($('set-box').open && !S.defs.size) readSettings(); renderSettings(); };
 $('b-ssave').onclick = () => send($('s-kit').value === 'rocket' ? 'r param save' : 'param save');
 $('b-sreboot').onclick = () => { if (confirm('Reboot the ' + $('s-kit').value + '?')) send($('s-kit').value === 'rocket' ? 'r reboot' : 'reboot'); };
 $('b-save').onclick = () => download(`ground-${stamp()}.csv`, S.lines.join('\n') + '\n');
-$('b-rwifi').onclick = () => { $('w-state').textContent = 'asking the rocket…'; send('rwifi'); };
-$('b-rwifioff').onclick = () => send('r wifi off');
+$('b-rwifi').onclick = () => {  // toggles: on = the rocket joins this WiFi for the log download
+  if (S.rwifi) { send('r wifi off'); return; }
+  $('w-state').textContent = 'Rocket WiFi: asking…'; send('rwifi');
+};
 $('b-flist').onclick = listLogs;
 $('b-ram').onclick = () => fetchRocket('/ram', `rocket-ram-${stamp()}.csv`);
-const sendCon = () => { const v = $('c-in').value.trim(); if (!v) return; const k = $('c-kit').value; conAppend('> ' + (k ? 'rocket ' : '') + v); send((k ? 'r ' : '') + v); $('c-in').value = ''; };
+const sendCon = () => { const v = $('c-in').value.trim(), k = $('c-kit').value; if (!v) return; conAppend('> ' + v); send((k ? 'r ' : '') + v); $('c-in').value = ''; };
 $('b-send').onclick = sendCon;
 $('c-in').onkeydown = e => { if (e.key === 'Enter') sendCon(); };
 $('con-box').ontoggle = () => { $('c-out').textContent = S.conOut.join('\n'); };
