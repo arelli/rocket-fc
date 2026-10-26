@@ -108,6 +108,14 @@ pre { margin: 0; max-height: 260px; overflow: auto; font-size: 12px; white-space
       <span>Signal</span><span class="num" id="f-sig">—</span>
       <span>Sensors</span><span id="f-flags">—</span>
     </div>
+    <div class="row">
+      <canvas id="att" style="width:64px;height:64px;flex:none"></canvas>
+      <div style="flex:1;min-width:0">
+        <div class="num" id="f-tilt">—</div>
+        <button id="b-upright">Set upright</button>
+        <div class="muted" id="f-upright">Stand the rocket nose up and keep it still, then press.</div>
+      </div>
+    </div>
     <canvas id="plot"></canvas>
   </section>
 
@@ -267,6 +275,10 @@ function onRocketText(t) {
   if (t.startsWith('V,')) { const [, k, v, r] = t.split(','); S.rvals.set(k, { v, r }); renderSettings(); }
   else if (t.startsWith('PE,')) { S.rpe = t.split(','); renderSettings(); }
   else if (t.startsWith('wifi:')) $('w-state').textContent = t;
+  else if (t.startsWith('imu upright:')) {
+    $('f-upright').textContent = t.slice(13);
+    if (t.includes('OK:') && !t.includes('same as now') && confirm('Nose axis saved. Reboot the rocket now to use it?')) send('r reboot');
+  }
 }
 function conAppend(t) {
   S.conOut.push(t);
@@ -312,6 +324,7 @@ function render() {
   $('f-flags').textContent = f ? ['IMU', 'MAG', 'BARO'].filter((_, i) => f.flags & (8 << i)).join(' ') +
     (f.flags & 1 ? '  CHARGE OK' : '  charge open') + (f.flags & 4 ? '  FIRED' : '') : '—';
   drawPlot();
+  drawAttitude(f);
   // recovery
   $('r-rssi').textContent = s.search === '1' && f ? fmt(f.rssi, 0) + ' dBm' : '';
   $('c-search').checked = s.search === '1';
@@ -336,6 +349,31 @@ function distBearing(a, b) {
   const h = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * r) * Math.cos(b.lat * r) * Math.sin(dLon / 2) ** 2;
   const y = Math.sin(dLon) * Math.cos(b.lat * r), x = Math.cos(a.lat * r) * Math.sin(b.lat * r) - Math.sin(a.lat * r) * Math.cos(b.lat * r) * Math.cos(dLon);
   return [2 * R * Math.asin(Math.sqrt(h)), (Math.atan2(y, x) / r + 360) % 360];
+}
+// Side view of the rocket: tilt from vertical, leaning toward its compass bearing (or
+// right when there is no magnetometer).
+function attitude(f) {
+  const c = Math.max(-1, Math.min(1, 1 - 2 * (f.qx * f.qx + f.qy * f.qy)));
+  const tilt = Math.acos(c) * 180 / Math.PI;
+  // nose direction in the earth frame (NWU)
+  const nx = 2 * (f.qx * f.qz + f.qw * f.qy), ny = 2 * (f.qy * f.qz - f.qw * f.qx);
+  const bearing = (Math.atan2(-ny, nx) * 180 / Math.PI + 360) % 360;
+  return { tilt, bearing };
+}
+function drawAttitude(f) {
+  const cv = $('att'), dpr = devicePixelRatio || 1, w = cv.clientWidth, h = cv.clientHeight;
+  if (cv.width !== w * dpr) { cv.width = w * dpr; cv.height = h * dpr; }
+  const x = cv.getContext('2d'); x.setTransform(dpr, 0, 0, dpr, 0, 0); x.clearRect(0, 0, w, h);
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n);
+  x.strokeStyle = css('--line'); x.beginPath(); x.moveTo(w / 2, 4); x.lineTo(w / 2, h - 4); x.stroke();
+  if (!f || !(f.flags & 8)) { $('f-tilt').textContent = 'Orientation: no IMU'; return; }
+  const a = attitude(f);
+  $('f-tilt').textContent = `Tilt ${fmt(a.tilt, 0)}° from vertical` + ((f.flags & 16) && a.tilt > 3 ? `, toward ${fmt(a.bearing, 0)}°` : '');
+  x.save(); x.translate(w / 2, h / 2); x.rotate(a.tilt * Math.PI / 180);
+  x.fillStyle = css('--accent');
+  x.beginPath(); x.moveTo(0, -26); x.lineTo(6, -14); x.lineTo(6, 20); x.lineTo(-6, 20); x.lineTo(-6, -14); x.closePath(); x.fill();
+  x.beginPath(); x.moveTo(-6, 12); x.lineTo(-12, 24); x.lineTo(-6, 20); x.moveTo(6, 12); x.lineTo(12, 24); x.lineTo(6, 20); x.fill();
+  x.restore();
 }
 function drawPlot() {
   const c = $('plot'), dpr = devicePixelRatio || 1, w = c.clientWidth, h = c.clientHeight;
@@ -450,6 +488,7 @@ async function listLogs() {
 
 // ---------------------------------------------------------------- controls
 $('b-launch').onclick = () => send('launch');
+$('b-upright').onclick = () => { $('f-upright').textContent = 'measuring… hold still'; send('r imu upright'); };
 $('b-mflight').onclick = () => send('mode flight');
 $('b-mbench').onclick = () => send('mode bench');
 $('b-abort').onclick = () => send('abort');

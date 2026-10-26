@@ -345,6 +345,11 @@ void App::control_tick(uint32_t now) {
     }
   }
 
+  if (upright_active_ && imu_ok_ && !sim_) {
+    upright_.add(imu_s_.accel_g);
+    if (upright_.count() >= 100) upright_finish(now);  // 1 s at 100 Hz
+  }
+
   update_attitude(now);
   const fc::SmOutput out = fc_.tick(now, baro_ok_, pressure_pa_, imu_ok_, imu_s_.accel_g);
 

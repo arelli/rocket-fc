@@ -16,6 +16,7 @@
 #include "fc/flight_computer.h"
 #include "fc/gps.h"
 #include "fc/indicators.h"
+#include "fc/mount.h"
 #include "fc/param_shell.h"
 #include "fc/radio_budget.h"
 #include "fc/remote_fire.h"
@@ -118,6 +119,7 @@ class App {
   void print_csv_line(uint32_t now);
   void i2c_scan();
   void dump_log(Print& o);
+  void upright_finish(uint32_t now);
   void flog_list(Print& o);
   void flog_dump(Print& o, uint32_t session);  // 0 = all
   bool safe_to_interrupt() const;
@@ -147,6 +149,10 @@ class App {
   bool config_ok_ = true;           // stored settings loaded and valid
   char config_problem_[160] = {0};  // why not (self-test FAULT 3)
   fc::Axis up_ = fc::Axis::PosX;
+  // "imu upright": accelerometer samples being collected (1 s) to find the nose axis.
+  bool upright_active_ = false;
+  bool upright_radio_ = false;  // asked by radio: send the result there too
+  fc::UprightSampler upright_;
   uint32_t rx_window_ms_ = 150;     // listen after each TX on the ground
   uint32_t rx_window_flight_ms_ = 100;  // ...and in flight with manual ejection
   // Console by radio: output frame being sent, last command (repeats ignored).

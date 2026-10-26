@@ -99,3 +99,7 @@ First version: not yet flown.
   (`mode flight|bench`, latest of switch or page wins); unconnected analog
   inputs read 0 V (pull-down before each sample), so a missing launch
   channel or battery divider never reads as ARM or a battery.
+- "Set upright" (UI Flight card, console `imu upright`): the rocket stands
+  nose up, measures gravity for 1 s and saves the IMU nose axis
+  (imu_up_axis); refuses if moving or the IMU is mounted at an angle
+  (fc/mount.h, tested). UI shows the rocket's tilt from vertical.

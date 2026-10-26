@@ -167,10 +167,14 @@ Use any visible 3 mm/5 mm LED.
 - The firmware identifies the IMU chip from WHO_AM_I. Many "MPU-9250" boards
   carry an MPU-6500 (no magnetometer); the boot message and `status` say which
   you have. Everything works without the magnetometer.
-- **IMU orientation:** mount it with one axis along the rocket's long axis and
-  set the `imu_up_axis` setting (e.g. `+X` if the +X arrow points to the nose).
-  Check on the bench: stand the rocket nose-up and `status` must show
-  `accel_up` ≈ +1.00 g. Self-test warns if it does not.
+- **IMU orientation:** mount it with one axis along the rocket's long axis.
+  Then stand the rocket nose up, keep it still and press **Set upright** on
+  the WiFi page (Flight card), or type `imu upright` on the console: the
+  rocket measures gravity for 1 s, picks the IMU axis that points to the
+  nose, saves it as `imu_up_axis`, and asks to reboot to use it. It refuses
+  if the rocket moved, or if no IMU axis is within 25° of vertical (IMU
+  mounted at an angle). The Flight card shows the tilt from vertical: about
+  0° when the rocket stands upright.
 - **Barometer:** needs a vented bay (3–4 holes of ~2 mm round the airframe),
   shielded from direct sunlight and from the ejection gases. Foam over the
   sensor reduces pressure noise from airflow.

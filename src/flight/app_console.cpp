@@ -67,6 +67,7 @@ void App::console_exec(char* line, uint32_t now) {
         "  flog erase CONFIRM  erase the whole flash log (about a minute)\n"
         "  logclear        erase the onboard log (not in flight)\n"
         "  i2c             scan the I2C bus (not in flight)\n"
+        "  imu upright     the rocket stands nose up now: find and save imu_up_axis (reboot to apply)\n"
         "  time <unix ms>  set real time for the log (once per boot; the UI sends it)\n"
         "  param ...       settings: param list | get <k> | set <k> <v> | reset <k>|all | revert | save | export\n"
         "  beep            test the buzzer\n"
@@ -103,6 +104,15 @@ void App::console_exec(char* line, uint32_t now) {
     con.println("refused: in flight");
   } else if (!strcmp(cmd, "wifi")) {
     wifi_command(a1, a2, argv[3], argv[4], now);
+  } else if (!strcmp(cmd, "imu") && a1 && !strcmp(a1, "upright")) {
+    if (!imu_ok_ || simulating()) {
+      con.println("imu upright: refused: no IMU data");
+    } else {
+      upright_.reset();
+      upright_active_ = true;
+      upright_radio_ = con.capturing();
+      con.println("imu upright: measuring for 1 s, hold the rocket still, nose up...");
+    }
   } else if (!strcmp(cmd, "dump")) {
     dump_log(con);
   } else if (!strcmp(cmd, "flog")) {
@@ -453,4 +463,33 @@ void App::flog_dump(Print& o, uint32_t session) {
     return true;
   }, &ctx);
   o.println("# end of log");
+}
+
+// End of "imu upright": choose the axis, save it as imu_up_axis.
+void App::upright_finish(uint32_t now) {
+  (void)now;
+  upright_active_ = false;
+  const bool was = con.capturing();
+  con.capture(upright_radio_ || was);
+  const fc::UprightResult r = fc::find_up_axis(upright_.mean(), upright_.spread_g());
+  const fc::Vec3 m = upright_.mean();
+  con.printf("imu upright: gravity %.2f %.2f %.2f g (IMU axes), spread %.3f g\n", static_cast<double>(m.x),
+             static_cast<double>(m.y), static_cast<double>(m.z), static_cast<double>(upright_.spread_g()));
+  if (!r.ok) {
+    con.printf("imu upright: FAILED: %s\n", r.why);
+  } else if (!safe_to_interrupt()) {
+    con.println("imu upright: FAILED: not on the ground");
+  } else {
+    const char* name = fc::to_string(r.axis);
+    const char* set_args[] = {"set", "imu_up_axis", name};
+    const char* save_args[] = {"save"};
+    params_.set_compact(true);
+    params_.exec(3, set_args, true, serial_line, store_text, &store_);
+    params_.exec(1, save_args, true, serial_line, store_text, &store_);
+    params_.set_compact(false);
+    con.printf("imu upright: OK: nose axis %s (IMU %.0f deg off vertical)%s. Saved: reboot to apply.\n", name,
+               static_cast<double>(r.off_deg), r.axis == up_ ? ", same as now" : "");
+    if (r.off_deg > 10.0f) con.println("imu upright: note: the IMU is mounted at an angle; tilt readings include it");
+  }
+  con.capture(was);
 }
