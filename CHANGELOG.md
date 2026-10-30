@@ -108,3 +108,8 @@ First version: not yet flown.
   switch is swapped (open or missing = BENCH, closed = FLIGHT).
 - Simpler UI: two columns (Launch, Flight, GPS, Battery, Rocket, Events),
   setting help as tooltips, Settings/Logs/Console folded; nothing removed.
+- UI: back to the full page (3D attitude, gauges, plots, GPS track and map,
+  battery trend, events, settings, onboard logs, console), now WiFi-only:
+  rocket console and settings by radio, logs through the rocket's WiFi.
+  Launch and Ejection panels; GPS and Battery side by side; Set upright in
+  the Attitude panel; long explanations and checklists removed.

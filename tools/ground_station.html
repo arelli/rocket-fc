@@ -1,486 +1,1762 @@
 <!doctype html>
+<!--
+  rocket-fc ground station UI, served by the ground station over its WiFi
+  (http://192.168.4.1): Server-Sent Events down (/events), POST /cmd up,
+  /rocket/... relays the rocket's log server. The rocket's console and
+  settings go through the station by radio ("r <command>", RC / D / V lines).
+  Saved CSV logs can be opened too. Formats: docs/TELEMETRY.md, lib/fc_core/src/fc/csv.h.
+  To extend: the CONFIG tables at the top of the script (columns, flags, gauges, plots, commands).
+-->
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Rocket FC</title>
-<!--
-  Ground station UI, served by the ground station over its WiFi (src/ground/web.cpp):
-  GET /events (Server-Sent Events, one line each), POST /cmd (command lines),
-  GET /rocket/... (the rocket's log server, relayed). Line formats: src/ground/main.cpp,
-  lib/fc_core/src/fc/csv.h, lib/fc_core/src/fc/param_shell.h. No external files.
--->
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>rocket-fc ground station</title>
 <style>
-:root {
-  --bg: #eef1f2; --card: #fff; --ink: #172026; --muted: #64727a; --line: #d6dde0;
-  --ok: #1d7a46; --warn: #a86a00; --bad: #c3302b; --accent: #1f5f8b; --chip: #e8edef;
-  color-scheme: light;
-}
-@media (prefers-color-scheme: dark) { :root {
-  --bg: #0f1416; --card: #182024; --ink: #e2e9ec; --muted: #8d9ba2; --line: #2a353a;
-  --ok: #46c27f; --warn: #e3a33a; --bad: #ff6a5f; --accent: #6fb1e0; --chip: #232d32;
-  color-scheme: dark; } }
-* { box-sizing: border-box; }
-body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  padding: 0 max(12px, env(safe-area-inset-right)) 32px max(12px, env(safe-area-inset-left)); }
-.num { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-variant-numeric: tabular-nums; }
-header { position: sticky; top: 0; z-index: 5; background: var(--bg); padding: 10px 0; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-.state { font-weight: 700; font-size: 18px; padding: 3px 10px; border-radius: 7px; background: var(--chip); }
-.state.PAD { background: var(--accent); color: #fff; } .state.BOOST, .state.COAST, .state.DESCENT { background: var(--warn); color: #000; }
-.state.LANDED { background: var(--ok); color: #fff; } .state.FAULT { background: var(--bad); color: #fff; }
-.pill { padding: 2px 8px; border-radius: 99px; background: var(--chip); font-size: 13px; white-space: nowrap; }
-.pill.ok { background: var(--ok); color: #fff; } .pill.warn { background: var(--warn); color: #000; } .pill.bad { background: var(--bad); color: #fff; }
-.grow { flex: 1; }
-main { display: grid; gap: 12px; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
-@media (max-width: 700px) { main { grid-template-columns: minmax(0, 1fr); } }
-section, details { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px; min-width: 0; }
-.full { grid-column: 1 / -1; }
-h2, summary { font-size: 12px; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); margin: 0 0 8px; font-weight: 600; }
-summary { cursor: pointer; margin: 0; } details[open] summary { margin-bottom: 10px; }
-.kv { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; }
-.kv > :nth-child(odd) { color: var(--muted); }
-.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px; }
-button { font: inherit; padding: 7px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--chip); color: var(--ink); cursor: pointer; }
-button:disabled { opacity: .4; cursor: default; }
-button.on { background: var(--ink); color: var(--card); }
-button.go { background: var(--bad); color: #fff; border-color: var(--bad); font-weight: 700; font-size: 18px; flex: 1; padding: 12px; }
-button.stop { font-weight: 700; font-size: 18px; flex: 1; padding: 12px; }
-input, select { font: inherit; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); min-width: 0; }
-.big { font: 700 32px ui-monospace, Menlo, monospace; }
-.muted { color: var(--muted); font-size: 13px; }
-.count { font: 800 48px ui-monospace, Menlo, monospace; text-align: center; color: var(--bad); margin: 4px 0; }
-canvas { display: block; width: 100%; }
-#plot { height: 120px; margin-top: 8px; }
-#att { width: 44px; height: 44px; flex: none; }
-.events { max-height: 180px; overflow: auto; font-size: 13px; }
-.events div { padding: 2px 0; border-bottom: 1px solid var(--line); }
-.scroll { max-height: 420px; overflow: auto; }
-table { width: 100%; border-collapse: collapse; font-size: 14px; }
-td { padding: 4px 6px 4px 0; border-bottom: 1px solid var(--line); }
-td.k { font-family: ui-monospace, Menlo, monospace; font-size: 13px; }
-td input, td select { width: 100%; }
-tr.changed td.k { color: var(--accent); font-weight: 700; }
-pre { margin: 8px 0 0; max-height: 240px; overflow: auto; font-size: 12px; white-space: pre-wrap; }
+  :root {
+    --bg: #f3f4f6; --panel: #ffffff; --ink: #1f2328; --muted: #646b73; --line: #d5d9de;
+    --accent: #1f6feb; --ok: #1a7f37; --warn: #9a6700; --bad: #cf222e; --info: #0969da;
+    --track: #e7eaee; --s1: #1f6feb; --s2: #cf6a1f; --s3: #6e40c9;
+    --mono: ui-monospace, "Cascadia Mono", Consolas, "Liberation Mono", monospace;
+    --sans: system-ui, "Segoe UI", Roboto, Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1216; --panel: #171b21; --ink: #e2e6ea; --muted: #8b949e; --line: #2c333b;
+      --accent: #4c8dff; --ok: #3fb950; --warn: #d29922; --bad: #f85149; --info: #58a6ff;
+      --track: #232a32; --s1: #4c8dff; --s2: #f0883e; --s3: #a371f7;
+      color-scheme: dark;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.4 var(--sans); }
+  header { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center;
+    padding: 10px 16px; background: var(--panel); border-bottom: 1px solid var(--line); }
+  header h1 { font-size: 16px; margin: 0 12px 0 0; }
+  .conn { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  button, select, input { font: inherit; color: inherit; }
+  button { background: var(--panel); border: 1px solid var(--line); border-radius: 4px;
+    padding: 4px 10px; cursor: pointer; }
+  button:hover:not(:disabled) { border-color: var(--accent); }
+  button:disabled { opacity: .45; cursor: default; }
+  button.danger { border-color: var(--bad); color: var(--bad); }
+  select, input[type=number], input[type=text] { background: var(--panel);
+    border: 1px solid var(--line); border-radius: 4px; padding: 3px 6px; }
+  .pill { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 12px;
+    border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+  .pill.ok { color: var(--ok); border-color: var(--ok); }
+  .pill.warn { color: var(--warn); border-color: var(--warn); }
+  .pill.bad { color: var(--bad); border-color: var(--bad); }
+  .pill.info { color: var(--info); border-color: var(--info); }
+  .pill.on.ok { background: var(--ok); color: var(--panel); }
+  .pill.on.warn { background: var(--warn); color: var(--panel); }
+  .pill.on.bad { background: var(--bad); color: var(--panel); }
+  .panel.danger-panel { border: 2px solid var(--bad); }
+  .panel.danger-panel h2 { color: var(--bad); }
+  .warnbox { border-left: 4px solid var(--bad); padding: 6px 10px; margin-bottom: 8px; background: var(--bg); }
+  .checklist { display: grid; gap: 4px; margin: 6px 0 10px; }
+  button.big { font-size: 16px; padding: 8px 18px; font-weight: 600; }
+  button.fire { background: var(--bad); color: #fff; border-color: var(--bad); }
+  button.fire:disabled { background: var(--panel); color: var(--bad); }
+  #rf-status { font: 600 15px var(--mono); }
+  main { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 12px; padding: 12px 16px 24px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; min-width: 0; }
+  .panel h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 8px; }
+  .c3 { grid-column: span 3; } .c4 { grid-column: span 4; } .c5 { grid-column: span 5; }
+  .c6 { grid-column: span 6; } .c7 { grid-column: span 7; } .c8 { grid-column: span 8; } .c12 { grid-column: span 12; }
+  @media (max-width: 1100px) { .c3, .c4, .c5, .c6, .c7, .c8 { grid-column: span 12; } }
+  table.kv { width: 100%; border-collapse: collapse; }
+  table.kv td { padding: 3px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+  table.kv td:first-child { color: var(--muted); width: 45%; }
+  .num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .state { font: 600 22px var(--mono); padding: 4px 12px; border-radius: 4px; display: inline-block;
+    border: 2px solid var(--line); margin-bottom: 8px; }
+  .state.ok { border-color: var(--ok); color: var(--ok); } .state.warn { border-color: var(--warn); color: var(--warn); }
+  .state.bad { border-color: var(--bad); color: var(--bad); } .state.info { border-color: var(--info); color: var(--info); }
+  .flags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
+  .gauges { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px 16px; }
+  .gauge .g-head { display: flex; justify-content: space-between; gap: 8px; }
+  .gauge .g-label { color: var(--muted); }
+  .gauge .g-val { font: 600 14px var(--mono); }
+  .gauge .g-bar { position: relative; height: 10px; background: var(--track); border-radius: 2px; margin: 3px 0 1px; overflow: hidden; }
+  .gauge .g-fill { position: absolute; top: 0; bottom: 0; background: var(--accent); }
+  .gauge .g-mark { position: absolute; top: -1px; bottom: -1px; width: 2px; }
+  .gauge .g-mark.warn { background: var(--warn); } .gauge .g-mark.bad { background: var(--bad); } .gauge .g-mark.zero { background: var(--muted); }
+  .gauge .g-scale { display: flex; justify-content: space-between; font: 11px var(--mono); color: var(--muted); }
+  .gauge.stale .g-fill { background: var(--muted); }
+  canvas { display: block; width: 100%; }
+  #attitude { height: 300px; }
+  .plots { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 12px; }
+  .plot canvas { height: 170px; }
+  .plot .p-title { font-size: 12px; color: var(--muted); display: flex; gap: 10px; flex-wrap: wrap; }
+  .legend-swatch { display: inline-block; width: 12px; height: 3px; vertical-align: middle; margin-right: 4px; }
+  .row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 8px; }
+  .muted { color: var(--muted); }
+  .note { font-size: 12px; color: var(--muted); }
+  #events-wrap { max-height: 300px; overflow: auto; }
+  table.list { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table.list th { text-align: left; color: var(--muted); font-weight: 500; border-bottom: 1px solid var(--line); padding: 3px 6px; position: sticky; top: 0; background: var(--panel); }
+  table.list td { padding: 3px 6px; border-bottom: 1px solid var(--line); }
+  #console { height: 260px; overflow: auto; margin: 0; padding: 6px 8px; background: var(--bg);
+    border: 1px solid var(--line); border-radius: 4px; font: 12px/1.35 var(--mono); white-space: pre-wrap; }
+  .cmds { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; margin-bottom: 8px; }
+  fieldset { border: 1px solid var(--line); border-radius: 4px; margin: 0 0 8px; padding: 6px 10px; }
+  .panel-head { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; }
+  .panel-head h2 { margin: 0; flex: 1; cursor: pointer; user-select: none; }
+  .panel-head h2::before { content: '\25BE  '; }
+  .panel.collapsed .panel-head h2::before { content: '\25B8  '; }
+  .panel.collapsed > :not(.panel-head) { display: none !important; }
+  .panel.collapsed .panel-head { margin: 0; }
+  button.mini { font-size: 12px; padding: 1px 8px; }
+  .popped-note { grid-column: span 12; }
+  .bench-banner { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; padding: 8px 16px;
+    background: var(--warn); color: var(--panel); font-weight: 600; position: sticky; top: 0; z-index: 5; }
+  .bench-banner[hidden] { display: none; }
+  .bench-banner button { background: var(--panel); color: var(--ink); }
+  .set-group { margin: 14px 0 4px; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted);
+    display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  table.params { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table.params td { border-bottom: 1px solid var(--line); padding: 4px 6px; vertical-align: top; }
+  table.params td.p-name { width: 38%; }
+  table.params .p-key { font: 600 13px var(--mono); }
+  table.params .p-help { color: var(--muted); font-size: 12px; }
+  table.params .p-err { color: var(--bad); font-size: 12px; }
+  table.params .p-meta { color: var(--muted); font: 12px var(--mono); }
+  table.params input[type=text] { width: 140px; font-family: var(--mono); }
+  table.params select { min-width: 140px; }
+  table.params tr.mismatch td { background: color-mix(in srgb, var(--bad) 8%, transparent); }
+  legend { color: var(--muted); font-size: 12px; padding: 0 4px; }
+  .countdown { font: 800 44px var(--mono); text-align: center; margin: 6px 0; }
+  button.on { background: var(--ink); color: var(--panel); border-color: var(--ink); }
+  #launch-panel .row { margin-bottom: 6px; }
+
 </style>
 </head>
 <body>
 <header>
-  <span id="st" class="state">—</span>
-  <span class="num" id="h-alt"></span>
-  <span class="pill" id="h-link">no rocket</span>
-  <span class="pill" id="h-eject" hidden>MANUAL EJECT</span>
-  <span class="grow"></span>
-  <span class="pill" id="h-mode">—</span>
-  <span class="pill" id="h-conn">connecting</span>
+  <h1>rocket-fc</h1>
+  <div class="conn">
+    <span id="st-radio" class="pill">station: connecting…</span>
+    <label>Show <select id="source">
+      <option value="auto">live</option><option value="radio">radio telemetry</option><option value="file">log file</option></select></label>
+    <button id="btn-open">Open log file…</button><input id="file" type="file" accept=".csv,.txt,.log" hidden>
+    <button id="btn-save">Save radio log</button>
+    <span id="st-msg" class="note"></span>
+  </div>
 </header>
+<div id="bench-banner" class="bench-banner" hidden>
+  <span id="bench-text">BENCH MODE</span>
+  <button id="btn-bench-banner-off">Switch to FLIGHT</button>
+</div>
 
 <main>
-  <section>
-    <h2>Launch</h2>
-    <div class="row" style="margin:0">
-      <button id="b-mbench">BENCH</button><button id="b-mflight">FLIGHT</button>
-      <span class="grow"></span><span id="l-state" class="muted"></span>
-    </div>
-    <div id="l-count" class="count">—</div>
-    <div class="row"><button id="b-launch" class="go" disabled>LAUNCH</button><button id="b-abort" class="stop">ABORT</button></div>
-    <div id="l-msg" class="muted" style="margin-top:6px"></div>
-  </section>
-
-  <section>
+  <section class="panel c3">
     <h2>Flight</h2>
-    <div class="row" style="margin:0;align-items:baseline">
-      <span class="big" id="f-alt">—</span><span class="muted">m</span>
-      <span class="grow"></span><span class="num muted" id="f-vel"></span>
-    </div>
-    <div class="row" style="margin-top:2px">
-      <canvas id="att"></canvas>
-      <span class="muted grow" id="f-tilt"></span>
-      <button id="b-upright" title="Stand the rocket nose up and keep it still">Set upright</button>
-    </div>
-    <canvas id="plot"></canvas>
+    <div id="state" class="state">—</div>
+    <table class="kv" id="readouts"></table>
+    <div class="flags" id="flags"></div>
+    <div class="flags"><span id="chg-pill" class="pill">battery: —</span></div>
   </section>
 
-  <section>
-    <h2>GPS</h2>
-    <div class="kv">
-      <span>Position</span><span class="num" id="g-pos">—</span>
-      <span>From pad</span><span class="num" id="g-dist">—</span>
-    </div>
-    <div class="row"><a id="g-map" href="#" target="_blank" rel="noopener" hidden>Open in Maps</a></div>
-  </section>
-
-  <section>
-    <h2>Battery</h2>
-    <div class="kv">
-      <span>Rocket</span><span class="num" id="b-rocket">—</span>
-      <span>Station</span><span class="num" id="b-station">—</span>
+  <section class="panel c5">
+    <h2>Attitude</h2>
+    <canvas id="attitude"></canvas>
+    <table class="kv" id="att-readouts"></table>
+    <div class="row" style="margin-top:8px">
+      <button id="btn-upright" title="Stand the rocket nose up and keep it still, then press">Set upright</button>
+      <span id="upright-msg" class="note"></span>
     </div>
   </section>
 
-  <section>
-    <h2>Rocket</h2>
-    <div class="kv">
-      <span>Signal</span><span class="num" id="r-sig">—</span>
-      <span>Sensors</span><span id="r-sens">—</span>
+  <section class="panel c4">
+    <h2>Radio link</h2>
+    <div class="gauges" id="link-gauges" style="grid-template-columns: 1fr"></div>
+    <table class="kv" id="link-readouts" style="margin-top:8px"></table>
+    <fieldset style="margin-top:10px" id="gs-box">
+      <legend>Ground station</legend>
+      <div class="row"><span>Battery: <b id="gs-batt">—</b></span></div>
+      <div class="row"><button id="btn-ping">Ping rocket</button><span id="gs-ping" class="note">—</span></div>
+      <div class="row"><label><input type="checkbox" id="gs-search"> Search mode</label><span id="gs-search-rssi" class="note"></span></div>
+    </fieldset>
+    <fieldset style="margin-top:10px" id="wifi-box">
+      <legend>Ground station WiFi</legend>
+      <div class="row"><span id="wifi-status" class="note">—</span></div>
+      <div class="row">
+        <label><input type="checkbox" id="wifi-on"> on</label>
+        <label>name <input type="text" id="wifi-ssid" style="width:120px" spellcheck="false"></label>
+        <label>password <input type="text" id="wifi-pass" style="width:120px" placeholder="unchanged" spellcheck="false"></label>
+      </div>
+      <div class="row">
+        <button id="btn-wifi-show">Show password</button>
+        <button id="btn-wifi-apply">Save and reboot station…</button>
+      </div>
+    </fieldset>
+    <fieldset style="margin-top:10px">
+      <legend>Heartbeat to the rocket</legend>
+      <div class="row">
+        <label><input type="checkbox" id="up-on"> on</label>
+        <label>pad beeps every <input type="number" id="up-beep" min="0" max="255" style="width:64px"> s</label>
+        <button id="btn-up-apply">Apply</button>
+      </div>
+      <div id="up-warn" class="warnbox" hidden>Heartbeats are off: no pad beeps, no real time for the rocket.</div>
+    </fieldset>
+  </section>
+
+  <section class="panel c6 danger-panel" id="launch-panel">
+    <h2>Launch</h2>
+    <div class="row">
+      <span>Mode</span><button id="btn-mode-bench">BENCH</button><button id="btn-mode-flight">FLIGHT</button>
+      <span class="pill" id="l-arm">ARM —</span><span class="pill" id="l-cont">igniter —</span><span class="pill" id="l-ready">rocket —</span>
+    </div>
+    <div id="l-count" class="countdown">—</div>
+    <div class="row">
+      <button id="btn-launch" class="big fire" disabled>LAUNCH</button>
+      <button id="btn-abort" class="big">ABORT</button>
+      <span id="l-msg" class="note"></span>
+    </div>
+  </section>
+
+  <section class="panel c6 danger-panel" id="eject-panel">
+    <h2>Ejection charge</h2>
+    <div class="row">
+      <span>Rocket: <b id="ej-state">—</b></span>
+      <span>Manual eject: <b id="ej-enabled">—</b></span>
+      <span>Charge: <b id="ej-fired">—</b></span>
     </div>
     <div class="row">
-      <button id="b-ping">Ping</button>
-      <button id="b-search">Search</button>
-      <button id="b-eject">Eject</button>
+      <button id="btn-eject" class="big fire">EJECT NOW</button>
+      <button id="btn-eject-cancel">Cancel</button>
+      <span id="ej-why" class="note"></span>
     </div>
-    <div id="r-msg" class="muted" style="margin-top:6px"></div>
+    <div id="ej-status" class="muted">—</div>
   </section>
 
-  <section>
+  <section class="panel c12">
+    <h2>Sensors</h2>
+    <div class="gauges" id="gauges"></div>
+  </section>
+
+  <section class="panel c6" id="gps-panel">
+    <h2>GPS and recovery</h2>
+    <div id="gps-state" class="state">—</div>
+    <table class="kv" id="gps-readouts"></table>
+    <div class="row" style="margin-top:6px">
+      <button id="btn-gps-copy">Copy position</button>
+      <a id="gps-osm" target="_blank" rel="noopener">OpenStreetMap</a>
+      <a id="gps-gmaps" target="_blank" rel="noopener">Google Maps</a>
+    </div>
+    <div class="plot">
+      <div class="p-title"><span>Track from the pad [m], north up</span></div>
+      <canvas id="gps-plot" style="height:240px"></canvas>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <label><input type="checkbox" id="gps-map-on"> Satellite map</label>
+      <button id="btn-gps-map-win">Map window ↗</button>
+    </div>
+    <iframe id="gps-map" hidden title="Satellite map" referrerpolicy="no-referrer"
+      style="width:100%; height:300px; border:1px solid var(--line); border-radius:4px"></iframe>
+  </section>
+
+  <section class="panel c6" id="batt-panel">
+    <h2>Battery</h2>
+    <div id="chg-state" class="state">—</div>
+    <table class="kv" id="batt-readouts"></table>
+    <div class="plot" style="margin-top:8px">
+      <div class="p-title"><span>Rocket battery [V], whole session</span></div>
+      <canvas id="batt-plot" style="height:200px"></canvas>
+    </div>
+  </section>
+
+  <section class="panel c12">
+    <div class="row"><h2 style="margin:0">Plots</h2>
+      <label class="note">window <select id="window">
+        <option value="30">30 s</option><option value="120" selected>2 min</option>
+        <option value="600">10 min</option><option value="0">all</option></select></label></div>
+    <div class="plots" id="plots"></div>
+  </section>
+
+  <section class="panel c5">
     <h2>Events</h2>
-    <div id="events" class="events"></div>
+    <div id="events-wrap"><table class="list"><thead><tr><th>t [s]</th><th>state</th><th>event</th><th>value</th></tr></thead>
+      <tbody id="events"></tbody></table></div>
   </section>
 
-  <details class="full" id="set-box">
-    <summary>Settings</summary>
-    <div class="row" style="margin:0">
-      <select id="s-kit"><option value="rocket">Rocket</option><option value="station">Station</option></select>
-      <input id="s-filter" placeholder="filter" style="flex:1">
-      <button id="b-sload">Read</button><button id="b-ssave">Save</button><button id="b-sreboot">Reboot</button>
+  <section class="panel c7">
+    <h2>Flight computer</h2>
+    <fieldset id="flog-box">
+      <legend>Onboard logs</legend>
+      <div class="row">
+        <button id="btn-flog-list">List sessions</button>
+        <button id="btn-ram">RAM log (this boot)</button>
+        <button id="btn-rwifi">Rocket WiFi</button>
+        <button id="btn-flog-erase" class="danger">Erase flash log…</button>
+        <span id="flog-info" class="note"></span>
+      </div>
+      <table class="list" id="flog-table" hidden><thead><tr><th>session</th><th>duration</th><th>frames</th><th>size</th><th></th></tr></thead>
+        <tbody id="flog-rows"></tbody></table>
+    </fieldset>
+    <div class="cmds" id="cmds"></div>
+    <pre id="console"></pre>
+    <div class="row" style="margin-top:6px">
+      <select id="cmd-kit"><option value="r">rocket</option><option value="">station</option></select>
+      <input type="text" id="cmd" placeholder="command (Enter to send, ↑ for history)" style="flex:1" autocomplete="off">
+      <button id="btn-send">Send</button>
+      <button id="btn-clear">Clear</button>
     </div>
-    <div id="s-state" class="muted" style="margin:6px 0"></div>
-    <div class="scroll"><table id="s-table"></table></div>
-  </details>
+  </section>
 
-  <details id="log-box">
-    <summary>Logs</summary>
-    <div class="row" style="margin:0">
-      <button id="b-save">Save received</button>
-      <button id="b-rwifi">Rocket WiFi</button>
-      <button id="b-flist">Onboard logs</button>
-      <button id="b-ram">RAM log</button>
+  <section class="panel c12" id="set-panel">
+    <h2>Settings</h2>
+    <div class="row">
+      <button id="btn-set-read">Read settings</button>
+      <button id="btn-set-save" class="danger">Save to flash</button>
+      <button id="btn-set-reboot">Reboot rocket</button>
+      <button id="btn-set-reboot-gs">Reboot station</button>
+      <button id="btn-set-revert">Discard changes</button>
+      <button id="btn-set-defaults" class="danger">All to defaults…</button>
+      <button id="btn-set-export">Export…</button>
+      <button id="btn-set-import">Import…</button><input id="set-file" type="file" accept=".txt,.cfg,.ini" hidden>
+      <input type="text" id="set-filter" placeholder="filter" style="width:160px">
+      <label class="note"><input type="checkbox" id="set-changed"> only changed</label>
     </div>
-    <div id="w-state" class="muted" style="margin-top:6px"></div>
-    <div id="f-list" class="row"></div>
-  </details>
-
-  <details id="con-box">
-    <summary>Console</summary>
-    <div class="row" style="margin:0">
-      <select id="c-kit"><option value="r">Rocket</option><option value="">Station</option></select>
-      <input id="c-in" class="num" style="flex:1" placeholder="status" autocomplete="off" autocapitalize="off">
-      <button id="b-send">Send</button>
-    </div>
-    <pre id="c-out" class="num"></pre>
-  </details>
+    <div id="set-status" class="note"></div>
+    <div id="set-warn" class="warnbox" hidden></div>
+    <div id="set-body"></div>
+  </section>
 </main>
 
 <script>
 'use strict';
-const $ = id => document.getElementById(id);
-const fmt = (v, d = 1) => (v === undefined || v === null || !isFinite(v)) ? '—' : Number(v).toFixed(d);
-const T_COLS = ['type', 'seq', 't_ms', 'state', 'alt_m', 'vel_mps', 'ax_g', 'ay_g', 'az_g', 'gx_dps', 'gy_dps', 'gz_dps',
-  'mx_uT', 'my_uT', 'mz_uT', 'p_pa', 'temp_c', 'batt_v', 'flags', 'qw', 'qx', 'qy', 'qz', 'link', 'up_rssi_dbm', 'beep_s', 'rssi', 'snr'];
-const G_COLS = ['type', 'seq', 't_ms', 'state', 'fix', 'sats', 'hdop', 'lat', 'lon', 'alt_msl_m', 'speed_mps', 'course_deg', 'age_ms', 'utc_s', 'rssi', 'snr'];
-const REASONS = ['fired', 'not in bench mode', 'not in PAD', 'no continuity', 'bad pulse', 'not armed', 'wrong code (rf_key?)',
-  'window expired', 'cancelled', 'busy', 'manual_eject is off', 'already fired', 'no launch detected'];
-// Events worth listing (the others are status the page shows anyway).
-const EVENTS = {
-  BOOT: 'Rocket started', SELFTEST_OK: 'Self-test OK', SELFTEST_FAIL: 'SELF-TEST FAILED (fault %)', LAUNCH: 'LAUNCH',
-  BURNOUT: 'Burnout %m', APOGEE: 'Apogee %m', PYRO_FIRE: 'Parachute fired %m', PYRO_BACKUP_FIRE: 'Backup timer fired %m',
-  LANDED: 'Landed (max %m)', APOGEE_NO_DEPLOY: 'Too low to deploy (%m)', BATT_LOW: 'Rocket battery low', BATT_CRITICAL: 'Rocket battery critical',
-  PYRO_OPEN: 'Igniter burned through', SENSOR_LOST: 'Sensor lost', RESUMED: 'Resumed after a reset', BENCH_FIRE: 'Test pulse fired',
-  REMOTE_DISARMED: 'Disarmed: %r', REMOTE_REFUSED: 'Refused: %r', EJECT_ARMED: 'Ejection armed', MANUAL_EJECT: 'MANUAL EJECTION %m',
+
+// ===========================================================================
+// CONFIG: edit these tables to change what is shown.
+// ===========================================================================
+
+// CSV columns, in order (lib/fc_core/src/fc/csv.h). The ground station appends rssi_dbm,snr_db.
+const TLM_COLUMNS = ['seq', 't_ms', 'state', 'alt_m', 'vel_mps', 'ax_g', 'ay_g', 'az_g',
+  'gx_dps', 'gy_dps', 'gz_dps', 'mx_uT', 'my_uT', 'mz_uT', 'p_pa', 'temp_c', 'batt_v', 'flags',
+  'qw', 'qx', 'qy', 'qz', 'link', 'up_rssi_dbm', 'beep_s'];
+const EVT_COLUMNS = ['seq', 't_ms', 'state', 'event', 'arg'];
+// GPS frames (optional module): lat/lon in degrees, fix = GGA quality (0 = none).
+const GPS_COLUMNS = ['seq', 't_ms', 'state', 'fix', 'sats', 'hdop', 'lat', 'lon', 'alt_msl_m', 'speed_mps',
+  'course_deg', 'age_ms', 'utc_s'];
+const GPS_QUALITY = ['no fix', 'GPS', 'DGPS', 'PPS', 'RTK', 'RTK float', 'estimated', 'manual', 'simulation'];
+
+// Telemetry flag bits (docs/TELEMETRY.md). cls: colour when set / when clear.
+const FLAGS = [
+  { bit: 0, name: 'CONTINUITY', set: 'ok' },
+  { bit: 1, name: 'ARMED', set: 'warn' },
+  { bit: 2, name: 'FIRED', set: 'warn' },
+  { bit: 3, name: 'IMU', set: 'ok', clear: 'bad' },
+  { bit: 4, name: 'MAG', set: 'ok' },
+  { bit: 5, name: 'BARO', set: 'ok', clear: 'bad' },
+  { bit: 6, name: 'BATT LOW', set: 'bad' },
+  { bit: 7, name: 'RESUMED', set: 'warn' },
+];
+
+const STATE_CLASS = { INIT: '', FAULT: 'bad', PAD: 'info', BOOST: 'warn', COAST: 'warn', DESCENT: 'warn', LANDED: 'ok' };
+
+// How to show each event's argument (docs/TELEMETRY.md, event table).
+const cm = a => (a / 100).toFixed(1) + ' m';
+const EVENT_ARG = {
+  BOOT: a => 'firmware ' + (a >>> 0).toString(16).padStart(8, '0'),
+  SELFTEST_OK: a => a ? 'warnings 0x' + a.toString(16) + ' (' + warnNames(a) + ')' : 'no warnings',
+  SELFTEST_FAIL: a => 'fault ' + a + ' (' + (['', 'baro missing', 'pressure implausible', 'settings invalid',
+    'IMU missing (required)', 'radio failed (required)', 'battery below minimum', 'GPS missing (required)'][a] || '?') + ')',
+  LAUNCH: cm, BURNOUT: cm, APOGEE: cm, PYRO_FIRE: cm, PYRO_BACKUP_FIRE: cm, LANDED: cm, APOGEE_NO_DEPLOY: cm,
+  BATT_LOW: a => (a / 1000).toFixed(2) + ' V', BATT_CRITICAL: a => (a / 1000).toFixed(2) + ' V',
+  PYRO_OPEN: a => a + ' ms after fire', RESUMED: a => (a / 1000).toFixed(1) + ' s after launch',
+  SENSOR_LOST: a => ['IMU', 'MAG', 'BARO', 'RADIO'].filter((_, i) => a & (1 << i)).join(', '),
+  BENCH_FIRE: a => a + ' ms pulse',
+  GROUND_LINK: a => a ? 'rocket hears the ground station' : 'rocket lost the ground station',
+  TIME_SYNC: a => fmtTime((a >>> 0) * 1000) + ' (rocket clock set)',
+  REMOTE_ARMED: () => 'test fire ARMED (10 s window)',
+  REMOTE_DISARMED: a => 'disarmed: ' + (RF_REASONS[a] || a),
+  REMOTE_REFUSED: a => 'refused: ' + (RF_REASONS[a] || a),
+  RESTART: () => 'flight computer restarted: plots start over (all data stays in the saved log)',
+  CONFIG: a => 'settings crc ' + (a >>> 0).toString(16).toUpperCase().padStart(8, '0'),
+  PYRO_SAG: a => { const s = sagValues(a); return `battery ${fmt(s.pre, 3)} V before, min ${fmt(s.min, 3)} V during the pulse (drop ${fmt(s.pre - s.min, 3)} V)`; },
+  BENCH_MODE: a => ['flight mode (bench mode off)', 'BENCH MODE ON', 'bench mode off: launch detected'][a] || String(a),
+  GPS: a => ['GPS: no data (lost or not connected)', 'GPS: receiving, no fix', 'GPS: position fix'][a] || String(a),
+  PONG: a => 'answered ping ' + a,
+  EJECT_ARMED: () => 'manual ejection ARMED (10 s window)',
+  MANUAL_EJECT: a => 'MANUAL EJECTION fired at ' + cm(a),
 };
-const BAD_EVENTS = ['SELFTEST_FAIL', 'BATT_CRITICAL', 'SENSOR_LOST', 'REMOTE_REFUSED'];
-const LIION = [[3.30, 0], [3.40, 2], [3.50, 5], [3.60, 12], [3.70, 28], [3.80, 45], [3.90, 62], [4.00, 78], [4.10, 90], [4.20, 100]];  // = fc::liion_percent
-const S = { t: null, tAt: 0, g: null, pad: null, maxAlt: 0, series: [], lines: [], station: {}, tiltMsgAt: 0,
-  defs: new Map(), rvals: new Map(), rpe: null, sdefs: new Map(), spe: null, conOut: [] };
+// fc::RemoteFireEnd (lib/fc_core/src/fc/remote_fire.h)
+function sagValues(a) { a = a >>> 0; return { pre: (a >>> 16) / 1000, min: (a & 0xFFFF) / 1000 }; }
+const RF_REASONS = ['fired', 'not in bench mode', 'not in PAD state',
+  'no igniter continuity (arm link out?)', 'pulse length out of range', 'not armed', 'wrong code (pairing key?)',
+  'fire window expired', 'cancelled', 'pyro output busy', 'manual eject not enabled (manual_eject)',
+  'charge already fired', 'no launch detected'];
+const WARN_BITS = ['IMU missing', 'no magnetometer', 'radio failed', 'battery low', 'up axis not ~1 g', 'no backup timer',
+  'no GPS data', 'MANUAL EJECTION ENABLED'];
+function warnNames(a) { return WARN_BITS.filter((_, i) => a & (1 << i)).join(', '); }
 
-// ---------------------------------------------------------------- connection
-function connect() {
-  const es = new EventSource('/events');
-  es.onopen = () => { setConn(true); send(''); send('time ' + Date.now()); };
-  es.onerror = () => setConn(false);
-  es.onmessage = e => onLine(e.data);
-}
-function setConn(ok) { pill($('h-conn'), ok ? 'station' : 'no station', ok ? 'ok' : 'bad'); }
-function send(cmd) { return fetch('/cmd', { method: 'POST', body: cmd + '\n' }).catch(() => setConn(false)); }
+// Readouts in the Flight panel: [label, f(frame, track) -> text]
+const READOUTS = [
+  ['Time since boot', f => fmt(f.t_ms / 1000, 1) + ' s'],
+  ['Altitude (AGL)', f => fmt(f.alt_m, 1) + ' m'],
+  ['Max altitude', (f, t) => fmt(t.maxAlt, 1) + ' m'],
+  ['Vertical speed', f => fmt(f.vel_mps, 1) + ' m/s'],
+  ['Battery', f => fmt(f.batt_v, 2) + ' V  (' + fmt(liionPercent(f.batt_v), 0) + ' %)'],
+  ['Pressure', f => fmt(f.p_pa / 100, 1) + ' hPa'],
+  ['Last frame', (f, t) => t.lastRx ? fmt((performance.now() - t.lastRx) / 1000, 1) + ' s ago  (#' + f.seq + ')' : 'from file'],
+  ['Rocket clock', (f, t) => t.utc0 ? fmtTime(t.utc0 + f.t_ms) : 'not synced'],
+];
 
-// ---------------------------------------------------------------- incoming lines
-function onLine(line) {
-  if (!line) return;
-  S.lines.push(line);
-  if (S.lines.length > 200000) S.lines.splice(0, 50000);
-  const c2 = line.slice(0, 2);
-  if (c2 === 'T,') return onTelemetry(line.split(','));
-  if (c2 === 'E,') return onEvent(line.split(','));
-  if (c2 === 'G,') return onGps(line.split(','));
-  if (line.startsWith('RC,')) return onRocketText(line.slice(3));
-  if (c2 === 'D,') { const d = parseP(line); S.defs.set(d.key, d); return renderSettings(); }
-  if (c2 === 'P,') { const d = parseP(line); S.sdefs.set(d.key, d); return renderSettings(); }
-  if (line.startsWith('PE,')) { S.spe = line.split(','); return renderSettings(); }
-  if (line.startsWith('PERR,') || line.startsWith('PSAVED,')) return conAppend('station: ' + line);
-  if (line.startsWith('# station ')) { const st = {}; line.slice(10).split(' ').forEach(kv => { const [k, v] = kv.split('='); st[k] = v; }); S.station = st; return; }
-  if (line.startsWith('# launch')) { $('l-msg').textContent = line.slice(9); if (/aborted|refused|fired/.test(line)) addEvent(line.slice(2)); return; }
-  if (line.startsWith('# ping')) return onPing(line);
-  if (line.startsWith('# eject')) { $('r-msg').textContent = 'Eject: ' + line.slice(8); if (/FIRED|refused|FAILED/.test(line)) addEvent(line.slice(2)); return; }
-  if (line.startsWith('# ') && !/^# (noise|stats|uplink|mode)/.test(line)) conAppend(line);
-}
-function onTelemetry(p) {
-  const f = {};
-  T_COLS.forEach((c, i) => f[c] = c === 'type' || c === 'state' ? p[i] : Number(p[i]));
-  if (S.t && f.t_ms < S.t.t_ms - 5000) { S.series = []; S.maxAlt = 0; }  // the rocket restarted
-  S.t = f; S.tAt = performance.now();
-  if (['BOOST', 'COAST', 'DESCENT', 'LANDED'].includes(f.state)) S.maxAlt = Math.max(S.maxAlt, f.alt_m);
-  S.series.push([f.t_ms / 1000, f.alt_m]);
-  if (S.series.length > 20000) S.series.splice(0, 5000);
-}
-function onEvent(p) {
-  const name = p[4], a = Number(p[5]);
-  if (name === 'LAUNCH') { S.series = []; S.maxAlt = 0; }
-  const tpl = EVENTS[name];
-  if (!tpl) return;
-  addEvent(tpl.replace('%m', fmt(a / 100) + ' m').replace('%r', REASONS[a] || a).replace('%', a), BAD_EVENTS.includes(name));
-}
-function onGps(p) {
-  const g = {};
-  G_COLS.forEach((c, i) => g[c] = c === 'type' || c === 'state' ? p[i] : Number(p[i]));
-  S.g = g;
-  if (g.fix > 0 && g.state === 'PAD') S.pad = { lat: g.lat, lon: g.lon };
-}
-function onPing(line) {
-  let m;
-  if ((m = /reply id=\d+ rtt=(\d+) ms rssi=([-\d.]+)/.exec(line))) $('r-msg').textContent = `Ping: answered in ${m[1]} ms (${m[2]} dBm)`;
-  else if (line.startsWith('# ping no reply')) $('r-msg').textContent = 'Ping: no answer';
-}
-function onRocketText(t) {
-  conAppend('rocket: ' + t);
-  if (t.startsWith('V,')) { const [, k, v, r] = t.split(','); S.rvals.set(k, { v, r }); renderSettings(); }
-  else if (t.startsWith('PE,')) { S.rpe = t.split(','); renderSettings(); }
-  else if (t.startsWith('wifi:')) {
-    if (t.startsWith('wifi: joined')) S.rwifi = true;
-    if (t.startsWith('wifi: off') || t.includes('refused')) S.rwifi = false;
-    $('w-state').textContent = t.startsWith('wifi: key') ? 'Rocket WiFi: connecting…' : 'Rocket ' + t;
-    $('b-rwifi').className = S.rwifi ? 'on' : '';
+// Gauges in the Sensors panel. auto: widen the range to fit the data.
+// marks: reference lines. zero: draw the bar from 0 (signed values).
+const GAUGES = [
+  { label: 'Altitude', unit: 'm', min: 0, max: 300, auto: true, digits: 1, get: f => f.alt_m },
+  { label: 'Vertical speed', unit: 'm/s', min: -50, max: 150, auto: true, zero: true, digits: 1, get: f => f.vel_mps },
+  { label: 'Axial acceleration', unit: 'g', min: -2, max: 16, zero: true, digits: 2, get: f => f.az_g },
+  { label: 'Total acceleration', unit: 'g', min: 0, max: 16, digits: 2, get: f => Math.hypot(f.ax_g, f.ay_g, f.az_g) },
+  { label: 'Spin rate (roll)', unit: '°/s', min: -720, max: 720, zero: true, digits: 0, get: f => f.gz_dps },
+  { label: 'Pitch/yaw rate', unit: '°/s', min: 0, max: 360, digits: 0, get: f => Math.hypot(f.gx_dps, f.gy_dps) },
+  { label: 'Tilt from vertical', unit: '°', min: 0, max: 90, digits: 1, get: f => imuOk(f) ? tiltDeg(f) : NaN,
+    marks: [{ v: 20, cls: 'warn' }] },
+  { label: 'Battery', unit: 'V', min: 3.2, max: 4.3, digits: 2, get: f => f.batt_v,
+    marks: [{ v: 3.4, cls: 'bad' }, { v: 3.6, cls: 'warn' }] },
+  { label: 'Pressure', unit: 'hPa', min: 850, max: 1050, digits: 1, get: f => f.p_pa / 100 },
+  { label: 'Baro temperature', unit: '°C', min: -10, max: 60, digits: 1, get: f => f.temp_c },
+  { label: 'Magnetic field', unit: 'µT', min: 0, max: 100, digits: 1, get: f => Math.hypot(f.mx_uT, f.my_uT, f.mz_uT) },
+];
+
+// Radio link gauges: s = { rssi, snr, noise } of the selected track.
+const SF7_SNR_LIMIT_DB = -7.5;  // LoRa SF7 demodulation limit
+const LINK_GAUGES = [
+  { label: 'RSSI', unit: 'dBm', min: -130, max: -30, digits: 1, get: s => s.rssi, marks: [{ v: -120, cls: 'bad' }] },
+  { label: 'SNR', unit: 'dB', min: -20, max: 15, digits: 1, get: s => s.snr, marks: [{ v: SF7_SNR_LIMIT_DB, cls: 'bad' }] },
+  { label: 'Noise floor', unit: 'dBm', min: -130, max: -80, digits: 1, get: s => s.noise },
+  { label: 'Uplink RSSI (at the rocket)', unit: 'dBm', min: -130, max: -30, digits: 0, get: s => s.uprssi,
+    marks: [{ v: -120, cls: 'bad' }] },
+];
+
+// Heartbeat (ground -> rocket): remembered in this browser, sent to the station on connect.
+const UPLINK_DEFAULTS = { on: true, beep_s: 10 };
+
+// Plots: each series is { label, get(frame) }.
+const PLOTS = [
+  { title: 'Altitude [m]', series: [{ label: 'altitude', get: f => f.alt_m }] },
+  { title: 'Vertical speed [m/s]', series: [{ label: 'velocity', get: f => f.vel_mps }] },
+  { title: 'Acceleration [g]', series: [{ label: 'axial', get: f => f.az_g },
+    { label: 'total', get: f => Math.hypot(f.ax_g, f.ay_g, f.az_g) }] },
+  { title: 'Rotation rate [°/s]', series: [{ label: 'roll', get: f => f.gz_dps },
+    { label: 'pitch/yaw', get: f => Math.hypot(f.gx_dps, f.gy_dps) }] },
+  { title: 'Battery [V]', series: [{ label: 'battery', get: f => f.batt_v }] },
+  { title: 'Radio [dBm / dB]', series: [{ label: 'RSSI', get: f => f.rssi }, { label: 'SNR', get: f => f.snr }] },
+];
+
+// Rocket console buttons (sent by radio). bench: needs bench mode. confirm: asked first.
+const COMMANDS = [
+  { label: 'Status', cmd: 'status' },
+  { label: 'Config', cmd: 'config' },
+  { label: 'GPS', cmd: 'gps' },
+  { label: 'I²C scan', cmd: 'i2c' },
+  { label: 'Beep', cmd: 'beep' },
+  { label: 'Clear RAM log', cmd: 'logclear', confirm: 'Erase the RAM log of this boot?' },
+  { label: 'Reboot', cmd: 'reboot', confirm: 'Reboot the rocket? (It recalibrates: keep it still.)' },
+  { label: 'Simulated flight', cmd: 'sim', bench: true },
+  { label: 'Sim + live pyro', cmd: 'sim live', bench: true,
+    confirm: 'The pyro output WILL pulse at simulated apogee.\nDummy load or bare nichrome only. Continue?' },
+];
+
+// Battery panel readouts: [label, f(frame, track, charge) -> text]
+const BATT_READOUTS = [
+  ['Rocket voltage', f => f ? fmt(f.batt_v, 3) + ' V' : '—'],
+  ['Estimated charge', f => f ? fmt(liionPercent(f.batt_v), 0) + ' %' : '—'],
+  ['Trend (10 min)', (f, t, c) => !f ? '—' : isFinite(c.slope) ? (c.slope >= 0 ? '+' : '') + fmt(c.slope, 3) + ' V/h' : 'collecting…'],
+  ['Time to full', (f, t, c) => c.toFull],
+  ['Rocket USB', f => f ? ((f.link & 4) ? 'connected' : 'not connected') : '—'],
+  ['Low / critical', f => !f ? '—' : fmt(battLimit('batt_low_v', 3.6), 2) + ' V / ' + fmt(battLimit('batt_crit_v', 3.4), 2) + ' V'],
+  ['Last pyro pulse', (f, t) => { if (!f) return '—'; const e = t.events.filter(x => x.event === 'PYRO_SAG').pop();
+    if (!e) return '—'; const s = sagValues(e.arg); return `${fmt(s.pre, 2)} → min ${fmt(s.min, 2)} V (−${fmt(s.pre - s.min, 2)} V)`; }],
+  ['Station battery', () => { const s = gs.st; return !s.vbat ? '—' : s.vbat === '0.00' ? 'no cell (USB)' : `${s.vbat} V, ${s.pct} %${s.low === '1' ? ' LOW' : ''}`; }],
+];
+// Battery thresholds from the flight computer's settings when known.
+function battLimit(key, dflt) { const d = params.fc.defs.get(key); const v = d ? Number(d.running) : NaN; return isFinite(v) ? v : dflt; }
+const FULL_V = 4.17;
+
+// Voltage trend [V/h] by least squares over the last `window_s` of frames.
+function battTrend(frames, window_s) {
+  if (!frames.length) return NaN;
+  const tEnd = frames[frames.length - 1].t_ms / 1000;
+  let n = 0, sx = 0, sy = 0, sxx = 0, sxy = 0, tFirst = tEnd;
+  for (let i = frames.length - 1; i >= 0; i--) {
+    const f = frames[i], x = f.t_ms / 1000;
+    if (x < tEnd - window_s) break;
+    if (!(f.batt_v > 2.5)) continue;
+    n++; sx += x; sy += f.batt_v; sxx += x * x; sxy += x * f.batt_v; tFirst = x;
   }
-  else if (t.startsWith('imu upright:') && !t.includes('gravity')) {
-    $('f-tilt').textContent = t.slice(13);
-    S.tiltMsgAt = performance.now();
-    if (t.includes('OK:') && !t.includes('same as now') && confirm('Saved. Reboot the rocket to use it?')) send('r reboot');
-  }
-}
-function addEvent(text, bad) {
-  const box = $('events'), d = document.createElement('div');
-  d.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) + '  ' + text;
-  if (bad) d.style.color = 'var(--bad)';
-  box.prepend(d);
-  while (box.childNodes.length > 100) box.lastChild.remove();
-}
-function conAppend(t) {
-  S.conOut.push(t);
-  if (S.conOut.length > 300) S.conOut.shift();
-  if ($('con-box').open) { $('c-out').textContent = S.conOut.join('\n'); $('c-out').scrollTop = 1e9; }
+  if (n < 20 || tEnd - tFirst < 120) return NaN;   // need 2 min of data
+  const d = n * sxx - sx * sx;
+  return d > 0 ? (n * sxy - sx * sy) / d * 3600 : NaN;
 }
 
-// ---------------------------------------------------------------- render (4 Hz)
-function pill(el, text, cls) { el.textContent = text; el.className = 'pill' + (cls ? ' ' + cls : ''); }
-function liion(v) {
+// Charging status from the USB flag, the voltage and its trend.
+function chargeState(t) {
+  const f = t.latest();
+  if (!f) return { label: '—', cls: '', slope: NaN, toFull: '—' };
+  const v = f.batt_v, usb = (f.link & 4) !== 0, slope = battTrend(t.frames, 600);
+  const c = { slope, toFull: '—' };
+  if (!(v > 2.5)) return Object.assign(c, { label: usb ? 'NO BATTERY (USB power)' : 'NO BATTERY', cls: 'warn' });
+  if (usb) {
+    if (v >= FULL_V && !(slope > 0.02)) return Object.assign(c, { label: 'CHARGED (on USB)', cls: 'ok' });
+    if (slope > 0.005) c.toFull = fmt(Math.max(0, (FULL_V - v) / slope), 1) + ' h';
+    return Object.assign(c, { label: 'CHARGING (USB)', cls: 'info' });
+  }
+  if (slope > 0.05) return Object.assign(c, { label: 'CHARGING? (voltage rising)', cls: 'info' });
+  if (v < battLimit('batt_crit_v', 3.4)) return Object.assign(c, { label: 'ON BATTERY: CRITICAL', cls: 'bad' });
+  if (v < battLimit('batt_low_v', 3.6)) return Object.assign(c, { label: 'ON BATTERY: LOW', cls: 'warn' });
+  return Object.assign(c, { label: 'ON BATTERY', cls: '' });
+}
+
+
+const CONSOLE_MAX_LINES = 3000;
+const MAX_FRAMES = 300000;     // per track (memory guard)
+const RENDER_MS = 200;
+
+// ===========================================================================
+// Helpers
+// ===========================================================================
+
+// Panels can be moved into their own windows (popOut): look there too.
+const popups = {};  // panel id -> { win, holder, node }
+const $ = id => document.getElementById(id) || popupGet(id);
+function popupGet(id) {
+  for (const k in popups) {
+    const w = popups[k].win;
+    if (w && !w.closed) { const e = w.document.getElementById(id); if (e) return e; }
+  }
+  return null;
+}
+// Dialogs appear in the window the user is working in.
+function dlgWin() {
+  for (const k in popups) { const w = popups[k].win; if (w && !w.closed && w.document.hasFocus()) return w; }
+  return window;
+}
+const ask = m => dlgWin().confirm(m), tell = m => dlgWin().alert(m), askText = (m, v) => dlgWin().prompt(m, v);
+function fmt(v, digits) { return (v === undefined || v === null || !isFinite(v)) ? '—' : Number(v).toFixed(digits); }
+function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; }
+function css(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+function stamp() { const d = new Date(), p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`; }
+function download(name, text) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], { type: 'text/csv' }));
+  a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+// Local date/time with ms, plus the UTC offset, from Unix ms.
+function fmtTime(ms) {
+  const d = new Date(ms), p = (n, w = 2) => String(n).padStart(w, '0');
+  const off = -d.getTimezoneOffset(), sign = off >= 0 ? '+' : '-';
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}.${p(d.getMilliseconds(), 3)} UTC${sign}${p(Math.floor(Math.abs(off) / 60))}:${p(Math.abs(off) % 60)}`;
+}
+function setMsg(text) { $('st-msg').textContent = text; }
+
+// Same curve as fc::liion_percent (lib/fc_core/src/fc/battery.cpp).
+const LIION = [[3.30, 0], [3.40, 2], [3.50, 5], [3.60, 12], [3.70, 28], [3.80, 45], [3.90, 62], [4.00, 78], [4.10, 90], [4.20, 100]];
+function liionPercent(v) {
   if (!(v > LIION[0][0])) return 0;
   for (let i = 1; i < LIION.length; i++) if (v <= LIION[i][0])
     return LIION[i - 1][1] + (v - LIION[i - 1][0]) / (LIION[i][0] - LIION[i - 1][0]) * (LIION[i][1] - LIION[i - 1][1]);
   return 100;
 }
-function render() {
-  const f = S.t, age = f ? (performance.now() - S.tAt) / 1000 : Infinity, live = age < 4, s = S.station;
-  // header
-  $('st').textContent = f ? f.state + (live ? '' : ' ?') : '—';
-  $('st').className = 'state ' + (f && live ? f.state : '');
-  $('h-alt').textContent = f ? fmt(f.alt_m) + ' m' : '';
-  pill($('h-link'), f ? (live ? fmt(f.rssi, 0) + ' dBm' : 'lost ' + fmt(age, 0) + ' s') : 'no rocket', f ? (live ? 'ok' : 'bad') : '');
-  $('h-eject').hidden = !(f && (f.link & 64)); pill($('h-eject'), 'MANUAL EJECT', 'bad');
-  const bench = s.mode === 'bench', rb = f && (f.link & 8);
-  pill($('h-mode'), bench ? 'BENCH' : s.mode ? 'FLIGHT' : '—', bench ? 'warn' : '');
-  // launch
-  const armed = s.arm === '1', cont = s.cont === '1', ready = s.ready === '1';
-  $('b-mbench').className = bench ? 'on' : ''; $('b-mflight').className = s.mode === 'flight' ? 'on' : '';
-  $('l-state').textContent = !armed ? 'ARM off' : !cont ? 'armed · no igniter' : bench ? 'armed · igniter OK' : ready ? 'armed · rocket ready' : 'armed · rocket not ready';
-  $('l-state').style.color = armed ? 'var(--bad)' : '';
-  $('l-count').textContent = s.launch === 'countdown' ? s.left : s.launch === 'firing' ? 'FIRE' : armed ? 'ARMED' : '—';
-  $('l-count').style.color = armed ? '' : 'var(--line)';
-  $('b-launch').disabled = !(armed && cont && (bench || ready) && s.launch === 'idle');
-  // flight
-  $('f-alt').textContent = f ? fmt(f.alt_m) : '—';
-  $('f-vel').textContent = f ? `max ${fmt(S.maxAlt)} m · ${fmt(f.vel_mps)} m/s` : '';
-  drawAttitude(f);
-  drawPlot();
-  // GPS
-  const g = S.g;
-  $('g-pos').textContent = !g ? 'no GPS' : g.fix ? `${g.lat.toFixed(6)}, ${g.lon.toFixed(6)}` : `no fix (${g.sats} sats)`;
-  if (g && g.fix) {
-    $('g-map').hidden = false;
-    $('g-map').href = `https://www.google.com/maps/search/?api=1&query=${g.lat},${g.lon}`;
-    if (S.pad) { const [d, b] = distBearing(S.pad, g); $('g-dist').textContent = `${fmt(d, 0)} m at ${fmt(b, 0)}°`; }
-  }
-  // battery
-  $('b-rocket').textContent = f ? `${fmt(f.batt_v, 2)} V · ${fmt(liion(f.batt_v), 0)} %` + (f.link & 4 ? ' · USB' : '') : '—';
-  $('b-station').textContent = !s.vbat ? '—' : s.vbat === '0.00' ? 'USB' : `${s.vbat} V · ${s.pct} %` + (s.low === '1' ? ' · LOW' : '');
-  $('b-station').style.color = s.low === '1' ? 'var(--bad)' : '';
-  // rocket
-  $('r-sig').textContent = f ? `${fmt(f.rssi, 0)} dBm · SNR ${fmt(f.snr)} dB` : '—';
-  $('r-sens').textContent = f ? ['IMU', 'MAG', 'BARO'].filter((_, i) => f.flags & (8 << i)).join(' ') +
-    (f.flags & 1 ? ' · charge OK' : ' · charge open') + (f.flags & 4 ? ' · FIRED' : '') + (rb ? ' · bench mode' : '') : '—';
-  $('b-search').className = s.search === '1' ? 'on' : '';
+
+// --- attitude math (frames: docs/TELEMETRY.md; earth frame NWU) ---
+function imuOk(f) { return (f.flags & 8) !== 0; }
+function qRotate(q, v) {  // rotate rocket-frame vector v into the earth frame
+  const { w, x, y, z } = q;
+  const tx = 2 * (y * v[2] - z * v[1]), ty = 2 * (z * v[0] - x * v[2]), tz = 2 * (x * v[1] - y * v[0]);
+  return [v[0] + w * tx + (y * tz - z * ty), v[1] + w * ty + (z * tx - x * tz), v[2] + w * tz + (x * ty - y * tx)];
 }
-function distBearing(a, b) {
-  const R = 6371000, r = Math.PI / 180, dLat = (b.lat - a.lat) * r, dLon = (b.lon - a.lon) * r;
-  const h = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * r) * Math.cos(b.lat * r) * Math.sin(dLon / 2) ** 2;
-  const y = Math.sin(dLon) * Math.cos(b.lat * r), x = Math.cos(a.lat * r) * Math.sin(b.lat * r) - Math.sin(a.lat * r) * Math.cos(b.lat * r) * Math.cos(dLon);
-  return [2 * R * Math.asin(Math.sqrt(h)), (Math.atan2(y, x) / r + 360) % 360];
-}
-const css = n => getComputedStyle(document.documentElement).getPropertyValue(n);
-function sizeCanvas(c) {
-  const dpr = devicePixelRatio || 1, w = c.clientWidth, h = c.clientHeight;
-  if (c.width !== Math.round(w * dpr)) { c.width = Math.round(w * dpr); c.height = Math.round(h * dpr); }
-  const x = c.getContext('2d'); x.setTransform(dpr, 0, 0, dpr, 0, 0); x.clearRect(0, 0, w, h);
-  return [x, w, h];
-}
-// Side view: tilt from vertical, from the attitude quaternion (rocket -> earth).
-function drawAttitude(f) {
-  const [x, w, h] = sizeCanvas($('att'));
-  const msg = performance.now() - S.tiltMsgAt < 8000;  // keep a Set upright result visible for a while
-  if (!f || !(f.flags & 8)) { if (!msg) $('f-tilt').textContent = 'no IMU'; return; }
-  const tilt = Math.acos(Math.max(-1, Math.min(1, 1 - 2 * (f.qx * f.qx + f.qy * f.qy)))) * 180 / Math.PI;
-  if (!msg) $('f-tilt').textContent = `tilt ${fmt(tilt, 0)}°`;
-  x.strokeStyle = css('--line'); x.beginPath(); x.moveTo(w / 2, 2); x.lineTo(w / 2, h - 2); x.stroke();
-  x.save(); x.translate(w / 2, h / 2); x.rotate(tilt * Math.PI / 180); x.fillStyle = css('--accent');
-  x.beginPath(); x.moveTo(0, -19); x.lineTo(4, -10); x.lineTo(4, 14); x.lineTo(-4, 14); x.lineTo(-4, -10); x.closePath(); x.fill();
-  x.beginPath(); x.moveTo(-4, 8); x.lineTo(-9, 17); x.lineTo(-4, 14); x.moveTo(4, 8); x.lineTo(9, 17); x.lineTo(4, 14); x.fill();
-  x.restore();
-}
-function drawPlot() {
-  const [x, w, h] = sizeCanvas($('plot'));
-  const pts = S.series.slice(-3000);
-  if (pts.length < 2) return;
-  const t0 = pts[0][0], t1 = pts[pts.length - 1][0];
-  let lo = 0, hi = 5; for (const p of pts) { lo = Math.min(lo, p[1]); hi = Math.max(hi, p[1]); }
-  const X = t => (t - t0) / Math.max(1e-3, t1 - t0) * (w - 2) + 1, Y = v => h - 2 - (v - lo) / (hi - lo) * (h - 14);
-  x.strokeStyle = css('--line'); x.beginPath(); x.moveTo(0, Y(0)); x.lineTo(w, Y(0)); x.stroke();
-  x.fillStyle = css('--muted'); x.font = '11px system-ui'; x.fillText(fmt(hi, 0) + ' m', 2, 10);
-  x.strokeStyle = css('--accent'); x.lineWidth = 2; x.beginPath();
-  pts.forEach((p, i) => i ? x.lineTo(X(p[0]), Y(p[1])) : x.moveTo(X(p[0]), Y(p[1]))); x.stroke();
+function frameQuat(f) { return { w: f.qw, x: f.qx, y: f.qy, z: f.qz }; }
+function tiltDeg(f) { const c = 1 - 2 * (f.qx * f.qx + f.qy * f.qy); return Math.acos(Math.max(-1, Math.min(1, c))) * 180 / Math.PI; }
+function leanBearingDeg(f) {  // compass bearing the nose leans toward
+  const n = qRotate(frameQuat(f), [0, 0, 1]);           // NWU
+  const north = n[0], east = -n[1];
+  return (Math.atan2(east, north) * 180 / Math.PI + 360) % 360;
 }
 
-// ---------------------------------------------------------------- settings
-function parseP(line) {
+
+// ===========================================================================
+// Data: one Track per source (radio, usb, file)
+// ===========================================================================
+
+class Track {
+  constructor(name) { this.name = name; this.reset(); }
+  reset() {
+    this.gps = [];
+    this.frames = []; this.events = []; this.lastSeq = null; this.received = 0; this.lost = 0;
+    this.maxAlt = NaN; this.lastRx = 0; this.rxTimes = []; this.bad = 0; this.noise = NaN; this.stats = ''; this.uplink = ''; this.sessions = 0; this.utc0 = 0; this.version++;
+  }
+  // Telemetry and events share one sequence counter per link: gaps = lost frames.
+  noteSeq(seq) {
+    if (this.lastSeq !== null) {
+      const gap = (seq - this.lastSeq - 1 + 65536) % 65536;
+      if (gap < 1000) this.lost += gap;   // larger jumps: the flight computer restarted
+    }
+    this.lastSeq = seq; this.received++;
+  }
+  // The flight computer restarted (BOOT event, or its clock went backwards):
+  // start a new session so plots do not mix two time bases. Everything stays
+  // in the saved log; only the display starts over.
+  newSession(t_ms, state) {
+    this.frames = []; this.maxAlt = NaN; this.lastSeq = null; this.sessions++; this.utc0 = 0;
+    this.events.push({ seq: -1, t_ms, state, event: 'RESTART', arg: this.sessions });
+  }
+  addFrame(f, live) {
+    const last = this.latest();
+    if (last && f.t_ms + 2000 < last.t_ms) this.newSession(f.t_ms, f.state);
+    this.noteSeq(f.seq);
+    if (!(f.alt_m <= this.maxAlt)) this.maxAlt = f.alt_m;
+    this.frames.push(f);
+    if (this.frames.length > MAX_FRAMES) this.frames.splice(0, this.frames.length - MAX_FRAMES);
+    if (live) { this.lastRx = performance.now(); this.rxTimes.push(this.lastRx); }
+    this.version++;
+  }
+  // GPS frames are kept across restarts: the last position matters for recovery.
+  addGps(g, live) {
+    this.noteSeq(g.seq);
+    this.gps.push(g);
+    if (this.gps.length > 50000) this.gps.splice(0, this.gps.length - 50000);
+    if (live) { this.lastRx = performance.now(); this.rxTimes.push(this.lastRx); g.rxAt = this.lastRx; }
+    this.version++;
+  }
+  addEvent(e) {
+    // TIME_SYNC: at e.t_ms it was exactly e.arg Unix seconds (unsigned).
+    if (e.event === 'TIME_SYNC') this.utc0 = (e.arg >>> 0) * 1000 - e.t_ms;
+    if (e.event === 'BOOT' && this.frames.length) this.newSession(e.t_ms, e.state);
+    this.noteSeq(e.seq); this.events.push(e); this.version++;
+  }
+  latest() { return this.frames[this.frames.length - 1]; }
+  rateHz() {
+    const now = performance.now();
+    while (this.rxTimes.length && now - this.rxTimes[0] > 10000) this.rxTimes.shift();
+    return this.rxTimes.length / 10;
+  }
+}
+Track.prototype.version = 0;
+
+function parseCsvLine(line) {
   const p = line.split(',');
-  return { key: p[1], group: p[2], type: p[3], value: p[4], running: p[5], def: p[6], unit: p[9], flags: p[10],
-    options: p[11] ? p[11].split('|') : [], help: p.slice(12).join(',') };
+  if (p[0] === 'T' && p.length >= 1 + TLM_COLUMNS.length) {
+    const f = {};
+    TLM_COLUMNS.forEach((k, i) => {
+      const s = p[i + 1];
+      f[k] = k === 'state' ? s : k === 'flags' ? parseInt(s, 16) : Number(s);
+    });
+    const extra = p.slice(1 + TLM_COLUMNS.length);
+    f.rssi = extra.length >= 2 ? Number(extra[0]) : NaN;
+    f.snr = extra.length >= 2 ? Number(extra[1]) : NaN;
+    return { kind: 'T', data: f };
+  }
+  if (p[0] === 'G' && p.length >= 1 + GPS_COLUMNS.length) {
+    const g = {};
+    GPS_COLUMNS.forEach((k, i) => { g[k] = k === 'state' ? p[i + 1] : Number(p[i + 1]); });
+    return { kind: 'G', data: g };
+  }
+  if (p[0] === 'E' && p.length >= 1 + EVT_COLUMNS.length) {
+    const e = {};
+    EVT_COLUMNS.forEach((k, i) => { e[k] = (k === 'state' || k === 'event') ? p[i + 1] : Number(p[i + 1]); });
+    return { kind: 'E', data: e };
+  }
+  return null;
 }
-let renderKey = '';
-function renderSettings() {
-  if (!$('set-box').open) return;
-  const kit = $('s-kit').value, filt = $('s-filter').value.toLowerCase(), rows = [];
-  const add = (d, value) => { if (!filt || (d.key + ' ' + d.group + ' ' + d.help).toLowerCase().includes(filt)) rows.push({ d, value }); };
-  if (kit === 'rocket') for (const d of S.defs.values()) { const v = S.rvals.get(d.key); add(d, v ? v.v : d.def); }
-  else for (const d of S.sdefs.values()) add(d, d.value);
-  const pe = kit === 'rocket' ? S.rpe : S.spe;
-  $('s-state').textContent = !pe ? 'Press Read' + (kit === 'rocket' ? ' (rocket on the ground, in range)' : '') :
-    pe[2] !== pe[4] ? 'Unsaved changes' : pe[4] !== pe[3] ? 'Saved: reboot to apply' : pe[5] === 'ok' ? 'In use' : pe.slice(5).join(',');
-  const key = kit + filt + rows.map(r => r.d.key + r.value).join();
-  if (key === renderKey) return;
-  renderKey = key;
-  const tb = $('s-table'); tb.textContent = '';
-  let group = '';
-  for (const r of rows) {
-    const d = r.d;
-    if (d.group !== group) { group = d.group; const td = tb.insertRow().insertCell(); td.colSpan = 2; td.innerHTML = '<b></b>'; td.firstChild.textContent = group; }
-    const tr = tb.insertRow();
-    if (r.value !== d.def) tr.className = 'changed';
-    const k = tr.insertCell(); k.className = 'k'; k.textContent = d.key + (d.unit ? ' [' + d.unit + ']' : ''); k.title = d.help;
-    let e;
-    if (d.type === 'bool') { e = document.createElement('input'); e.type = 'checkbox'; e.checked = r.value === '1'; e.style.width = 'auto'; }
-    else if (d.type === 'enum') { e = document.createElement('select'); d.options.forEach(o => e.add(new Option(o, o))); e.value = r.value; }
-    else { e = document.createElement('input'); e.value = r.value; e.inputMode = 'decimal'; }
-    e.title = d.help;
-    e.onchange = () => setParam(kit, d, d.type === 'bool' ? (e.checked ? '1' : '0') : e.value.trim());
-    tr.insertCell().append(e);
+
+function feed(track, line, live) {
+  const r = parseCsvLine(line);
+  if (!r) return false;
+  if (r.kind === 'T') track.addFrame(r.data, live);
+  else if (r.kind === 'G') track.addGps(r.data, live);
+  else track.addEvent(r.data);
+  return true;
+}
+
+// ===========================================================================
+// The ground station over WiFi: Server-Sent Events down, POST /cmd up.
+// Rocket console output arrives as "RC,<line>" (sent by radio, see "r <cmd>").
+// ===========================================================================
+
+const tracks = { radio: new Track('radio'), file: new Track('file') };
+const radioLines = [];
+let radioUnsaved = false;
+
+class HttpLink {
+  constructor(onLine, onState) { this.onLine = onLine; this.onState = onState; this.es = null; this.ok = false; }
+  get open() { return this.ok; }
+  connect() {
+    if (this.es) this.es.close();
+    this.ok = false;
+    this.onState('connecting…');
+    const es = new EventSource('/events');
+    this.es = es;
+    es.onopen = () => { this.ok = true; this.onState('connected'); };   // also after every automatic reconnect
+    es.onmessage = e => this.onLine(e.data);
+    es.onerror = () => { if (this.ok) { this.ok = false; this.onState('reconnecting…'); } };  // EventSource retries by itself
+  }
+  async write(text) {
+    try { await fetch('/cmd', { method: 'POST', body: text + '\n' }); return true; } catch (_) { return false; }
   }
 }
-const CONFIRM_ON = {
-  manual_eject: 'Enable manual ejection in flight?\n\nThe station can then fire the ejection charge at any moment after launch, ' +
-    'overriding the apogee logic. A mistaken press during the climb ejects at full speed.',
-  radio_unlock: 'Allow radio settings outside the EU band and duty-cycle limit?\n\nYou are responsible for legal use where you operate.',
-};
-function setParam(kit, d, value) {
-  if (CONFIRM_ON[d.key] && value === '1' && !confirm(CONFIRM_ON[d.key])) { renderKey = ''; renderSettings(); return; }
-  const radio = d.flags.includes('R');
-  if (kit === 'rocket' || radio) send('r param set ' + d.key + ' ' + value);
-  if (kit === 'station' || radio) send('param set ' + d.key + ' ' + value);
-}
-function readSettings() {
-  renderKey = '';
-  if ($('s-kit').value === 'rocket') { S.defs.clear(); S.rvals.clear(); S.rpe = null; send('rdefs'); send('r param list'); }
-  else { S.sdefs.clear(); S.spe = null; send('param list'); }
+
+const radioLink = new HttpLink(line => {
+  radioLines.push(line); radioUnsaved = true;
+  if (radioLines.length > 400000) radioLines.splice(0, 100000);
+  if (line.startsWith('RC,')) return rocketLine(line.slice(3));
+  if (line.startsWith('D,')) return rocketDef(line);
+  if (paramLine('gs', line)) return;
+  handleGroundLine(tracks.radio, line, true);
+}, s => {
+  const p = $('st-radio');
+  p.textContent = 'station: ' + s;
+  p.className = 'pill ' + (s === 'connected' ? 'ok' : s === 'connecting…' ? '' : 'bad');
+  if (s === 'connected') setTimeout(() => { sendUplinkSettings(); radioLink.write(''); radioLink.write('param list'); }, 300);
+});
+
+// One line of ground station output (live, or from a saved log file).
+function handleGroundLine(track, line, live) {
+  if (live) gsOnLine(line);
+  if (feed(track, line, live)) return;
+  if (line.startsWith('# noise')) track.noise = Number(line.split(/\s+/)[2]);
+  else if (line.startsWith('# bad frame')) track.bad++;
+  else if (line.startsWith('# stats')) track.stats = line.slice(2);
+  else if (line.startsWith('# uplink')) track.uplink = line.slice(2);
+  else if (live && line.startsWith('# wifi')) wifiOnLine(line);
+  else if (live && line.startsWith('# ERROR')) setMsg('Ground station: ' + line.slice(2));
 }
 
-// ---------------------------------------------------------------- logs
-function download(name, text) {
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([text], { type: 'text/csv' }));
-  a.download = name; document.body.append(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+// --- ground station status: "# station ...", ping, launch, eject ---
+const gs = { st: {}, ping: '—', ejecting: false, eject: '—', launch: '' };
+function gsOnLine(line) {
+  let m;
+  if (line.startsWith('# station ')) {
+    const st = {};
+    for (const kv of line.slice(10).split(' ')) { const [k, v] = kv.split('='); st[k] = v; }
+    gs.st = st;
+  } else if (line.startsWith('# ping')) {
+    if ((m = /^# ping reply id=\d+ rtt=(\d+) ms rssi=([-\d.]+) snr=([-\d.]+)/.exec(line)))
+      gs.ping = `answered in ${m[1]} ms (${m[2]} dBm, SNR ${m[3]} dB)`;
+    else if (line.startsWith('# ping no reply')) gs.ping = 'NO ANSWER ' + line.replace(/^# ping no reply id=\d+ /, '');
+    else if (line.startsWith('# ping queued')) gs.ping = 'waiting for a rocket frame…';
+    else if (line.startsWith('# ping sent')) gs.ping = 'sent…';
+    else if (line.startsWith('# ping error')) gs.ping = line.slice(14);
+  } else if (line.startsWith('# eject')) {
+    const t = line.slice(8);
+    if (/^queued|^rocket armed|^sent/.test(t)) gs.ejecting = true;
+    if (/^FIRED|^refused|^FAILED|^cancelled/.test(t)) gs.ejecting = false;
+    gs.eject = t;
+  } else if (line.startsWith('# launch')) {
+    gs.launch = line.slice(9);
+  }
 }
-const stamp = () => new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+
+// ===========================================================================
+// The rocket's console (by radio)
+// ===========================================================================
+
+function rocketLine(t) {
+  if (paramLine('fc', t)) return;          // V / PE / PERR / PSAVED (settings)
+  if (flogLine(t)) return;                 // FLOG lines (session list)
+  if (t.startsWith('wifi:')) rwifiLine(t);
+  if (t.startsWith('imu upright:') && !t.includes('gravity')) {
+    $('upright-msg').textContent = t.slice(13);
+    if (t.includes('OK:') && !t.includes('same as now') && ask('Nose axis saved. Reboot the rocket now to use it?\n(It recalibrates: keep it still.)'))
+      sendCommand('reboot');
+  }
+  consoleAppend(t);
+}
+
+// Rocket bench mode from the radio telemetry; the station's MODE from its status line.
+function benchNow() {
+  const t = tracks.radio, f = t.latest();
+  if (f && t.lastRx && performance.now() - t.lastRx < 5000) return (f.link & 8) !== 0;
+  return null;
+}
+function renderBench() {
+  const rb = benchNow(), sb = gs.st.mode === 'bench';
+  $('bench-banner').hidden = !(rb || sb);
+  $('bench-text').textContent = sb && rb ? 'BENCH MODE (station and rocket)' : sb ? 'BENCH MODE (station)' : 'BENCH MODE (rocket)';
+}
+
+// --- rocket WiFi (log download through the station) ---
+let rwifiOn = false, rwifiThen = null;
+function rwifiLine(t) {
+  if (t.startsWith('wifi: joined')) { rwifiOn = true; setMsg('Rocket ' + t); if (rwifiThen) { const f = rwifiThen; rwifiThen = null; f(); } }
+  else if (t.startsWith('wifi: off') || t.includes('refused') || t.includes('could not')) { rwifiOn = false; rwifiThen = null; setMsg('Rocket ' + t); }
+  $('btn-rwifi').textContent = rwifiOn ? 'Rocket WiFi: on' : 'Rocket WiFi';
+}
+function withRocketWifi(f) {
+  if (rwifiOn) { f(); return; }
+  rwifiThen = f; setMsg('Rocket WiFi: joining…'); radioLink.write('rwifi');
+}
 async function fetchRocket(path, name) {
-  $('w-state').textContent = 'Downloading…';
+  setMsg('Downloading ' + name + '…');
   try {
-    const r = await fetch('/rocket' + path), t = await r.text();
-    if (!r.ok) throw new Error(t.trim());
-    if (name) { download(name, t); $('w-state').textContent = 'Saved ' + name; }
-    return t;
-  } catch (e) { $('w-state').textContent = e.message + ' (press Rocket WiFi first)'; }
+    const r = await fetch('/rocket' + path), text = await r.text();
+    if (!r.ok) throw new Error(text.trim());
+    download(name, text);
+    tracks.file.reset();
+    let n = 0;
+    for (const l of text.split(/\r?\n/)) if (feed(tracks.file, l, false)) n++;
+    $('source').value = 'file'; $('window').value = '0';
+    setMsg(`${name}: ${n} records saved; showing it (source: log file).`);
+  } catch (e) { setMsg('Download failed: ' + e.message); }
 }
-async function listLogs() {
-  const t = await fetchRocket('/flog');
-  if (!t) return;
-  const box = $('f-list'); box.textContent = '';
-  $('w-state').textContent = '';
-  t.split('\n').filter(l => l.startsWith('FLOG,')).reverse().forEach(l => {
-    const [, s, , frames, t0, t1] = l.split(',');
-    const b = document.createElement('button');
-    b.textContent = `#${s} · ${fmt((t1 - t0) / 1000, 0)} s`;
-    b.title = frames + ' frames';
-    b.onclick = () => fetchRocket('/flog?s=' + s, `rocket-session-${s}.csv`);
-    box.append(b);
+
+// --- flash log sessions ("flog list" by radio) ---
+let flogSessions = [];
+function flogLine(line) {
+  if (line.startsWith('# flash log:')) { flogSessions = []; $('flog-info').textContent = line.slice(14); return false; }
+  if (line.startsWith('FLOG,')) {
+    const p = line.split(',').map(Number);
+    flogSessions.push({ session: p[1], sectors: p[2], frames: p[3], first: p[4], last: p[5], bytes: p[6] });
+    return true;
+  }
+  if (line === '# end of flash log list') { renderFlog(); return false; }
+  return false;
+}
+function renderFlog() {
+  const tb = $('flog-rows'); tb.textContent = '';
+  $('flog-table').hidden = !flogSessions.length;
+  for (const s of flogSessions.slice().reverse()) {
+    const tr = el('tr');
+    const b = el('button', '', 'Download');
+    b.onclick = () => withRocketWifi(() => fetchRocket('/flog?s=' + s.session, `flash_session${s.session}_${stamp()}.csv`));
+    const dur = (s.last - s.first) / 1000;
+    tr.append(el('td', 'num', String(s.session)), el('td', 'num', dur >= 60 ? fmt(dur / 60, 1) + ' min' : fmt(dur, 0) + ' s'),
+      el('td', 'num', String(s.frames)), el('td', 'num', fmt(s.bytes / 1024, 0) + ' KB'), el('td', '', ''));
+    tr.lastChild.append(b);
+    tb.append(tr);
+  }
+}
+
+// --- console ---
+const consoleLines = [];
+function consoleAppend(line) {
+  consoleLines.push(line);
+  if (consoleLines.length > CONSOLE_MAX_LINES) consoleLines.splice(0, consoleLines.length - CONSOLE_MAX_LINES);
+  const c = $('console'), atBottom = c.scrollTop + c.clientHeight >= c.scrollHeight - 4;
+  c.textContent = consoleLines.join('\n');
+  if (atBottom) c.scrollTop = c.scrollHeight;
+}
+const cmdHistory = []; let histPos = 0;
+// A console command for the rocket (sent by radio; the rocket echoes it).
+async function sendCommand(cmd) {
+  cmdHistory.push(cmd); histPos = cmdHistory.length;
+  await radioLink.write('r ' + cmd);
+}
+
+
+// ===========================================================================
+// Widgets
+// ===========================================================================
+
+function makeGauge(cfg, parent) {
+  const g = el('div', 'gauge');
+  const head = el('div', 'g-head'); head.append(el('span', 'g-label', cfg.label), cfg.valEl = el('span', 'g-val num', '—'));
+  const bar = el('div', 'g-bar'); bar.append(cfg.fillEl = el('div', 'g-fill'));
+  cfg.markEls = (cfg.marks || []).map(m => { const e = el('div', 'g-mark ' + m.cls); bar.append(e); return e; });
+  if (cfg.zero) { cfg.zeroEl = el('div', 'g-mark zero'); bar.append(cfg.zeroEl); }
+  const scale = el('div', 'g-scale'); scale.append(cfg.minEl = el('span'), cfg.maxEl = el('span'));
+  g.append(head, bar, scale); parent.append(g); cfg.root = g;
+  cfg.curMax = cfg.max;
+}
+
+function scaleDigits(range) { return range < 0.1 ? 3 : range < 10 ? 2 : range < 100 ? 1 : 0; }
+function niceCeil(v) { const p = Math.pow(10, Math.floor(Math.log10(v))); for (const m of [1, 2, 2.5, 5, 10]) if (m * p >= v) return m * p; return 10 * p; }
+
+function setGauge(cfg, v, stale) {
+  if (cfg.auto && isFinite(v) && Math.abs(v) > cfg.curMax) cfg.curMax = niceCeil(Math.abs(v) * 1.1);
+  const min = cfg.auto && cfg.min < 0 ? -cfg.curMax * Math.abs(cfg.min) / cfg.max : cfg.min;
+  const max = cfg.curMax;
+  const pos = x => Math.max(0, Math.min(100, (x - min) / (max - min) * 100));
+  cfg.valEl.textContent = isFinite(v) ? fmt(v, cfg.digits) + ' ' + cfg.unit : '—';
+  const sd = scaleDigits(max - min);
+  cfg.minEl.textContent = fmt(min, sd); cfg.maxEl.textContent = fmt(max, sd);
+  const from = cfg.zero ? pos(0) : 0, to = isFinite(v) ? pos(v) : from;
+  cfg.fillEl.style.left = Math.min(from, to) + '%'; cfg.fillEl.style.width = Math.abs(to - from) + '%';
+  (cfg.marks || []).forEach((m, i) => { cfg.markEls[i].style.left = pos(m.v) + '%'; });
+  if (cfg.zeroEl) cfg.zeroEl.style.left = pos(0) + '%';
+  cfg.root.classList.toggle('stale', !!stale);
+}
+
+function fitCanvas(c) {
+  const dpr = window.devicePixelRatio || 1, w = c.clientWidth, h = c.clientHeight;
+  if (c.width !== Math.round(w * dpr) || c.height !== Math.round(h * dpr)) { c.width = Math.round(w * dpr); c.height = Math.round(h * dpr); }
+  const ctx = c.getContext('2d'); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); return [ctx, w, h];
+}
+
+// --- line plot ---
+function makePlot(cfg, parent) {
+  const box = el('div', 'plot');
+  const title = el('div', 'p-title'); title.append(el('span', '', cfg.title));
+  cfg.series.forEach((s, i) => { const lg = el('span'); const sw = el('span', 'legend-swatch'); sw.style.background = `var(--s${i + 1})`; lg.append(sw, s.label); title.append(lg); });
+  cfg.canvas = el('canvas'); box.append(title, cfg.canvas); parent.append(box);
+}
+
+function drawPlot(cfg, frames, windowS) {
+  const [ctx, w, h] = fitCanvas(cfg.canvas);
+  ctx.clearRect(0, 0, w, h);
+  const L = 46, R = 8, T = 6, B = 20, pw = w - L - R, ph = h - T - B;
+  ctx.font = '11px ' + css('--mono'); ctx.fillStyle = css('--muted'); ctx.strokeStyle = css('--line'); ctx.lineWidth = 1;
+  if (!frames.length) { ctx.fillText('no data', L + 6, T + 14); return; }
+  const tEnd = frames[frames.length - 1].t_ms / 1000;
+  const tStart = windowS > 0 ? tEnd - windowS : frames[0].t_ms / 1000;
+  let i0 = 0; while (i0 < frames.length && frames[i0].t_ms / 1000 < tStart) i0++;
+  const sel = frames.slice(i0);
+  const step = Math.max(1, Math.floor(sel.length / (pw * 2)));
+  let lo = Infinity, hi = -Infinity;
+  for (const s of cfg.series) for (let i = 0; i < sel.length; i += step) { const v = s.get(sel[i]); if (isFinite(v)) { lo = Math.min(lo, v); hi = Math.max(hi, v); } }
+  if (!isFinite(lo)) { ctx.fillText('no data', L + 6, T + 14); return; }
+  if (hi - lo < 1e-6) { lo -= 1; hi += 1; }
+  const pad = (hi - lo) * 0.08; lo -= pad; hi += pad;
+  const X = t => L + (t - tStart) / Math.max(1e-6, tEnd - tStart) * pw;
+  const Y = v => T + (hi - v) / (hi - lo) * ph;
+  // grid + labels
+  ctx.beginPath();
+  for (let k = 0; k <= 4; k++) { const v = lo + (hi - lo) * k / 4, y = Math.round(Y(v)) + 0.5; ctx.moveTo(L, y); ctx.lineTo(L + pw, y); ctx.fillText(fmt(v, scaleDigits(hi - lo)).padStart(6), 2, y + 4); }
+  ctx.stroke();
+  ctx.fillText(fmt(tStart, 0) + ' s', L, h - 5);
+  const endLabel = fmt(tEnd, 0) + ' s'; ctx.fillText(endLabel, L + pw - ctx.measureText(endLabel).width, h - 5);
+  if (lo < 0 && hi > 0) { ctx.strokeStyle = css('--muted'); ctx.beginPath(); const y0 = Math.round(Y(0)) + 0.5; ctx.moveTo(L, y0); ctx.lineTo(L + pw, y0); ctx.stroke(); }
+  // series
+  cfg.series.forEach((s, si) => {
+    ctx.strokeStyle = css(`--s${si + 1}`); ctx.lineWidth = 1.5; ctx.beginPath();
+    let pen = false;
+    for (let i = 0; i < sel.length; i += step) {
+      const v = s.get(sel[i]);
+      if (!isFinite(v)) { pen = false; continue; }
+      const x = X(sel[i].t_ms / 1000), y = Y(v);
+      if (pen) ctx.lineTo(x, y); else { ctx.moveTo(x, y); pen = true; }
+    }
+    ctx.stroke();
   });
-  if (!box.childNodes.length) $('w-state').textContent = 'No onboard logs';
 }
 
-// ---------------------------------------------------------------- controls
-$('b-launch').onclick = () => send('launch');
-$('b-abort').onclick = () => send('abort');
-$('b-mbench').onclick = () => send('mode bench');
-$('b-mflight').onclick = () => send('mode flight');
-$('b-upright').onclick = () => { $('f-tilt').textContent = 'measuring… hold still'; S.tiltMsgAt = performance.now(); send('r imu upright'); };
-$('b-ping').onclick = () => { $('r-msg').textContent = 'Ping: waiting…'; send('ping'); };
-$('b-search').onclick = () => send('search ' + (S.station.search === '1' ? 'off' : 'on'));
-$('b-eject').onclick = () => { if (confirm('Fire the ejection charge now?')) send('eject'); };
-$('b-sload').onclick = readSettings;
-$('s-kit').onchange = () => { renderKey = ''; renderSettings(); };
-$('s-filter').oninput = () => renderSettings();
-$('set-box').ontoggle = () => { renderKey = ''; if ($('set-box').open && !S.defs.size) readSettings(); renderSettings(); };
-$('b-ssave').onclick = () => send($('s-kit').value === 'rocket' ? 'r param save' : 'param save');
-$('b-sreboot').onclick = () => { if (confirm('Reboot the ' + $('s-kit').value + '?')) send($('s-kit').value === 'rocket' ? 'r reboot' : 'reboot'); };
-$('b-save').onclick = () => download(`ground-${stamp()}.csv`, S.lines.join('\n') + '\n');
-$('b-rwifi').onclick = () => {  // toggles: on = the rocket joins this WiFi for the log download
-  if (S.rwifi) { send('r wifi off'); return; }
-  $('w-state').textContent = 'Rocket WiFi: asking…'; send('rwifi');
-};
-$('b-flist').onclick = listLogs;
-$('b-ram').onclick = () => fetchRocket('/ram', `rocket-ram-${stamp()}.csv`);
-const sendCon = () => { const v = $('c-in').value.trim(), k = $('c-kit').value; if (!v) return; conAppend('> ' + v); send((k ? 'r ' : '') + v); $('c-in').value = ''; };
-$('b-send').onclick = sendCon;
-$('c-in').onkeydown = e => { if (e.key === 'Enter') sendCon(); };
-$('con-box').ontoggle = () => { $('c-out').textContent = S.conOut.join('\n'); };
+// --- 3D attitude view (wireframe, canvas 2D) ---
+const ROCKET = (() => {   // line segments in the rocket frame (+Z nose), length ~1.15
+  const segs = [], r = 0.07, zb = -0.55, zt = 0.35, tip = 0.62, n = 16;
+  const ring = z => { for (let i = 0; i < n; i++) { const a = 2 * Math.PI * i / n, b = 2 * Math.PI * (i + 1) / n;
+    segs.push({ a: [r * Math.cos(a), r * Math.sin(a), z], b: [r * Math.cos(b), r * Math.sin(b), z] }); } };
+  ring(zb); ring(0); ring(zt);
+  for (let i = 0; i < 8; i++) { const a = 2 * Math.PI * i / 8, c = [r * Math.cos(a), r * Math.sin(a)];
+    segs.push({ a: [c[0], c[1], zb], b: [c[0], c[1], zt] }); segs.push({ a: [c[0], c[1], zt], b: [0, 0, tip] }); }
+  for (let k = 0; k < 4; k++) {   // fins; fin 0 (along +X) is highlighted to show roll
+    const a = Math.PI / 2 * k, ux = Math.cos(a), uy = Math.sin(a), R = 0.2, hl = k === 0;
+    const p = (rr, z) => [rr * ux, rr * uy, z];
+    segs.push({ a: p(r, zb), b: p(R, zb - 0.03), hl }, { a: p(R, zb - 0.03), b: p(R, zb + 0.1), hl }, { a: p(R, zb + 0.1), b: p(r, zb + 0.22), hl });
+  }
+  return segs;
+})();
 
-connect();
-setInterval(render, 250);
+function drawAttitude(f, live) {
+  const c = $('attitude'), [ctx, w, h] = fitCanvas(c);
+  ctx.clearRect(0, 0, w, h);
+  // Camera in ENU, looking at the origin from bearing 200°, 18° above the horizon.
+  const az = 200 * Math.PI / 180, elv = 18 * Math.PI / 180, dist = 3.2;
+  const eye = [Math.sin(az) * Math.cos(elv), Math.cos(az) * Math.cos(elv), Math.sin(elv)];
+  const fwd = eye.map(v => -v);
+  const right = norm(cross(fwd, [0, 0, 1])), up = cross(right, fwd);
+  const S = Math.min(w, h) * 1.25;
+  const proj = p => {   // p in ENU
+    const x = dot(p, right), y = dot(p, up), z = dot(p, fwd) + dist;
+    return [w / 2 + S * x / z, h / 2 + 10 - S * y / z];
+  };
+  const nwuToEnu = v => [-v[1], v[0], v[2]];
+  const line = (a, b) => { const A = proj(a), B = proj(b); ctx.moveTo(A[0], A[1]); ctx.lineTo(B[0], B[1]); };
+  // ground grid at z = -0.75
+  const g = -0.75;
+  ctx.strokeStyle = css('--line'); ctx.lineWidth = 1; ctx.beginPath();
+  for (let k = -4; k <= 4; k++) { const v = k * 0.25; line([v, -1, g], [v, 1, g]); line([-1, v, g], [1, v, g]); }
+  ctx.stroke();
+  ctx.fillStyle = css('--muted'); ctx.font = '12px ' + css('--sans');
+  for (const [lab, p] of [['N', [0, 1.18, g]], ['E', [1.18, 0, g]], ['S', [0, -1.18, g]], ['W', [-1.18, 0, g]]]) { const q = proj(p); ctx.fillText(lab, q[0] - 4, q[1] + 4); }
+  // vertical reference
+  ctx.setLineDash([4, 4]); ctx.strokeStyle = css('--muted'); ctx.beginPath(); line([0, 0, g], [0, 0, 0.85]); ctx.stroke(); ctx.setLineDash([]);
+  if (!f || !imuOk(f)) {
+    ctx.fillStyle = css('--muted'); ctx.fillText(f ? 'no IMU data' : 'no data', 10, 18); return;
+  }
+  const q = frameQuat(f);
+  const toScreen = v => nwuToEnu(qRotate(q, v));
+  for (const pass of [false, true]) {   // body first, highlighted fin on top
+    ctx.strokeStyle = pass ? css('--s2') : (live ? css('--ink') : css('--muted'));
+    ctx.lineWidth = pass ? 2.5 : 1.3; ctx.beginPath();
+    for (const s of ROCKET) if (!!s.hl === pass) line(toScreen(s.a), toScreen(s.b));
+    ctx.stroke();
+  }
+  // nose direction shadow on the ground
+  const nose = toScreen([0, 0, 0.62]);
+  ctx.strokeStyle = css('--s1'); ctx.lineWidth = 2; ctx.beginPath(); line([0, 0, g], [nose[0], nose[1], g]); ctx.stroke();
+}
+function cross(a, b) { return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]; }
+function dot(a, b) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; }
+function norm(a) { const n = Math.hypot(...a); return a.map(v => v / n); }
+
+// ===========================================================================
+// UI
+// ===========================================================================
+
+function currentTrack() {
+  const sel = $('source').value;
+  if (sel !== 'auto') return tracks[sel];
+  const r = tracks.radio;
+  if (r.lastRx && performance.now() - r.lastRx < 10000) return r;
+  if (!r.frames.length && tracks.file.frames.length) return tracks.file;
+  return r;
+}
+
+function buildUi() {
+  const ro = $('readouts');
+  READOUTS.forEach(r => { const tr = el('tr'); tr.append(el('td', '', r[0]), r.valEl = el('td', 'num', '—')); ro.append(tr); });
+  const fl = $('flags');
+  FLAGS.forEach(fg => { fg.el = el('span', 'pill', fg.name); fl.append(fg.el); });
+  fl.append(gpsPill = el('span', 'pill', 'GPS'));
+  fl.append(ejectPill = el('span', 'pill', 'MANUAL EJECT'));
+  ejectPill.title = 'Manual ejection by radio enabled (setting manual_eject)';
+  GAUGES.forEach(g => makeGauge(g, $('gauges')));
+  LINK_GAUGES.forEach(g => makeGauge(g, $('link-gauges')));
+  PLOTS.forEach(p => makePlot(p, $('plots')));
+  const cmds = $('cmds');
+  COMMANDS.forEach(c => {
+    const b = el('button', c.confirm ? 'danger' : '', c.label);
+    b.title = c.cmd + (c.bench ? '  (bench mode)' : '');
+    b.onclick = () => { if (!c.confirm || ask(c.confirm)) sendCommand(c.cmd); };
+    c.btn = b; cmds.append(b);
+  });
+  BATT_READOUTS.forEach(r => { const tr = el('tr'); tr.append(el('td', '', r[0]), r.valEl = el('td', 'num', '—')); $('batt-readouts').append(tr); });
+  GPS_READOUTS.forEach(r => { const tr = el('tr'); tr.append(el('td', '', r[0]), r.valEl = el('td', 'num', '—')); $('gps-readouts').append(tr); });
+  for (const [label, id] of [['Tilt from vertical', 'att-tilt'], ['Nose leans toward', 'att-lean'], ['Roll rate', 'att-roll'], ['Quaternion (w x y z)', 'att-q']]) {
+    const tr = el('tr'); tr.append(el('td', '', label), el('td', 'num', '—')); tr.lastChild.id = id; $('att-readouts').append(tr);
+  }
+  for (const [label, id] of [['Rocket hears ground', 'lk-heard'], ['Rocket clock', 'lk-clock'], ['Pad beeps', 'lk-beep'], ['Packets', 'lk-pkts'], ['Packet rate', 'lk-rate'], ['Lost', 'lk-lost'], ['Bad frames', 'lk-bad'], ['SNR margin (SF7)', 'lk-margin'], ['Last packet', 'lk-age']]) {
+    const tr = el('tr'); tr.append(el('td', '', label), el('td', 'num', '—')); tr.lastChild.id = id; $('link-readouts').append(tr);
+  }
+}
+
+const BATT_PLOT = { title: 'Battery [V]', series: [{ label: 'battery', get: f => (f.batt_v > 2.5 ? f.batt_v : NaN) }] };
+function renderBattery(t, f) {
+  const c = chargeState(t);
+  $('chg-state').textContent = c.label;
+  $('chg-state').className = 'state ' + c.cls;
+  $('chg-pill').textContent = f ? 'battery: ' + c.label.toLowerCase() : 'battery: —';
+  $('chg-pill').className = 'pill ' + c.cls + (c.label.startsWith('CHARGING') ? ' on' : '');
+  BATT_READOUTS.forEach(r => { r.valEl.textContent = r[1](f, t, c); });
+  if (!panelOpen('batt-panel')) return;  // collapsed: nothing to draw
+  BATT_PLOT.canvas = $('batt-plot');
+  drawPlot(BATT_PLOT, t.frames, 0);
+}
+
+function heartbeatsOn() {
+  const u = tracks.radio.uplink;
+  return u ? u.startsWith('uplink on') : $('up-on').checked;
+}
+
+function renderStation(t, f) {
+  const s = gs.st;
+  $('gs-batt').textContent = !s.vbat ? '—' : s.vbat === '0.00' ? 'no cell (USB)' : `${s.vbat} V, ${s.pct} %${s.low === '1' ? ' LOW' : ''}`;
+  $('gs-batt').style.color = s.low === '1' ? css('--bad') : '';
+  $('gs-ping').textContent = gs.ping;
+  $('btn-ping').disabled = !radioLink.open;
+  $('gs-search').disabled = !radioLink.open;
+  $('gs-search').checked = s.search === '1';
+  const rssi = f && t.name === 'radio' ? f.rssi : NaN;
+  $('gs-search-rssi').textContent = s.search === '1' ? 'signal ' + (isFinite(rssi) ? fmt(rssi, 0) + ' dBm' : '—') : '';
+  $('up-warn').hidden = !(radioLink.open && !heartbeatsOn());
+  // launch
+  const armed = s.arm === '1', cont = s.cont === '1', ready = s.ready === '1', bench = s.mode === 'bench';
+  $('btn-mode-bench').className = bench ? 'on' : '';
+  $('btn-mode-flight').className = s.mode === 'flight' ? 'on' : '';
+  $('l-arm').textContent = armed ? 'ARMED' : 'ARM off'; $('l-arm').className = 'pill ' + (armed ? 'bad on' : '');
+  $('l-cont').textContent = cont ? 'igniter OK' : armed ? 'NO igniter' : 'igniter —'; $('l-cont').className = 'pill ' + (cont ? 'ok' : armed ? 'bad' : '');
+  $('l-ready').textContent = bench ? 'bench: rocket not checked' : ready ? 'rocket ready' : 'rocket not ready';
+  $('l-ready').className = 'pill ' + (bench ? 'warn' : ready ? 'ok' : '');
+  $('l-count').textContent = s.launch === 'countdown' ? s.left : s.launch === 'firing' ? 'FIRE' : armed ? 'ARMED' : '—';
+  $('l-count').style.color = armed ? css('--bad') : css('--line');
+  $('btn-launch').disabled = !(radioLink.open && armed && cont && (bench || ready) && s.launch === 'idle');
+  $('l-msg').textContent = gs.launch;
+  // ejection
+  const flying = f && ['BOOST', 'COAST', 'DESCENT'].includes(f.state);
+  const enabled = f && (f.link & 64), rbench = f && (f.link & 8), fired = f && (f.flags & 4);
+  $('ej-state').textContent = f ? f.state : '—';
+  $('ej-enabled').textContent = !f ? '—' : enabled ? 'ENABLED' : rbench ? 'off (bench: pad test only)' : 'off';
+  $('ej-fired').textContent = !f ? '—' : fired ? 'fired' : 'not fired';
+  const why = [];
+  if (f && !enabled && !rbench) why.push('the rocket will refuse: manual_eject is off');
+  if (f && rbench && !enabled && f.state === 'PAD' && !(f.flags & 1)) why.push('no continuity');
+  if (f && fired) why.push('already fired');
+  if (flying && !enabled && !rbench) why.push('in flight the rocket does not listen');
+  $('ej-why').textContent = why.join('; ');
+  $('btn-eject').disabled = !radioLink.open || gs.ejecting;
+  $('ej-status').textContent = gs.eject;
+}
+
+let lastEventsKey = '';
+let gpsPill = null, ejectPill = null;
+function render() {
+  for (const k in popups) if (popups[k].win.closed) restorePanel(k);  // window closed without pagehide
+  const t = currentTrack(), f = t.latest();
+  const live = t.lastRx && performance.now() - t.lastRx < 3000;
+  // flight panel
+  const st = $('state');
+  st.textContent = f ? f.state + (t.name === 'file' ? ' (log)' : live ? '' : ' (stale)') : '—';
+  st.className = 'state ' + (f ? STATE_CLASS[f.state] || '' : '');
+  READOUTS.forEach(r => { r.valEl.textContent = f ? r[1](f, t) : '—'; });
+  FLAGS.forEach(fg => {
+    const on = f && (f.flags & (1 << fg.bit)) !== 0, cls = on ? fg.set : (fg.clear || '');
+    fg.el.className = 'pill ' + cls + (on ? ' on' : '');
+  });
+  const gData = f && (f.link & 16), gFix = f && (f.link & 32);
+  gpsPill.className = 'pill ' + (gFix ? 'ok on' : gData ? 'warn' : '');
+  gpsPill.title = gFix ? 'GPS: position fix' : gData ? 'GPS: receiving, no fix yet' : 'GPS: no data';
+  ejectPill.className = 'pill ' + (f && (f.link & 64) ? 'bad on' : '');
+  ejectPill.hidden = !(f && (f.link & 64));
+  renderStation(t, tracks.radio.latest());
+  // gauges
+  const stale = !(live || t.name === 'file');
+  GAUGES.forEach(g => setGauge(g, f ? g.get(f) : NaN, stale));
+  // link
+  const heard = f && (f.link & 1) !== 0;
+  const s = { rssi: f ? f.rssi : NaN, snr: f ? f.snr : NaN, noise: t.noise,
+    uprssi: heard && f.up_rssi_dbm > -128 ? f.up_rssi_dbm : NaN };
+  $('lk-heard').textContent = f ? (heard ? 'yes' : 'no') : '—';
+  $('lk-heard').style.color = f ? (heard ? css('--ok') : css('--warn')) : '';
+  renderBattery(t, f);
+  renderBench();
+  renderGps(t);
+  renderSettings();
+  $('lk-clock').textContent = !f ? '—' : (f.link & 2) ? 'synced' : 'not synced';
+  $('lk-beep').textContent = !f ? '—' : !heard ? 'off (no heartbeat)' : f.beep_s ? 'every ' + f.beep_s + ' s' : 'off';
+  LINK_GAUGES.forEach(g => setGauge(g, g.get(s), stale));
+  $('lk-pkts').textContent = t.received;
+  $('lk-rate').textContent = t.lastRx ? fmt(t.rateHz(), 1) + ' /s' : '—';
+  $('lk-lost').textContent = t.received ? `${t.lost} (${fmt(100 * t.lost / (t.received + t.lost), 1)} %)` : '—';
+  $('lk-bad').textContent = t.bad;
+  $('lk-margin').textContent = isFinite(s.snr) ? fmt(s.snr - SF7_SNR_LIMIT_DB, 1) + ' dB' : '—';
+  $('lk-age').textContent = t.lastRx ? fmt((performance.now() - t.lastRx) / 1000, 1) + ' s ago' : '—';
+  // attitude
+  drawAttitude(f, live || t.name === 'file');
+  const ok = f && imuOk(f);
+  $('att-tilt').textContent = ok ? fmt(tiltDeg(f), 1) + ' °' : '—';
+  $('att-lean').textContent = ok && tiltDeg(f) > 2 ? fmt(leanBearingDeg(f), 0) + ' °' + ((f.flags & 16) ? '' : ' (relative)') : '—';
+  $('att-roll').textContent = ok ? fmt(f.gz_dps, 0) + ' °/s (' + fmt(f.gz_dps / 6, 0) + ' rpm)' : '—';
+  $('att-q').textContent = ok ? [f.qw, f.qx, f.qy, f.qz].map(v => fmt(v, 3)).join(' ') : '—';
+  // plots
+  const win = Number($('window').value);
+  PLOTS.forEach(p => drawPlot(p, t.frames, win));
+  // events (rebuild only when changed)
+  const key = t.name + ':' + t.events.length;
+  if (key !== lastEventsKey) {
+    lastEventsKey = key;
+    const tb = $('events'); tb.textContent = '';
+    for (const e of t.events.slice(-200).reverse()) {
+      const tr = el('tr');
+      const fmtArg = EVENT_ARG[e.event] || (a => String(a));
+      tr.append(el('td', 'num', fmt(e.t_ms / 1000, 2)), el('td', '', e.state), el('td', '', e.event), el('td', 'num', fmtArg(e.arg)));
+      tb.append(tr);
+    }
+  }
+}
+
+
+// ===========================================================================
+// GPS and recovery (optional module)
+// ===========================================================================
+
+// Local east/north offset [m] of b from a (equirectangular; fine over a few km).
+function enu(a, b) {
+  const R = 6371000, rad = Math.PI / 180;
+  return { e: (b.lon - a.lon) * rad * R * Math.cos(a.lat * rad), n: (b.lat - a.lat) * rad * R };
+}
+// Pad position: the last fix while the rocket was on the ground before launch.
+function gpsPad(gps) {
+  let pad = null;
+  for (const g of gps) {
+    if (!(g.fix > 0)) continue;
+    if (g.state === 'PAD' || g.state === 'INIT' || g.state === 'FAULT') pad = g;
+    else if (pad) break;
+  }
+  return pad;
+}
+const GPS_READOUTS = [
+  ['Fix', (g, last) => last ? `${GPS_QUALITY[last.fix] || last.fix}, ${last.sats} satellites, HDOP ${fmt(last.hdop, 2)}` : '—'],
+  ['Last known position', g => g ? `${g.lat.toFixed(7)}, ${g.lon.toFixed(7)}` : '—'],
+  ['Altitude (MSL)', g => g ? fmt(g.alt_msl_m, 1) + ' m' : '—'],
+  ['Ground speed / course', g => g ? `${fmt(g.speed_mps, 1)} m/s, ${fmt(g.course_deg, 0)}°` : '—'],
+  ['Fix time', g => g && g.utc_s ? fmtTime(g.utc_s * 1000) : '—'],
+  ['Pad position', (g, last, pad) => pad ? `${pad.lat.toFixed(7)}, ${pad.lon.toFixed(7)}` : '—'],
+  ['From the pad', (g, last, pad) => {
+    if (!g || !pad) return '—';
+    const d = enu(pad, g), dist = Math.hypot(d.e, d.n), brg = (Math.atan2(d.e, d.n) * 180 / Math.PI + 360) % 360;
+    return `${fmt(dist, 0)} m, bearing ${fmt(brg, 0)}°`;
+  }],
+  ['Last GPS frame', (g, last) => !last ? '—' : last.rxAt ? fmt((performance.now() - last.rxAt) / 1000, 1) + ' s ago' : 'from file'],
+];
+function renderGps(t) {
+  const gps = t.gps, last = gps[gps.length - 1];
+  let g = null;
+  for (let i = gps.length - 1; i >= 0; i--) if (gps[i].fix > 0) { g = gps[i]; break; }
+  const pad = gpsPad(gps), f = t.latest();
+  const st = $('gps-state');
+  let label = 'NO GPS', cls = '';
+  if (last && last.fix > 0) { label = `FIX (${last.sats} sats)`; cls = 'ok'; }
+  else if (last) { label = `NO FIX (${last.sats} sats)`; cls = 'warn'; }
+  else if (f && (f.link & 16)) { label = 'GPS DATA, no frames yet'; cls = 'warn'; }
+  if (g && last && !(last.fix > 0)) label += ': last fix shown';
+  st.textContent = label; st.className = 'state ' + cls;
+  GPS_READOUTS.forEach(r => { r.valEl.textContent = r[1](g, last, pad); });
+  const q = g ? `${g.lat.toFixed(7)},${g.lon.toFixed(7)}` : '';
+  for (const [id, url] of [['gps-osm', g ? `https://www.openstreetmap.org/?mlat=${g.lat}&mlon=${g.lon}#map=17/${g.lat}/${g.lon}` : ''],
+    ['gps-gmaps', g ? `https://www.google.com/maps/search/?api=1&query=${q}` : '']]) {
+    const a = $(id); if (url) a.href = url; else a.removeAttribute('href');
+  }
+  $('btn-gps-copy').disabled = !g;
+  $('btn-gps-copy').onclick = () => {
+    // The clipboard API needs a secure context, which http://192.168.4.1 is not.
+    if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(q).then(() => setMsg('Position copied: ' + q), () => askText('Position:', q));
+    else askText('Position (copy it):', q);
+  };
+  updateGpsMap(g);
+  if (panelOpen('gps-panel')) drawGpsTrack(gps, pad || g);
+}
+
+// Google Maps satellite view of the last fix: an embedded map (no API key),
+// in the panel and/or a small window. Reloaded only when the fix moved > 15 m.
+function gmapUrl(g) { return `https://maps.google.com/maps?q=${g.lat.toFixed(7)},${g.lon.toFixed(7)}&t=k&z=18&output=embed`; }
+let mapAt = null, mapUrl = '', mapWin = null;
+function updateGpsMap(g) {
+  if (g && (!mapAt || Math.hypot(enu(mapAt, g).e, enu(mapAt, g).n) > 15)) { mapAt = g; mapUrl = gmapUrl(g); }
+  const fr = $('gps-map'), show = $('gps-map-on').checked && panelOpen('gps-panel');
+  fr.hidden = !show;
+  if (show && mapUrl && fr.getAttribute('src') !== mapUrl) fr.setAttribute('src', mapUrl);
+  if (mapWin && !mapWin.closed && mapUrl) {
+    const f2 = mapWin.document.getElementById('map');
+    if (f2 && f2.getAttribute('src') !== mapUrl) { f2.setAttribute('src', mapUrl); mapWin.document.getElementById('none').hidden = true; }
+  }
+}
+function openMapWindow() {
+  if (mapWin && !mapWin.closed) { mapWin.focus(); return; }
+  mapWin = window.open('', 'rocketfc_map', 'width=520,height=560');
+  if (!mapWin) { setMsg('Pop-up blocked: allow pop-ups for this page.'); return; }
+  mapWin.document.write('<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">' +
+    '<title>Rocket position (satellite)</title><style>html,body{margin:0;height:100%;font:14px system-ui,sans-serif}' +
+    'iframe{border:0;width:100%;height:100%}#none{padding:16px}</style>' +
+    '<div id="none">No GPS fix yet. The map follows the last fix (needs internet).</div><iframe id="map" referrerpolicy="no-referrer"></iframe>');
+  mapWin.document.close();
+  updateGpsMap(null);
+}
+let gpsDrawKey = '';
+function drawGpsTrack(gps, ref) {
+  const c = $('gps-plot');
+  const key = gps.length + ':' + (ref ? ref.t_ms : '') + ':' + c.clientWidth;
+  if (key === gpsDrawKey) return;
+  gpsDrawKey = key;
+  const [ctx, W, H] = fitCanvas(c);
+  ctx.clearRect(0, 0, W, H);
+  ctx.font = '11px ' + css('--mono');
+  const fixes = gps.filter(g => g.fix > 0);
+  if (!ref || !fixes.length) { ctx.fillStyle = css('--muted'); ctx.fillText('no GPS fix yet', 10, 20); return; }
+  const pts = fixes.map(g => enu(ref, g));
+  const span = Math.max(20, ...pts.map(p => Math.max(Math.abs(p.e), Math.abs(p.n)))) * 1.15;
+  const s = (Math.min(W, H) / 2 - 12) / span, cx = W / 2, cy = H / 2;
+  ctx.strokeStyle = css('--line'); ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(0, cy); ctx.lineTo(W, cy); ctx.moveTo(cx, 0); ctx.lineTo(cx, H); ctx.stroke();
+  const ring = niceCeil(span / 2);
+  ctx.beginPath(); ctx.arc(cx, cy, ring * s, 0, 2 * Math.PI); ctx.stroke();
+  ctx.fillStyle = css('--muted'); ctx.fillText(ring + ' m', cx + ring * s * 0.72, cy - ring * s * 0.72); ctx.fillText('N', cx + 4, 12);
+  ctx.strokeStyle = css('--s1'); ctx.lineWidth = 1.5; ctx.beginPath();
+  pts.forEach((p, i) => { const x = cx + p.e * s, y = cy - p.n * s; if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y); });
+  ctx.stroke();
+  ctx.fillStyle = css('--ink'); ctx.beginPath(); ctx.moveTo(cx, cy - 6); ctx.lineTo(cx - 5, cy + 4); ctx.lineTo(cx + 5, cy + 4); ctx.fill();
+  ctx.fillText('pad', cx + 7, cy + 12);
+  const lp = pts[pts.length - 1];
+  ctx.fillStyle = css('--bad'); ctx.beginPath(); ctx.arc(cx + lp.e * s, cy - lp.n * s, 4, 0, 2 * Math.PI); ctx.fill();
+}
+
+// ===========================================================================
+// Ground station WiFi ("# wifi ..." lines, "wifi" commands)
+// ===========================================================================
+
+const wifiState = { known: false };
+function wifiOnLine(line) {
+  if (line.startsWith('# wifi saved') || line.startsWith('# wifi error')) { setMsg('Ground station: ' + line.slice(2)); return; }
+  const m = /^# wifi (\w+)(.*)$/.exec(line);
+  if (!m) return;
+  const kv = {};
+  for (const [, k, v] of m[2].matchAll(/(\w+)=(\S+)/g)) kv[k] = v;
+  Object.assign(wifiState, { known: true, status: m[1], ssid: kv.ssid, clients: kv.clients, channel: kv.channel });
+  if (kv.pass) wifiState.pass = kv.pass;
+  const st = m[1] === 'off' ? 'off' : `${m[1]}: network "${kv.ssid}", channel ${kv.channel}, ${kv.clients} browser(s) connected` +
+    (wifiState.pass ? `, password ${wifiState.pass}` : '');
+  $('wifi-status').textContent = st;
+  if (document.activeElement !== $('wifi-ssid') && kv.ssid) $('wifi-ssid').value = kv.ssid;
+  if (document.activeElement !== $('wifi-on')) $('wifi-on').checked = m[1] !== 'off';
+}
+async function wifiApply() {
+  const ssid = $('wifi-ssid').value.trim(), pass = $('wifi-pass').value.trim(), on = $('wifi-on').checked;
+  if (ssid && !/^[\x21-\x7e]{1,32}$/.test(ssid)) { setMsg('WiFi name: 1–32 characters, no spaces.'); return; }
+  if (pass && !/^[\x21-\x7e]{8,63}$/.test(pass)) { setMsg('WiFi password: 8–63 characters, no spaces.'); return; }
+  if (!ask(`Save the WiFi settings and reboot the station?\n\nWiFi ${on ? 'on' : 'OFF'}, name "${ssid || wifiState.ssid}"${pass ? ', new password' : ''}.` +
+    '\nThen join the network again and reload this page.')) return;
+  await radioLink.write('wifi ' + (on ? 'on' : 'off'));
+  if (ssid && ssid !== wifiState.ssid) await radioLink.write('wifi ssid ' + ssid);
+  if (pass) await radioLink.write('wifi pass ' + pass);
+  $('wifi-pass').value = '';
+  setTimeout(() => radioLink.write('reboot'), 300);
+}
+
+// ===========================================================================
+// Collapsible panels and panels in their own window
+// ===========================================================================
+
+const POP_PANELS = ['gps-panel', 'batt-panel', 'set-panel'];
+function panelOpen(id) { const p = $(id); return !!p && !p.classList.contains('collapsed'); }
+function setCollapsed(id, c) { $(id).classList.toggle('collapsed', c); gpsDrawKey = ''; settingsKey = ''; render(); }
+function setupPanels() {
+  for (const id of POP_PANELS) {
+    const p = $(id), h = p.querySelector(':scope > h2');
+    const head = el('div', 'panel-head');
+    h.replaceWith(head);
+    head.append(h);
+    const b = el('button', 'mini', 'Open in window ↗');
+    b.title = 'Show this panel in its own window (it stays live)';
+    b.onclick = e => { e.stopPropagation(); if (popups[id]) popups[id].win.close(); else popOut(id); };
+    head.append(b);
+    h.title = 'Click to show or hide';
+    h.onclick = () => setCollapsed(id, !p.classList.contains('collapsed'));
+    p.classList.add('collapsed');  // collapsed by default
+  }
+}
+// Moves the panel (with its live controls) into a new window; closing the
+// window puts it back.
+function popOut(id) {
+  const p = $(id);
+  const title = p.querySelector('h2').textContent;
+  const w = window.open('', 'rocketfc_' + id, 'width=1000,height=760');
+  if (!w) { setMsg('Pop-up blocked: allow pop-ups for this page.'); return; }
+  w.document.open();
+  w.document.write('<!doctype html><html lang="en"><head><meta charset="utf-8">' +
+    '<meta name="viewport" content="width=device-width, initial-scale=1"><title></title><style>' +
+    document.querySelector('style').textContent + ' body{padding:12px} .panel{max-width:none}</style></head><body></body></html>');
+  w.document.close();
+  w.document.title = title + ' – rocket-fc';
+  const holder = el('div', 'panel popped-note note');
+  const back = el('button', 'mini', 'Bring back');
+  back.onclick = () => w.close();
+  holder.append(title + ': shown in a separate window. ', back);
+  p.replaceWith(holder);
+  p.classList.remove('collapsed');
+  w.document.body.append(w.document.adoptNode(p));
+  p.querySelector('.panel-head button.mini').textContent = 'Back to main window';
+  popups[id] = { win: w, holder, node: p };
+  w.addEventListener('pagehide', () => restorePanel(id));
+  gpsDrawKey = ''; settingsKey = '';
+  render();
+}
+function restorePanel(id) {
+  const e = popups[id];
+  if (!e) return;
+  delete popups[id];
+  e.holder.replaceWith(document.adoptNode(e.node));
+  e.node.querySelector('.panel-head button.mini').textContent = 'Open in window ↗';
+  gpsDrawKey = ''; settingsKey = '';
+  render();
+}
+window.addEventListener('pagehide', () => { for (const k in popups) popups[k].win.close(); if (mapWin) mapWin.close(); });
+
+// ===========================================================================
+// Settings panel: driven by the firmware's settings table (fc/param_shell.h).
+// The station sends the rocket's definitions ("rdefs": D lines); the rocket
+// sends its values by radio in compact form (V lines, non-defaults only).
+// ===========================================================================
+
+const RADIO_PRESETS = [
+  { name: 'EU 869.525 MHz, 250 kHz (default)', set: [['radio_freq_mhz', '869.525'], ['radio_bw', '250'], ['radio_duty_pct', '8'], ['radio_burst_s', '72']] },
+  { name: 'US/Canada 915 MHz, 500 kHz (check local rules)', unlock: true,
+    set: [['radio_freq_mhz', '915'], ['radio_bw', '500'], ['radio_duty_pct', '100'], ['radio_burst_s', '72']] },
+];
+const UNLOCK_TEXT = 'Allow radio settings outside the EU band and its 10 % duty-cycle limit?\n\n' +
+  'You are responsible for legal use where you operate.';
+
+const EJECT_TEXT = 'Enable manual ejection in flight?\n\nThe station can then fire the ejection charge at any moment ' +
+  'after launch, overriding the apogee logic. A mistaken press during the climb ejects at full speed.';
+
+function newParamSet(name) { return { name, defs: new Map(), pe: null, errors: {}, msg: '', version: 0 }; }
+const params = { fc: newParamSet('Rocket'), gs: newParamSet('Station') };
+// The rocket's settings can be changed while it is heard, on the ground.
+function fcOpen() {
+  const t = tracks.radio, f = t.latest();
+  return radioLink.open && !!f && t.lastRx && performance.now() - t.lastRx < 5000 && !['BOOST', 'COAST', 'DESCENT'].includes(f.state);
+}
+function kitOpen(w) { return w === 'fc' ? fcOpen() : radioLink.open; }
+// Rocket definitions (D lines, from the station) and values (V lines, from the rocket).
+const fcPending = new Map();
+function rocketDef(line) {
+  const p = line.split(',');
+  if (p.length < 13) return;
+  const d = { key: p[1], group: p[2], type: p[3], value: p[6], running: p[6], def: p[6], min: Number(p[7]),
+    max: Number(p[8]), unit: p[9], flags: p[10], options: p[11] ? p[11].split('|') : [], help: p.slice(12).join(',') };
+  const v = fcPending.get(d.key);
+  if (v) { d.value = v.v; d.running = v.r; }
+  params.fc.defs.set(d.key, d); params.fc.version++;
+}
+function readFcSettings() {
+  const fc = params.fc;
+  for (const d of fc.defs.values()) { d.value = d.def; d.running = d.def; }
+  fcPending.clear(); fc.msg = ''; fc.errors = {}; fc.version++;
+  if (!fc.defs.size) radioLink.write('rdefs');
+  sendCommand('param list');
+}
+function clearParams(w) { const name = params[w].name; params[w] = newParamSet(name); params[w].version = Date.now(); }
+
+// One line from a kit. Returns true if it was a settings line to hide from the console.
+function paramLine(w, line) {
+  const ps = params[w];
+  if (w === 'fc' && line.startsWith('V,')) {
+    const [, k, v, r] = line.split(',');
+    const d = ps.defs.get(k);
+    if (d) { d.value = v; d.running = r; delete ps.errors[k]; } else fcPending.set(k, { v, r });
+    ps.version++;
+    return true;
+  }
+  if (line.startsWith('P,')) {
+    const p = line.split(',');
+    if (p.length < 13) return true;
+    const d = { key: p[1], group: p[2], type: p[3], value: p[4], running: p[5], def: p[6], min: Number(p[7]),
+      max: Number(p[8]), unit: p[9], flags: p[10], options: p[11] ? p[11].split('|') : [], help: p.slice(12).join(',') };
+    ps.defs.set(d.key, d); delete ps.errors[d.key]; ps.version++;
+    return true;
+  }
+  if (line.startsWith('PE,')) {
+    const p = line.split(',');
+    ps.pe = { count: Number(p[1]), edit: p[2], running: p[3], saved: p[4], status: p.slice(5).join(',') };
+    ps.version++;
+    return true;
+  }
+  if (line.startsWith('PERR,')) {
+    const p = line.split(','), why = p.slice(2).join(',');
+    if (p[1] === '*') ps.msg = why; else ps.errors[p[1]] = why;
+    ps.version++;
+    return w === 'gs';   // rocket: also shown in its console
+  }
+  if (line.startsWith('PSAVED,')) {
+    ps.msg = 'saved (crc ' + line.split(',')[1] + '): reboot to apply';
+    ps.version++;
+    return w === 'gs';
+  }
+  return false;
+}
+
+async function paramSend(w, cmd) {
+  if (!kitOpen(w)) return false;
+  if (w === 'fc') await sendCommand(cmd); else await radioLink.write(cmd);
+  return true;
+}
+
+// Send one value to every connected kit that has this setting.
+async function setParam(key, value) {
+  const a = params.fc.defs.get(key), b = params.gs.defs.get(key), d = a || b;
+  if (!d) return;
+  if (key === 'radio_unlock' && value === '1' && d.value !== '1' && !ask(UNLOCK_TEXT)) { settingsKey = ''; return; }
+  if (key === 'manual_eject' && value === '1' && d.value !== '1' && !ask(EJECT_TEXT)) { settingsKey = ''; return; }
+  params.fc.msg = params.gs.msg = '';
+  if (a && fcOpen()) await paramSend('fc', `param set ${key} ${value}`);
+  if (b && radioLink.open) await paramSend('gs', `param set ${key} ${value}`);
+}
+
+function fmtLimit(d, v) { return d.flags.includes('H') ? '0x' + (v >>> 0).toString(16).toUpperCase() : String(v); }
+
+function paramEditor(d, enabled) {
+  let e;
+  if (d.type === 'bool') {
+    e = el('input'); e.type = 'checkbox'; e.checked = d.value === '1';
+    e.onchange = () => setParam(d.key, e.checked ? '1' : '0');
+  } else if (d.type === 'enum') {
+    e = el('select');
+    d.options.forEach(o => { const op = el('option', '', o + (d.unit ? ' ' + d.unit : '')); op.value = o; e.append(op); });
+    e.value = d.value;
+    e.onchange = () => setParam(d.key, e.value);
+  } else {
+    e = el('input'); e.type = 'text'; e.value = d.value; e.spellcheck = false;
+    e.onchange = () => setParam(d.key, e.value.trim());
+    e.onkeydown = ev => { if (ev.key === 'Enter') e.blur(); if (ev.key === 'Escape') { e.value = d.value; e.blur(); } };
+  }
+  e.disabled = !enabled;
+  return e;
+}
+
+function paramRow(k, a, b) {
+  const d = a || b, tr = el('tr');
+  const name = el('td', 'p-name');
+  name.append(el('div', 'p-key', k));
+  const tags = el('div', 'flags');
+  if (d.flags.includes('S')) tags.append(el('span', 'pill bad', 'flight safety'));
+  if (d.flags.includes('R')) tags.append(el('span', 'pill info', 'both kits'));
+  if (d.flags.includes('G')) tags.append(el('span', 'pill info', 'ground station'));
+  if (tags.childNodes.length) name.append(tags);
+  name.title = d.help;
+  name.lastChild.title = d.help;
+
+  const val = el('td');
+  val.append(paramEditor(d, a ? fcOpen() : radioLink.open));
+  if (d.unit && d.type !== 'enum') val.append(' ' + d.unit);
+  if (a && b && a.value !== b.value) {
+    tr.className = 'mismatch';
+    val.append(el('div', 'p-err', `ground station has ${b.value} (flight computer ${a.value})`));
+  }
+  for (const [w, x] of [['fc', a], ['gs', b]]) {
+    const err = x && params[w].errors[k];
+    if (err) val.append(el('div', 'p-err', params[w].name + ' refused: ' + err));
+  }
+
+  const meta = el('td', 'p-meta');
+  const range = d.type === 'bool' || d.type === 'enum' ? '' : `   range ${fmtLimit(d, d.min)} … ${fmtLimit(d, d.max)}`;
+  meta.append(el('div', '', 'default ' + d.def + range));
+  const st = el('div', 'flags');
+  if ((a && a.value !== a.running) || (b && b.value !== b.running)) st.append(el('span', 'pill warn', 'applies after reboot'));
+  if (d.value !== d.def) st.append(el('span', 'pill', 'changed from default'));
+  if (st.childNodes.length) meta.append(st);
+  tr.append(name, val, meta);
+  return tr;
+}
+
+function radioPresetSelect() {
+  const sel = el('select');
+  sel.append(el('option', '', 'radio preset…'));
+  RADIO_PRESETS.forEach((p, i) => { const o = el('option', '', p.name); o.value = String(i); sel.append(o); });
+  sel.onchange = async () => {
+    const p = RADIO_PRESETS[Number(sel.value)];
+    sel.selectedIndex = 0;
+    if (!p) return;
+    const unlock = (params.fc.defs.get('radio_unlock') || params.gs.defs.get('radio_unlock') || {}).value === '1';
+    if (p.unlock && !unlock) { tell('This preset is outside the EU band: tick radio_unlock first (you accept responsibility for local rules).'); return; }
+    for (const [k, v] of p.set) await setParam(k, v);
+  };
+  return sel;
+}
+
+let settingsKey = '';
+function renderSettings() {
+  const fc = params.fc, gs = params.gs;
+  // status lines
+  const status = (ps, open) => {
+    if (!ps.pe) return ps.name + (ps === fc ? ': not read (rocket on the ground, in range).' : ': not read.');
+    const pe = ps.pe;
+    let t = `${ps.name}: in use crc ${pe.running}` + (open ? '' : ' (not reachable now)');
+    if (pe.edit !== pe.saved) t += `; UNSAVED changes (crc ${pe.edit})`;
+    else if (pe.saved !== pe.running) t += `; saved crc ${pe.saved}: reboot to apply`;
+    else t += '; saved = in use';
+    if (pe.status !== 'ok') t += '; ' + pe.status.toUpperCase();
+    if (ps.msg) t += '; ' + ps.msg;
+    return t;
+  };
+  const stEl = $('set-status');
+  const stText = status(fc, fcOpen()) + '\n' + status(gs, radioLink.open);
+  if (stEl.textContent !== stText) { stEl.textContent = stText; stEl.style.whiteSpace = 'pre-line'; }
+
+  // warnings
+  const warn = [];
+  const shared = [...fc.defs.values()].filter(d => d.flags.includes('R') && gs.defs.has(d.key));
+  const diffEdit = shared.filter(d => d.value !== gs.defs.get(d.key).value).map(d => d.key);
+  const diffRun = shared.filter(d => d.running !== gs.defs.get(d.key).running).map(d => d.key);
+  if (diffRun.length) warn.push('The two kits RUN different radio settings (' + diffRun.join(', ') + '): no radio link until both are saved with the same values and rebooted.');
+  else if (diffEdit.length) warn.push('Radio settings differ between the kits (' + diffEdit.join(', ') + '): make them equal before saving and rebooting, or the link breaks.');
+  const fcRadioPending = [...fc.defs.values()].some(d => d.flags.includes('R') && d.value !== d.running);
+
+  for (const ps of [fc, gs]) if (ps.pe && ps.pe.status !== 'ok') warn.push(ps.name + ': ' + ps.pe.status + ' (cannot be saved like this).');
+  const unlockOn = [fc, gs].some(ps => (ps.defs.get('radio_unlock') || {}).value === '1');
+  if (unlockOn) warn.push('radio_unlock is on.');
+  const w = $('set-warn'), wt = warn.join('\n');
+  w.hidden = !warn.length;
+  if (w.textContent !== wt) { w.textContent = wt; w.style.whiteSpace = 'pre-line'; }
+
+  // buttons
+  const unsaved = ps => ps.pe && ps.pe.edit !== ps.pe.saved;
+  $('btn-set-read').disabled = !radioLink.open;
+  $('btn-set-save').disabled = !((fcOpen() && unsaved(fc)) || (radioLink.open && unsaved(gs)));
+  $('btn-set-reboot').disabled = !fcOpen();
+  $('btn-set-reboot').className = fc.pe && fc.pe.saved !== fc.pe.running ? 'danger' : '';
+  $('btn-set-reboot-gs').disabled = !radioLink.open;
+  $('btn-set-reboot-gs').className = gs.pe && gs.pe.saved !== gs.pe.running ? 'danger' : '';
+  $('btn-set-revert').disabled = !((fcOpen() && unsaved(fc)) || (radioLink.open && unsaved(gs)));
+  $('btn-set-defaults').disabled = !(fcOpen() || radioLink.open);
+  $('btn-set-export').disabled = !(fc.defs.size || gs.defs.size);
+  $('btn-set-import').disabled = !(fc.defs.size || gs.defs.size);
+
+  // table: rebuilt only when something changed, never while the user edits a field
+  if (!panelOpen('set-panel')) return;
+  const key = [fc.version, gs.version, fcOpen(), radioLink.open, $('set-filter').value, $('set-changed').checked].join('|');
+  if (key === settingsKey) return;
+  const body = $('set-body'), act = body.ownerDocument.activeElement;
+  if (body.contains(act) && act.tagName === 'INPUT' && act.type === 'text') return;
+  settingsKey = key;
+  body.textContent = '';
+  const keys = [...new Set([...fc.defs.keys(), ...gs.defs.keys()])];
+  if (!keys.length) {
+    body.append(el('div', 'note', 'Click Read settings.'));
+    return;
+  }
+  const filter = $('set-filter').value.trim().toLowerCase(), onlyChanged = $('set-changed').checked;
+  let group = null, table = null;
+  for (const k of keys) {
+    const a = fc.defs.get(k), b = gs.defs.get(k), d = a || b;
+    if (filter && !(k.includes(filter) || d.group.includes(filter) || d.help.toLowerCase().includes(filter))) continue;
+    if (onlyChanged && !((a && a.value !== a.def) || (b && b.value !== b.def))) continue;
+    if (d.group !== group) {
+      group = d.group;
+      const h = el('div', 'set-group', group);
+      if (group === 'radio') h.append(radioPresetSelect());
+      body.append(h);
+      table = el('table', 'params');
+      body.append(table);
+    }
+    table.append(paramRow(k, a, b));
+  }
+}
+
+async function saveSettings() {
+  const ws = ['fc', 'gs'].filter(w => kitOpen(w) && params[w].pe && params[w].pe.edit !== params[w].pe.saved);
+  if (!ws.length) { setMsg('Nothing to save.'); return; }
+  const safety = [...params.fc.defs.values()].filter(d => d.flags.includes('S') && d.value !== d.running);
+  if (safety.length && !ask('Flight safety settings change:\n\n' +
+      safety.map(d => `  ${d.key}: ${d.running} → ${d.value} ${d.unit}`).join('\n') + '\n\nSave?')) return;
+  for (const w of ws) { params[w].msg = ''; await paramSend(w, 'param save'); }
+}
+
+function rebootKit(w) {
+  if (!ask(w === 'fc' ? 'Reboot the rocket? (It recalibrates: keep it still.)' : 'Reboot the ground station?')) return;
+  if (w === 'fc') sendCommand('reboot'); else radioLink.write('reboot');
+}
+
+function exportSettings() {
+  const ps = params.fc.defs.size ? params.fc : params.gs;
+  const lines = [`# rocket-fc settings, exported ${new Date().toISOString()} from the ${ps.name.toLowerCase()}`,
+    `# values as edited (crc ${ps.pe ? ps.pe.edit : '?'})`];
+  for (const d of ps.defs.values()) lines.push(`${d.key}=${d.value}`);
+  const name = 'rocketfc_settings_' + stamp() + '.txt';
+  download(name, lines.join('\n') + '\n');
+  setMsg('Settings exported as ' + name + '.');
+}
+
+async function importSettings(text) {
+  let changed = 0, bad = 0;
+  const unknown = [];
+  for (const raw of text.split(/\r?\n/)) {
+    const l = raw.trim();
+    if (!l || l.startsWith('#')) continue;
+    const i = l.indexOf('=');
+    if (i < 1) { bad++; continue; }
+    const k = l.slice(0, i).trim(), v = l.slice(i + 1).trim();
+    const d = params.fc.defs.get(k) || params.gs.defs.get(k);
+    if (!d) { unknown.push(k); continue; }
+    if (d.value === v) continue;
+    await setParam(k, v);
+    changed++;
+  }
+  setMsg(`Import: ${changed} value(s) sent` + (unknown.length ? `, ${unknown.length} unknown ignored (${unknown.slice(0, 5).join(', ')})` : '') +
+    (bad ? `, ${bad} bad line(s)` : '') + '. Then Save to flash.');
+}
+
+// --- heartbeat settings ---
+function loadUplinkSettings() {
+  try { return Object.assign({}, UPLINK_DEFAULTS, JSON.parse(localStorage.getItem('rocketfc.uplink') || '{}')); }
+  catch (_) { return Object.assign({}, UPLINK_DEFAULTS); }
+}
+function sendUplinkSettings() {
+  const u = { on: $('up-on').checked, beep_s: Math.max(0, Math.min(255, Math.round(Number($('up-beep').value) || 0))) };
+  $('up-beep').value = u.beep_s;
+  try { localStorage.setItem('rocketfc.uplink', JSON.stringify(u)); } catch (_) { /* private window */ }
+  radioLink.write('time ' + Date.now())
+    .then(() => radioLink.write('uplink ' + (u.on ? 'on' : 'off')))
+    .then(() => radioLink.write('beep ' + u.beep_s));
+}
+
+// --- wiring ---
+$('btn-send').onclick = () => {
+  const v = $('cmd').value.trim();
+  if (!v) return;
+  if ($('cmd-kit').value) sendCommand(v); else { consoleAppend('station> ' + v); radioLink.write(v); }
+  $('cmd').value = '';
+};
+$('cmd').addEventListener('keydown', e => {
+  if (e.key === 'Enter') $('btn-send').onclick();
+  else if (e.key === 'ArrowUp' && histPos > 0) { $('cmd').value = cmdHistory[--histPos]; e.preventDefault(); }
+  else if (e.key === 'ArrowDown') { histPos = Math.min(cmdHistory.length, histPos + 1); $('cmd').value = cmdHistory[histPos] || ''; e.preventDefault(); }
+});
+$('btn-clear').onclick = () => { consoleLines.length = 0; $('console').textContent = ''; };
+$('btn-up-apply').onclick = sendUplinkSettings;
+$('btn-ping').onclick = () => { gs.ping = 'queued…'; radioLink.write('ping'); };
+$('gs-search').onchange = e => radioLink.write('search ' + (e.target.checked ? 'on' : 'off'));
+$('btn-mode-bench').onclick = () => radioLink.write('mode bench');
+$('btn-mode-flight').onclick = () => radioLink.write('mode flight');
+$('btn-bench-banner-off').onclick = () => radioLink.write('mode flight');
+$('btn-launch').onclick = () => radioLink.write('launch');
+$('btn-abort').onclick = () => radioLink.write('abort');
+$('btn-upright').onclick = () => { $('upright-msg').textContent = 'measuring… hold still'; sendCommand('imu upright'); };
+$('btn-eject').onclick = () => {
+  const f = tracks.radio.latest();
+  if (!ask('Fire the ejection charge now?\n\nRocket: ' + (f ? f.state : 'unknown'))) return;
+  gs.ejecting = true; gs.eject = 'sending…';
+  radioLink.write('eject');
+};
+$('btn-eject-cancel').onclick = () => radioLink.write('eject cancel');
+$('btn-flog-list').onclick = () => sendCommand('flog list');
+$('btn-ram').onclick = () => withRocketWifi(() => fetchRocket('/ram', 'ram_' + stamp() + '.csv'));
+$('btn-rwifi').onclick = () => { if (rwifiOn) sendCommand('wifi off'); else withRocketWifi(() => {}); };
+$('btn-flog-erase').onclick = () => {
+  if (ask('Erase every session in the flash log? (About a minute.)')) sendCommand('flog erase CONFIRM');
+};
+$('btn-wifi-show').onclick = () => radioLink.write('wifi');
+$('gps-map-on').onchange = () => updateGpsMap(null);
+$('btn-gps-map-win').onclick = openMapWindow;
+$('btn-wifi-apply').onclick = wifiApply;
+$('btn-set-read').onclick = () => { params.gs.msg = ''; radioLink.write('param list'); readFcSettings(); };
+$('btn-set-save').onclick = saveSettings;
+$('btn-set-reboot').onclick = () => rebootKit('fc');
+$('btn-set-reboot-gs').onclick = () => rebootKit('gs');
+$('btn-set-revert').onclick = async () => {
+  if (await paramSend('gs', 'param revert')) await paramSend('gs', 'param list');
+  if (await paramSend('fc', 'param revert')) readFcSettings();
+};
+$('btn-set-defaults').onclick = async () => {
+  if (!ask('Set all settings back to the defaults? Nothing is stored until Save to flash.')) return;
+  if (await paramSend('gs', 'param reset all')) await paramSend('gs', 'param list');
+  if (await paramSend('fc', 'param reset all')) readFcSettings();
+};
+$('btn-set-export').onclick = exportSettings;
+$('btn-set-import').onclick = () => $('set-file').click();
+$('set-file').onchange = async () => { const f = $('set-file').files[0]; if (f) await importSettings(await f.text()); $('set-file').value = ''; };
+$('set-filter').oninput = () => renderSettings();
+$('set-changed').onchange = () => renderSettings();
+{ const u = loadUplinkSettings(); $('up-on').checked = u.on; $('up-beep').value = u.beep_s; }
+$('btn-save').onclick = () => {
+  if (!radioLines.length) { setMsg('Nothing received yet.'); return; }
+  const name = 'ground_' + stamp() + '.csv'; download(name, radioLines.join('\n') + '\n'); radioUnsaved = false;
+  setMsg(`Saved ${radioLines.length} lines as ${name}.`);
+};
+$('btn-open').onclick = () => $('file').click();
+$('file').onchange = async () => {
+  const file = $('file').files[0]; if (!file) return;
+  const text = await file.text();
+  tracks.file.reset();
+  let n = 0;
+  for (const line of text.split(/\r?\n/)) { const before = tracks.file.received; handleGroundLine(tracks.file, line, false); if (tracks.file.received > before) n++; }
+  $('source').value = 'file'; $('window').value = '0';
+  setMsg(`${file.name}: ${n} records.`);
+  $('file').value = '';
+};
+window.addEventListener('beforeunload', e => { if (radioUnsaved && radioLines.length > 50) { e.preventDefault(); e.returnValue = ''; } });
+
+buildUi();
+setupPanels();
+// Rocket settings: read when the Settings panel is first opened.
+$('set-panel').querySelector('.panel-head h2').addEventListener('click', () => {
+  if (panelOpen('set-panel') && !params.fc.pe) { radioLink.write('param list'); readFcSettings(); }
+});
+render();
+setInterval(render, RENDER_MS);
+radioLink.connect();
+
 </script>
 </body>
 </html>
