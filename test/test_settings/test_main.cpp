@@ -30,6 +30,13 @@ static void test_table_is_consistent() {
   TEST_ASSERT_NULL(find_param("no_such_setting"));
 }
 
+static void test_rf_key_default_is_detected() {
+  fc::Settings s;
+  TEST_ASSERT_TRUE(fc::rf_key_is_default(s));
+  s.rf_key ^= 1;
+  TEST_ASSERT_FALSE(fc::rf_key_is_default(s));
+}
+
 static void test_defaults_valid_and_match_flight_logic_defaults() {
   const Settings s;
   char why[160];
@@ -194,6 +201,7 @@ int main(int, char**) {
   UNITY_BEGIN();
   RUN_TEST(test_table_is_consistent);
   RUN_TEST(test_defaults_valid_and_match_flight_logic_defaults);
+  RUN_TEST(test_rf_key_default_is_detected);
   RUN_TEST(test_set_param_types_and_ranges);
   RUN_TEST(test_text_roundtrip_only_changed);
   RUN_TEST(test_text_tolerates_old_and_bad_entries);

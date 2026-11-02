@@ -67,6 +67,8 @@ void App::setup() {
   if (set_.manual_eject)
     con.println("WARNING: manual_eject = 1: the ground station can fire the ejection charge IN FLIGHT "
                    "(two-step coded command). Set manual_eject = 0 if you do not intend to use it.");
+  if (fc::rf_key_is_default(set_))
+    con.println("WARNING: rf_key is the public default: set your own pairing key on both kits (docs/BUILD.md).");
 
   batt_adc_.begin(pins::kBattSense, set_.batt_divider);
   pyro_adc_.begin(pins::kPyroSense, set_.pyro_divider);

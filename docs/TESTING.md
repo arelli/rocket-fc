@@ -23,27 +23,37 @@ pio test -e native
 | `test_settings` | Settings table, ranges, text storage format, cross-checks, radio band rules, defaults = tested flight logic values |
 | `test_param_shell` | The `param` command: listing, editing, refusal in flight, saving |
 | `test_uplink` / `test_remote_fire` | Heartbeat, bench mode and remote fire frames, one-time codes |
+| `test_ahrs` | Attitude filter: axis mapping, convergence at rest and tilted, no magnetometer, boost, gyro integration |
+| `test_mount` | `imu upright`: nose axis detection for every mounting, refusals (moving, tilted mount) |
+| `test_launch` | Ground station launch channel: refusals, countdown, single pulse, abort, ARM off, text frames |
+| `test_station` | Ground station button (short press, hold, bounce) and search mode |
+| `test_crypto` | SHA-256, X25519 (RFC 7748 vectors), sealing of the WiFi password sent to the rocket |
 
 They must all pass before you flash the firmware for a flight.
 
 ## 2. Bench: electronics (no igniter)
 
-Flash `pio run -e flight -t upload`, open `pio device monitor` (or the UI).
+Flash `pio run -e flight -t upload`, open `pio device monitor`. Most
+commands also work from the UI console (Flight computer panel, by radio);
+`fire`, `dump`, `flog dump` and `csv` are USB only.
 
 1. **Boot:** the banner shows the git hash, the settings CRC (and any settings
-   that differ from the defaults) and `mode: FLIGHT`; IMU, barometer, radio
-   and log report ok. `i2c` lists 0x68 and 0x76/0x77. Type `bench on`: the
-   test commands below need bench mode (UI: banner at the top).
+   that differ from the defaults) and `BENCH MODE ON (bench_at_boot)`; IMU,
+   barometer, radio and log report ok. `i2c` lists 0x68 and 0x76/0x77. The
+   test commands below need bench mode (UI: banner at the top). With the
+   ground station on, the rocket follows its MODE (BENCH for these tests).
 2. **Countdown:** fast LED blink, one tick per second, then 2 beeps (self-test ok).
    Read the warnings printed.
-3. **Orientation:** stand the board as it will sit in the rocket, nose up.
-   `status`: `accel_up` ≈ +1.00 g. If not, set `imu_up_axis` (Settings panel), save, reboot.
+3. **Orientation:** stand the board as it will sit in the rocket, nose up,
+   still. UI **Set upright** (Attitude panel) or `imu upright`, then reboot.
+   `status`: `accel_up` ≈ +1.00 g; the UI tilt ≈ 0°.
 4. **Barometer:** `status` altitude ≈ 0. Lift the board 1–2 m: altitude
    follows within about ±0.5 m.
 5. **Battery:** compare the `status` voltage with a multimeter on the cell;
    adjust the `batt_divider` setting if they differ by more than 0.05 V.
-6. **Radio:** run the ground station (`python tools/ground_station.py <port>`):
-   1 packet/s, rssi shown, loss 0 %. Walk away for a range check if you can.
+6. **Radio:** switch the ground station on and open its WiFi page: 1
+   packet/s on the pad, RSSI shown, loss 0 % (Radio link panel). **Ping
+   rocket**: both beep. Walk away for a range check if you can.
 6b. **GPS (if fitted):** `gps raw on` shows NMEA sentences within a second
    (none: check D7 wiring and `gps_baud`), `gps raw off`. Outdoors, `gps`
    and the UI's GPS panel show a fix within a minute or two.
@@ -103,13 +113,13 @@ Proves the charge size separates the rocket and deploys the parachute.
 At home:
 - [ ] Unit tests pass; firmware flashed from a clean commit (boot banner shows no `-dirty`)
 - [ ] Settings: intended values (backup timer, deploy delay for this motor?), saved, rebooted; export the settings file and note its CRC
-- [ ] After changing any flight-safety setting: a simulated flight in bench mode (`bench on`, `sim`), then reboot
+- [ ] After changing any flight-safety setting: a simulated flight in bench mode (Simulated flight / `sim`), then reboot
 - [ ] Cell fully charged (≥ 4.1 V at rest)
-- [ ] Ground station kit and laptop charged; `ground_station.py` tested
+- [ ] Ground station and phone charged; `rf_key` is your own (no warning at boot)
 
 At the pad (arm link OUT):
 - [ ] Main switch on; countdown with the rocket still and vertical; 2 beeps
-- [ ] Ground station UI shows telemetry and "Rocket hears ground: yes", no bench mode banner
+- [ ] Ground station MODE = FLIGHT; UI shows telemetry and "Rocket hears ground: yes", no bench mode banner
 - [ ] LED 1 flash/s, 1 long beep every 10 s (no continuity yet; beeps need the ground station)
 - [ ] Battery ≥ 3.9 V in telemetry; no unexpected warnings
 - [ ] GPS (if fitted): fix on the pad (UI GPS panel), so the pad position is recorded

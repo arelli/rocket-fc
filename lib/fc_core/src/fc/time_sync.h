@@ -1,6 +1,6 @@
 // Real-time clock for the logs, without an RTC chip.
 //
-// The ground station UI gives the ground kit the laptop's time; the ground kit
+// The ground station UI gives the ground kit the phone's or laptop's time; the ground kit
 // puts it in every heartbeat (fc/uplink.h). The flight computer takes the first
 // time it receives (heartbeat, or the USB "time" command) and logs one
 // TIME_SYNC event: "at rocket time t_ms it was exactly arg Unix seconds".

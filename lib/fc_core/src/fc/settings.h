@@ -244,6 +244,10 @@ struct Settings {
 #undef FC_SETTINGS_MEMBER
 };
 
+// The shipped rf_key is public (it is in this repository). Each owner should
+// set their own value on both kits; both firmwares warn while it is unchanged.
+inline bool rf_key_is_default(const Settings& s) { return s.rf_key == Settings{}.rf_key; }
+
 struct ParamDef {
   const char* key;
   const char* group;

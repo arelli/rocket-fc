@@ -200,6 +200,8 @@ void print_headers() {
              static_cast<double>(fc::radio_bw_khz(set)), static_cast<unsigned long>(set.radio_sync),
              static_cast<long>(set.radio_power_dbm), static_cast<unsigned long>(fc::settings_crc(set)));
   if (!settings_ok) out.printf("# ERROR: settings invalid (%s): running on the defaults\n", settings_problem);
+  if (fc::rf_key_is_default(set))
+    out.println("# WARNING: rf_key is the public default: set your own pairing key on both kits (docs/BUILD.md)");
   out.printf("%s,rssi_dbm,snr_db\n", fc::csv::telemetry_header());
   out.printf("%s,rssi_dbm,snr_db\n", fc::csv::event_header());
   out.printf("%s,rssi_dbm,snr_db\n", fc::csv::gps_header());

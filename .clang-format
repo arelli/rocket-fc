@@ -1,0 +1,11 @@
+# Style of the existing code. Format only the lines you change
+# (e.g. git clang-format); do not reformat whole files.
+BasedOnStyle: Google
+ColumnLimit: 120
+IndentWidth: 2
+AllowShortFunctionsOnASingleLine: All
+AllowShortIfStatementsOnASingleLine: WithoutElse
+AllowShortLoopsOnASingleLine: true
+DerivePointerAlignment: false
+PointerAlignment: Left
+SortIncludes: false

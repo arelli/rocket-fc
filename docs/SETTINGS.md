@@ -54,7 +54,7 @@ checks this).
   event after BOOT. Commit hash + settings CRC (+ the exported settings file)
   identify exactly what flew.
 - Settings marked **flight safety** (`S`) decide when the charge fires. After
-  changing any of them, run a simulated flight (`bench on`, `sim`) and re-read
+  changing any of them, run a simulated flight (bench mode, `sim`) and re-read
   docs/FLIGHT_LOGIC.md.
 
 ### Manual ejection (`manual_eject`, flight safety)

@@ -723,7 +723,7 @@ function handleGroundLine(track, line, live) {
   else if (line.startsWith('# stats')) track.stats = line.slice(2);
   else if (line.startsWith('# uplink')) track.uplink = line.slice(2);
   else if (live && line.startsWith('# wifi')) wifiOnLine(line);
-  else if (live && line.startsWith('# ERROR')) setMsg('Ground station: ' + line.slice(2));
+  else if (live && (line.startsWith('# ERROR') || line.startsWith('# WARNING'))) setMsg('Ground station: ' + line.slice(2));
 }
 
 // --- ground station status: "# station ...", ping, launch, eject ---

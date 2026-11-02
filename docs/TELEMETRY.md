@@ -167,8 +167,8 @@ ground station as heard for 5 s after each heartbeat (`fc::GroundLink`). The
 heartbeat sets the pad beep period and gives the rocket real time; the rocket
 ignores it in flight.
 
-**Real time.** The UI sends the laptop clock to the ground kit (`time <ms>`),
-and to the flight computer when it is on USB. The first time the rocket
+**Real time.** The UI sends the phone's or laptop's clock to the ground kit
+(`time <ms>`), which passes it on in its heartbeats. The first time the rocket
 receives in a boot (radio airtime compensated, a few ms accuracy) is logged as
 a TIME_SYNC event: at that event's `t_ms` it was exactly `arg` Unix seconds,
 so for every frame of that boot `utc_ms = arg × 1000 + (t_ms − event t_ms)`.

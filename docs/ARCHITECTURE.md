@@ -55,7 +55,7 @@ in the 100 Hz loop: it must only queue.
 the flight logic should use it, extend `SmInput`/`Estimator` in `fc_core` with
 tests. If it should be transmitted, append fields to the telemetry frame,
 increment `tlm::kVersion`, and update `docs/TELEMETRY.md`, the CSV format and
-`tools/ground_station.html` (T_COLS) and `tools/ground_station.py` together.
+`tools/ground_station.html` (`TLM_COLUMNS`) and `tools/ground_station.py` (`TLM_FIELDS`) together.
 
 **Change the ground station UI:** `tools/ground_station.html` is one file with
 no dependencies, served by the ground station over WiFi (embedded at build

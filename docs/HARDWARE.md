@@ -5,7 +5,8 @@ If you change wiring, change that file, this document and the schematics
 (`tools/schematics.py`) in the same commit.
 
 Schematics: [flight computer](schematics/flight.svg),
-[ground station](schematics/ground.svg).
+[ground station](schematics/ground.svg). Step-by-step assembly and
+first-time setup: [BUILD.md](BUILD.md).
 
 ## Pin map (XIAO ESP32-S3)
 
@@ -169,11 +170,11 @@ Use any visible 3 mm/5 mm LED.
   you have. Everything works without the magnetometer.
 - **IMU orientation:** mount it with one axis along the rocket's long axis.
   Then stand the rocket nose up, keep it still and press **Set upright** on
-  the WiFi page (Flight card), or type `imu upright` on the console: the
+  the WiFi page (Attitude panel), or type `imu upright` on the console: the
   rocket measures gravity for 1 s, picks the IMU axis that points to the
   nose, saves it as `imu_up_axis`, and asks to reboot to use it. It refuses
   if the rocket moved, or if no IMU axis is within 25° of vertical (IMU
-  mounted at an angle). The Flight card shows the tilt from vertical: about
+  mounted at an angle). The Attitude panel shows the tilt from vertical: about
   0° when the rocket stands upright.
 - **Barometer:** needs a vented bay (3–4 holes of ~2 mm round the airframe),
   shielded from direct sunlight and from the ejection gases. Foam over the
@@ -291,18 +292,6 @@ card is needed. The flash layout is `partitions_flight.csv` (the settings in
 NVS stay where they were). An SD card would need a chip-select pin; with the
 GPS on D7 none is left.
 
-## Parts list (besides the two kits and sensors)
+## Parts list
 
-| Part | Qty |
-|---|---|
-| IRLB8748PBF logic-level MOSFET (pyro) | 1 |
-| Resistor 1 Ω 5 W (pyro current limit) | 1 |
-| Resistor 100 Ω (gate, LED) | 2 |
-| Resistor 100 kΩ (gate pull-down, two dividers) | 5 |
-| Electrolytic capacitor 1000 µF 16 V | 1 |
-| 2-pin screw terminal (arm link, igniter) | 2 |
-| Active buzzer | 1 |
-| LED, 3 or 5 mm | 1 |
-| Slide switch (main power, ≥ 0.5 A) | 1 |
-| Perfboard, wire (≥ 22 AWG for the pyro loop), crimp ferrules for the nichrome | |
-| Optional: 100 nF capacitors on D0/D1 | |
+Both kits, with quantities: [BUILD.md](BUILD.md#1-parts).

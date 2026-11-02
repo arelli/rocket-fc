@@ -1,5 +1,5 @@
 // Remote test fire of the pyro output over the radio (ejection charge ground
-// test), only in BENCH MODE (off at every boot; see docs/FLIGHT_LOGIC.md).
+// test), only in BENCH MODE (see docs/FLIGHT_LOGIC.md).
 //
 // Protocol (docs/TELEMETRY.md, "Remote test fire"):
 //   1. ground -> FireArm(pulse_ms)
