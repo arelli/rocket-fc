@@ -1,5 +1,7 @@
 # rocket-fc
 
+<img width="1446" height="979" alt="rocket-fc-logo-1_apogee" src="https://github.com/user-attachments/assets/b3fcbd95-9f25-4ec8-bc2f-0ecbb2698c0a" />
+
 Open-source flight computer and ground station for model rockets, built on
 the **Seeed XIAO ESP32-S3 + Wio-SX1262** (LoRa) kit.
 
