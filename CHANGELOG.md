@@ -6,6 +6,15 @@ version number (`tlm::kVersion`, docs/TELEMETRY.md).
 
 ## Unreleased
 
+- UI: zoom on every plot (drag, Shift+drag to pan, Ctrl+wheel, double-click to
+  reset; linked time axes), hover readout, CSV export of each plot (range
+  shown), of the events and of the GPS frames, plots in their own window.
+- UI: every panel can be collapsed and moved into its own window.
+- UI: flight videos in their own windows, played in step with the replay; each
+  window sets its video time at T0 (LAUNCH), remembered per video file.
+- UI: replay of a loaded log in real time (or faster/slower), between two
+  times, with a "Flight" preset (LAUNCH − 5 s to LANDED + 5 s).
+
 ## 0.1.0 (first public version, bench-tested, not yet flown)
 
 ### Flight computer

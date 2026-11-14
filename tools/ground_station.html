@@ -88,8 +88,18 @@
   #attitude { height: 300px; }
   .plots { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 12px; }
   .plot canvas { height: 170px; }
-  .plot .p-title { font-size: 12px; color: var(--muted); display: flex; gap: 10px; flex-wrap: wrap; }
+  .plot .p-title { font-size: 12px; color: var(--muted); display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
   .legend-swatch { display: inline-block; width: 12px; height: 3px; vertical-align: middle; margin-right: 4px; }
+  .p-tools { margin-left: auto; display: flex; gap: 4px; }
+  .p-tools button { font-size: 11px; padding: 0 6px; line-height: 18px; }
+  .plot canvas { touch-action: pan-y; cursor: crosshair; }
+  .topbars { position: sticky; top: 0; z-index: 6; }
+  .replay-bar { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; padding: 8px 16px;
+    background: var(--panel); border-bottom: 2px solid var(--accent); }
+  .replay-bar[hidden] { display: none; }
+  .replay-bar input[type=number] { width: 88px; }
+  .replay-bar input[type=range] { flex: 1; min-width: 160px; }
+  #rp-time { min-width: 210px; }
   .row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 8px; }
   .muted { color: var(--muted); }
   .note { font-size: 12px; color: var(--muted); }
@@ -110,7 +120,7 @@
   button.mini { font-size: 12px; padding: 1px 8px; }
   .popped-note { grid-column: span 12; }
   .bench-banner { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; padding: 8px 16px;
-    background: var(--warn); color: var(--panel); font-weight: 600; position: sticky; top: 0; z-index: 5; }
+    background: var(--warn); color: var(--panel); font-weight: 600; }
   .bench-banner[hidden] { display: none; }
   .bench-banner button { background: var(--panel); color: var(--ink); }
   .set-group { margin: 14px 0 4px; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted);
@@ -144,13 +154,31 @@
     <span id="st-msg" class="note"></span>
   </div>
 </header>
+<div class="topbars">
+<div id="replay-bar" class="replay-bar" hidden>
+  <b>Replay log</b>
+  <label>from <input type="number" id="rp-from" step="0.1"> s</label>
+  <label>to <input type="number" id="rp-to" step="0.1"> s</label>
+  <button id="rp-flight" title="From 5 s before LAUNCH to 5 s after LANDED (or the end of the log)">Flight</button>
+  <button id="rp-all" title="The whole session in the log">Whole log</button>
+  <label>speed <select id="rp-speed">
+    <option value="0.1">0.1×</option><option value="0.25">0.25×</option><option value="0.5">0.5×</option>
+    <option value="1" selected>1× (real time)</option><option value="2">2×</option><option value="5">5×</option>
+    <option value="10">10×</option><option value="50">50×</option></select></label>
+  <button id="rp-play">▶ Play</button>
+  <button id="rp-stop" title="End the replay and show the whole log">■ Stop</button>
+  <button id="rp-video" title="A video of the flight in its own window, played in step with the replay (add as many as you like)">+ Video</button>
+  <input type="range" id="rp-pos" min="0" max="1000" value="0" title="Jump to a time">
+  <span id="rp-time" class="num note">—</span>
+</div>
 <div id="bench-banner" class="bench-banner" hidden>
   <span id="bench-text">BENCH MODE</span>
   <button id="btn-bench-banner-off">Switch to FLIGHT</button>
 </div>
+</div>
 
 <main>
-  <section class="panel c3">
+  <section class="panel c3" id="flight-panel">
     <h2>Flight</h2>
     <div id="state" class="state">—</div>
     <table class="kv" id="readouts"></table>
@@ -158,7 +186,7 @@
     <div class="flags"><span id="chg-pill" class="pill">battery: —</span></div>
   </section>
 
-  <section class="panel c5">
+  <section class="panel c5" id="att-panel">
     <h2>Attitude</h2>
     <canvas id="attitude"></canvas>
     <table class="kv" id="att-readouts"></table>
@@ -168,7 +196,7 @@
     </div>
   </section>
 
-  <section class="panel c4">
+  <section class="panel c4" id="link-panel">
     <h2>Radio link</h2>
     <div class="gauges" id="link-gauges" style="grid-template-columns: 1fr"></div>
     <table class="kv" id="link-readouts" style="margin-top:8px"></table>
@@ -231,7 +259,7 @@
     <div id="ej-status" class="muted">—</div>
   </section>
 
-  <section class="panel c12">
+  <section class="panel c12" id="sens-panel">
     <h2>Sensors</h2>
     <div class="gauges" id="gauges"></div>
   </section>
@@ -242,6 +270,7 @@
     <table class="kv" id="gps-readouts"></table>
     <div class="row" style="margin-top:6px">
       <button id="btn-gps-copy">Copy position</button>
+      <button id="btn-gps-csv" title="Every GPS frame of the log shown">CSV</button>
       <a id="gps-osm" target="_blank" rel="noopener">OpenStreetMap</a>
       <a id="gps-gmaps" target="_blank" rel="noopener">Google Maps</a>
     </div>
@@ -267,21 +296,24 @@
     </div>
   </section>
 
-  <section class="panel c12">
+  <section class="panel c12" id="plots-panel">
     <div class="row"><h2 style="margin:0">Plots</h2>
       <label class="note">window <select id="window">
         <option value="30">30 s</option><option value="120" selected>2 min</option>
-        <option value="600">10 min</option><option value="0">all</option></select></label></div>
+        <option value="600">10 min</option><option value="0">all</option></select></label>
+      <label class="note"><input type="checkbox" id="plot-link" checked> link time axes</label>
+      <button class="mini" id="btn-zoom-reset">Reset zoom</button>
+      <span class="note">drag: zoom in · Shift+drag: pan · Ctrl+wheel: zoom · double-click: reset · CSV: the range shown · ↗: own window</span></div>
     <div class="plots" id="plots"></div>
   </section>
 
-  <section class="panel c5">
-    <h2>Events</h2>
+  <section class="panel c5" id="events-panel">
+    <div class="row"><h2 style="margin:0; flex:1">Events</h2><button class="mini" id="btn-events-csv">CSV</button></div>
     <div id="events-wrap"><table class="list"><thead><tr><th>t [s]</th><th>state</th><th>event</th><th>value</th></tr></thead>
       <tbody id="events"></tbody></table></div>
   </section>
 
-  <section class="panel c7">
+  <section class="panel c7" id="fc-panel">
     <h2>Flight computer</h2>
     <fieldset id="flog-box">
       <legend>Onboard logs</legend>
@@ -435,17 +467,18 @@ const LINK_GAUGES = [
 // Heartbeat (ground -> rocket): remembered in this browser, sent to the station on connect.
 const UPLINK_DEFAULTS = { on: true, beep_s: 10 };
 
-// Plots: each series is { label, get(frame) }.
+// Plots: each series is { label, unit (CSV header), get(frame) }. linked: shares
+// the zoom of the other linked plots ("link time axes").
 const PLOTS = [
-  { title: 'Altitude [m]', series: [{ label: 'altitude', get: f => f.alt_m }] },
-  { title: 'Vertical speed [m/s]', series: [{ label: 'velocity', get: f => f.vel_mps }] },
-  { title: 'Acceleration [g]', series: [{ label: 'axial', get: f => f.az_g },
-    { label: 'total', get: f => Math.hypot(f.ax_g, f.ay_g, f.az_g) }] },
-  { title: 'Rotation rate [°/s]', series: [{ label: 'roll', get: f => f.gz_dps },
-    { label: 'pitch/yaw', get: f => Math.hypot(f.gx_dps, f.gy_dps) }] },
-  { title: 'Battery [V]', series: [{ label: 'battery', get: f => f.batt_v }] },
-  { title: 'Radio [dBm / dB]', series: [{ label: 'RSSI', get: f => f.rssi }, { label: 'SNR', get: f => f.snr }] },
-];
+  { title: 'Altitude [m]', series: [{ label: 'altitude', unit: 'm', get: f => f.alt_m }] },
+  { title: 'Vertical speed [m/s]', series: [{ label: 'velocity', unit: 'm/s', get: f => f.vel_mps }] },
+  { title: 'Acceleration [g]', series: [{ label: 'axial', unit: 'g', get: f => f.az_g },
+    { label: 'total', unit: 'g', get: f => Math.hypot(f.ax_g, f.ay_g, f.az_g) }] },
+  { title: 'Rotation rate [°/s]', series: [{ label: 'roll', unit: 'deg/s', get: f => f.gz_dps },
+    { label: 'pitch/yaw', unit: 'deg/s', get: f => Math.hypot(f.gx_dps, f.gy_dps) }] },
+  { title: 'Battery [V]', series: [{ label: 'battery', unit: 'V', get: f => f.batt_v }] },
+  { title: 'Radio [dBm / dB]', series: [{ label: 'RSSI', unit: 'dBm', get: f => f.rssi }, { label: 'SNR', unit: 'dB', get: f => f.snr }] },
+].map(p => Object.assign(p, { linked: true }));
 
 // Rocket console buttons (sent by radio). bench: needs bench mode. confirm: asked first.
 const COMMANDS = [
@@ -589,6 +622,7 @@ class Track {
     this.gps = [];
     this.frames = []; this.events = []; this.lastSeq = null; this.received = 0; this.lost = 0;
     this.maxAlt = NaN; this.lastRx = 0; this.rxTimes = []; this.bad = 0; this.noise = NaN; this.stats = ''; this.uplink = ''; this.sessions = 0; this.utc0 = 0; this.version++;
+    this.evMark = 0; this.gpsMark = 0;   // first event / GPS frame of the current session
   }
   // Telemetry and events share one sequence counter per link: gaps = lost frames.
   noteSeq(seq) {
@@ -604,6 +638,7 @@ class Track {
   newSession(t_ms, state) {
     this.frames = []; this.maxAlt = NaN; this.lastSeq = null; this.sessions++; this.utc0 = 0;
     this.events.push({ seq: -1, t_ms, state, event: 'RESTART', arg: this.sessions });
+    this.evMark = this.events.length; this.gpsMark = this.gps.length;
   }
   addFrame(f, live) {
     const last = this.latest();
@@ -678,7 +713,225 @@ function feed(track, line, live) {
 // Rocket console output arrives as "RC,<line>" (sent by radio, see "r <cmd>").
 // ===========================================================================
 
-const tracks = { radio: new Track('radio'), file: new Track('file') };
+const tracks = { radio: new Track('radio'), file: new Track('file'), replay: new Track('replay') };
+
+// ===========================================================================
+// Replay of a log file: the last session in the file is fed into the "replay"
+// track at its own pace (speed x real time), between "from" and "to" [s since
+// boot]. The whole page then shows it as if it were live.
+// ===========================================================================
+
+const replay = { on: false, playing: false, pos: 0, wallPos: 0, wall: 0, src: null, i: null, lastRender: 0, scrubbing: false };
+function replaySource() {
+  const t = tracks.file;
+  return { frames: t.frames, events: t.events.slice(t.evMark), gps: t.gps.slice(t.gpsMark), utc0: t.utc0 };
+}
+function replayBounds() {
+  const fr = tracks.file.frames;
+  return fr.length ? [fr[0].t_ms / 1000, fr[fr.length - 1].t_ms / 1000] : [0, 0];
+}
+// LAUNCH - 5 s to LANDED + 5 s (or the end of the log); the whole log if no launch.
+function flightRange() {
+  const src = replaySource(), [a, b] = replayBounds();
+  const ev = n => src.events.find(e => e.event === n);
+  const boost = src.frames.find(f => f.state === 'BOOST');
+  const t0 = ev('LAUNCH') ? ev('LAUNCH').t_ms : boost ? boost.t_ms : null;
+  if (t0 == null) return [a, b];
+  const land = src.events.find(e => e.event === 'LANDED' && e.t_ms > t0);
+  return [Math.max(a, t0 / 1000 - 5), Math.min(b, land ? land.t_ms / 1000 + 5 : b)];
+}
+function replayFromTo() {
+  const [a, b] = replayBounds();
+  let from = Number($('rp-from').value), to = Number($('rp-to').value);
+  if (!isFinite(from)) from = a;
+  if (!isFinite(to)) to = b;
+  from = Math.min(Math.max(from, a), b); to = Math.min(Math.max(to, from), b);
+  return [from, to];
+}
+function setReplayRange(r) { $('rp-from').value = r[0].toFixed(1); $('rp-to').value = r[1].toFixed(1); }
+// Called after a log file is loaded: show the bar, preset the flight.
+function replayInit() {
+  replayStop(false);
+  const has = tracks.file.frames.length > 0;
+  $('replay-bar').hidden = !has;
+  if (has) setReplayRange(flightRange());
+  renderReplayBar();
+}
+// Rebuild the replay track up to time `pos` [s] (instantly).
+function replaySeek(pos) {
+  const [from, to] = replayFromTo();
+  pos = Math.min(Math.max(pos, from), to);
+  const src = replay.src = replaySource(), t = tracks.replay;
+  t.reset();
+  replay.i = { f: lowerBound(src.frames, from * 1000), e: 0, g: 0 };
+  while (replay.i.e < src.events.length && src.events[replay.i.e].t_ms < from * 1000) replay.i.e++;
+  while (replay.i.g < src.gps.length && src.gps[replay.i.g].t_ms < from * 1000) replay.i.g++;
+  replay.pos = from; lastEventsKey = '';
+  replayFeed(pos);
+  t.utc0 = t.utc0 || src.utc0;
+  replay.wallPos = replay.pos; replay.wall = performance.now();
+}
+// Feed every frame, event and GPS frame up to `pos` [s].
+function replayFeed(pos) {
+  const src = replay.src, t = tracks.replay, ms = pos * 1000, i = replay.i;
+  while (i.f < src.frames.length && src.frames[i.f].t_ms <= ms) t.addFrame(src.frames[i.f++], false);
+  while (i.e < src.events.length && src.events[i.e].t_ms <= ms) t.addEvent(src.events[i.e++]);
+  while (i.g < src.gps.length && src.gps[i.g].t_ms <= ms) t.addGps(src.gps[i.g++], false);
+  if (!t.utc0) t.utc0 = src.utc0;
+  t.lastRx = performance.now();   // "live", not stale
+  replay.pos = pos;
+}
+function replayPlay() {
+  const [from, to] = replayFromTo();
+  if (!replay.on || replay.pos >= to - 1e-6 || replay.pos < from) {
+    replay.on = true; resetZoom(); lastEventsKey = '';
+    $('window').value = '0';
+    replaySeek(from);
+  }
+  replay.playing = true; replay.wallPos = replay.pos; replay.wall = performance.now();
+  renderReplayBar(); render();
+}
+function replayPause() { replay.playing = false; renderReplayBar(); }
+function replayStop(redraw = true) {
+  for (const v of videos) if (!v.win.closed && !v.video.paused) v.video.pause();
+  replay.on = false; replay.playing = false; tracks.replay.reset(); lastEventsKey = '';
+  if (redraw) { resetZoom(); renderReplayBar(); render(); }
+}
+function replayTick() {
+  if (videos.length) syncVideos();
+  if (!replay.on) return;
+  const now = performance.now();
+  if (replay.playing) {
+    const [, to] = replayFromTo();
+    let pos = replay.wallPos + (now - replay.wall) / 1000 * Number($('rp-speed').value);
+    if (pos >= to) { pos = to; replay.playing = false; }
+    replayFeed(pos);
+    if (!replay.playing) renderReplayBar();
+  } else {
+    tracks.replay.lastRx = now;
+  }
+  if (now - replay.lastRender >= 100) { replay.lastRender = now; renderReplayBar(true); render(); }
+}
+// ===========================================================================
+// Flight videos: each in its own window, kept in step with the replay.
+// The link is "video time at T0", T0 = LAUNCH (or the first BOOST frame, or
+// the replay start). Video time = at + (replay time - T0).
+// ===========================================================================
+
+const videos = [];
+function replayT0() {
+  const src = replay.src || replaySource();
+  const l = src.events.find(e => e.event === 'LAUNCH');
+  if (l) return { t: l.t_ms / 1000, name: 'LAUNCH' };
+  const b = src.frames.find(f => f.state === 'BOOST');
+  if (b) return { t: b.t_ms / 1000, name: 'first BOOST frame' };
+  return { t: replayFromTo()[0], name: 'replay start' };
+}
+function videoKey(file) { return 'rocketfc.video.' + file.name + '.' + file.size; }
+// Opens an empty video window (from the click, so pop-up blockers allow it);
+// the video file is chosen in that window.
+function openVideo() {
+  const n = videos.length;
+  const w = window.open('', 'rocketfc_video_' + Date.now() + '_' + n, `width=960,height=640,left=${60 + 40 * n},top=${60 + 40 * n}`);
+  if (!w) { setMsg('Pop-up blocked: allow pop-ups for this page.'); return; }
+  w.document.open();
+  w.document.write('<!doctype html><html lang="en"><head><meta charset="utf-8">' +
+    '<meta name="viewport" content="width=device-width, initial-scale=1"><title></title><style>' +
+    document.querySelector('style').textContent +
+    ' body{margin:0;display:flex;flex-direction:column;height:100vh;background:#000}' +
+    ' .vbar{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;padding:6px 10px;background:var(--panel);font-size:13px}' +
+    ' .vbar input[type=number]{width:90px} video{flex:1;min-height:0;width:100%;background:#000}' +
+    '</style></head><body></body></html>');
+  w.document.close();
+  w.document.title = 'Video – rocket-fc';
+  const d = w.document, mk = (tag, cls, text) => { const e = d.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
+  const bar = mk('div', 'vbar');
+  const pick = mk('button', '', 'Choose video…');
+  const input = mk('input'); input.type = 'file'; input.accept = 'video/*'; input.hidden = true;
+  pick.onclick = () => input.click();
+  const name = mk('b', '', '');
+  const atLab = mk('label', '', 'video time at T0 ');
+  const at = mk('input'); at.type = 'number'; at.step = '0.01'; atLab.append(at, ' s');
+  const back = mk('button', '', '◀'); back.title = 'One frame back (1/30 s)';
+  const fwd = mk('button', '', '▶'); fwd.title = 'One frame forward (1/30 s)';
+  const align = mk('button', '', 'This frame = T0');
+  const syncLab = mk('label'); const sync = mk('input'); sync.type = 'checkbox'; sync.checked = true; syncLab.append(sync, ' follow replay');
+  const status = mk('span', 'note num', '—');
+  bar.append(pick, input, name, atLab, back, fwd, align, syncLab, status);
+  const video = mk('video'); video.controls = true; video.muted = true; video.preload = 'auto'; video.playsInline = true;
+  d.body.append(bar, video);
+  const v = { win: w, video, file: null, url: '', at: 0, sync, status, lastPos: NaN, align };
+  at.value = '0.00';
+  // The link (video time at T0) is remembered per video file in this browser.
+  const setAt = x => {
+    v.at = Math.round(x * 1000) / 1000; at.value = v.at.toFixed(2); v.lastPos = NaN;
+    if (v.file) try { localStorage.setItem(videoKey(v.file), String(v.at)); } catch (_) { /* storage unavailable */ }
+    syncVideos();
+  };
+  input.onchange = () => {
+    const file = input.files[0]; if (!file) return;
+    if (v.url) w.URL.revokeObjectURL(v.url);
+    v.file = file; v.url = w.URL.createObjectURL(file); video.src = v.url;
+    name.textContent = file.name; w.document.title = file.name + ' – rocket-fc video';
+    let saved = null;
+    try { saved = localStorage.getItem(videoKey(file)); } catch (_) { /* storage unavailable */ }
+    v.at = saved !== null && isFinite(Number(saved)) ? Number(saved) : 0; at.value = v.at.toFixed(2); v.lastPos = NaN;
+  };
+  at.onchange = () => { const x = Number(at.value); if (isFinite(x)) setAt(x); };
+  const step = s => { video.pause(); video.currentTime = Math.max(0, video.currentTime + s); };
+  back.onclick = () => step(-1 / 30); fwd.onclick = () => step(1 / 30);
+  // The frame on screen is the replay's current time (or T0 when no replay runs).
+  align.onclick = () => setAt(video.currentTime - (replay.on ? replay.pos - replayT0().t : 0));
+  sync.onchange = () => { v.lastPos = NaN; syncVideos(); };
+  video.addEventListener('loadedmetadata', () => { v.lastPos = NaN; syncVideos(); });
+  w.addEventListener('pagehide', () => { const i = videos.indexOf(v); if (i >= 0) videos.splice(i, 1); try { if (v.url) w.URL.revokeObjectURL(v.url); } catch (_) { /* window gone */ } });
+  videos.push(v);
+  syncVideos();
+  pick.click();   // straight to the file dialog
+}
+// Called every replay tick: play, pause or seek each video to match the replay.
+function syncVideos() {
+  const t0 = replayT0(), speed = Number($('rp-speed').value);
+  for (let i = videos.length - 1; i >= 0; i--) {
+    const v = videos[i], vid = v.video;
+    if (v.win.closed) { videos.splice(i, 1); continue; }
+    const put = (e, text) => { if (e.textContent !== text) e.textContent = text; };   // no DOM churn while clicking
+    put(v.align, replay.on ? 'This frame = now (T' + (replay.pos >= t0.t ? '+' : '−') + fmt(Math.abs(replay.pos - t0.t), 2) + ' s)' : 'This frame = T0');
+    v.align.title = `T0 = ${t0.name} at ${fmt(t0.t, 2)} s since boot`;
+    if (!(vid.readyState >= 1)) { put(v.status, v.file ? 'loading…' : 'choose a video file'); continue; }
+    if (!replay.on || !v.sync.checked) { put(v.status, `video ${fmt(vid.currentTime, 2)} s = T${vid.currentTime - v.at >= 0 ? '+' : '−'}${fmt(Math.abs(vid.currentTime - v.at), 2)} s`); continue; }
+    const rel = replay.pos - t0.t, tgt = v.at + rel, dur = vid.duration;
+    const inside = tgt >= 0 && tgt <= dur;
+    put(v.status, `T${rel >= 0 ? '+' : '−'}${fmt(Math.abs(rel), 2)} s → video ${fmt(tgt, 2)} s` +
+      (tgt < 0 ? ' (before the video starts)' : tgt > dur ? ' (after the video ends)' : ''));
+    if (replay.playing && inside) {
+      const rate = Math.min(16, Math.max(0.0625, speed));
+      if (vid.playbackRate !== rate) vid.playbackRate = rate;
+      if (Math.abs(vid.currentTime - tgt) > 0.3 * Math.max(1, rate)) vid.currentTime = tgt;
+      if (vid.paused) vid.play().catch(() => {});
+      v.lastPos = replay.pos;
+    } else {
+      if (!vid.paused) vid.pause();
+      if (replay.pos !== v.lastPos) {   // replay moved (or paused): show the matching frame
+        v.lastPos = replay.pos;
+        const c = Math.min(Math.max(tgt, 0), dur || 0);
+        if (Math.abs(vid.currentTime - c) > 0.02) vid.currentTime = c;
+      }
+    }
+  }
+}
+
+function renderReplayBar(posOnly) {
+  const [from, to] = replayFromTo();
+  if (!posOnly) {
+    $('rp-play').textContent = replay.playing ? '❚❚ Pause' : '▶ Play';
+    $('rp-stop').disabled = !replay.on;
+  }
+  if (!replay.scrubbing) $('rp-pos').value = replay.on && to > from ? Math.round((replay.pos - from) / (to - from) * 1000) : 0;
+  const launch = (replay.src || replaySource()).events.find(e => e.event === 'LAUNCH');
+  const rel = replay.on && launch ? '  T' + (replay.pos >= launch.t_ms / 1000 ? '+' : '−') + fmt(Math.abs(replay.pos - launch.t_ms / 1000), 1) + ' s' : '';
+  $('rp-time').textContent = replay.on ? `${fmt(replay.pos, 1)} s of ${fmt(from, 1)}–${fmt(to, 1)} s${rel}` : `log ${fmt(replayBounds()[0], 1)}–${fmt(replayBounds()[1], 1)} s`;
+}
 const radioLines = [];
 let radioUnsaved = false;
 
@@ -800,6 +1053,7 @@ async function fetchRocket(path, name) {
     let n = 0;
     for (const l of text.split(/\r?\n/)) if (feed(tracks.file, l, false)) n++;
     $('source').value = 'file'; $('window').value = '0';
+    resetZoom(); replayInit();
     setMsg(`${name}: ${n} records saved; showing it (source: log file).`);
   } catch (e) { setMsg('Download failed: ' + e.message); }
 }
@@ -863,7 +1117,7 @@ function makeGauge(cfg, parent) {
   cfg.curMax = cfg.max;
 }
 
-function scaleDigits(range) { return range < 0.1 ? 3 : range < 10 ? 2 : range < 100 ? 1 : 0; }
+function scaleDigits(range) { return range < 0.001 ? 5 : range < 0.01 ? 4 : range < 0.1 ? 3 : range < 10 ? 2 : range < 100 ? 1 : 0; }
 function niceCeil(v) { const p = Math.pow(10, Math.floor(Math.log10(v))); for (const m of [1, 2, 2.5, 5, 10]) if (m * p >= v) return m * p; return 10 * p; }
 
 function setGauge(cfg, v, stale) {
@@ -887,40 +1141,172 @@ function fitCanvas(c) {
   const ctx = c.getContext('2d'); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); return [ctx, w, h];
 }
 
-// --- line plot ---
+// --- line plot (zoom, hover readout, CSV export) ---
+// A plot shows the "window" (last N s, or all) unless zoomed: view = [t0, t1] s.
+// Linked plots share one view ("link time axes").
+const zoom = { shared: null };
+function linkOn(cfg) { return !!cfg.linked && !!$('plot-link') && $('plot-link').checked; }
+function plotView(cfg) { return linkOn(cfg) ? zoom.shared : cfg.view || null; }
+function setPlotView(cfg, v) {
+  if (v && !(v[1] - v[0] > 0.01)) return;   // under 10 ms: ignore
+  if (linkOn(cfg)) zoom.shared = v; else cfg.view = v;
+  redrawPlots(cfg);
+}
+function resetZoom() { zoom.shared = null; PLOTS.forEach(p => { p.view = null; }); BATT_PLOT.view = null; redrawPlots(null); }
+// Hover cursor time [s]: shared by linked plots.
+function hoverT(cfg) { return linkOn(cfg) ? zoom.hoverT : cfg.hoverT; }
+function setHoverT(cfg, t) { if (linkOn(cfg)) zoom.hoverT = t; else cfg.hoverT = t; redrawPlots(cfg); }
+// Redraw now from the last data (cfg = null: all plots; linked: every linked plot),
+// at most once per animation frame.
+let redrawQueue = null;
+function redrawPlots(cfg) {
+  const set = !cfg ? PLOTS.concat([BATT_PLOT]) : linkOn(cfg) ? PLOTS : [cfg];
+  if (!redrawQueue) {
+    redrawQueue = new Set();
+    requestAnimationFrame(() => { const q = redrawQueue; redrawQueue = null; for (const p of q) if (p.last) drawPlot(p, p.last.frames, p.last.windowS); });
+  }
+  set.forEach(p => redrawQueue.add(p));
+}
+// First index with t_ms >= ms (frames are in time order).
+function lowerBound(frames, ms) {
+  let a = 0, b = frames.length;
+  while (a < b) { const m = (a + b) >> 1; if (frames[m].t_ms < ms) a = m + 1; else b = m; }
+  return a;
+}
+function niceStep(range, n) { return niceCeil(range / n); }
+
 function makePlot(cfg, parent) {
   const box = el('div', 'plot');
   const title = el('div', 'p-title'); title.append(el('span', '', cfg.title));
   cfg.series.forEach((s, i) => { const lg = el('span'); const sw = el('span', 'legend-swatch'); sw.style.background = `var(--s${i + 1})`; lg.append(sw, s.label); title.append(lg); });
   cfg.canvas = el('canvas'); box.append(title, cfg.canvas); parent.append(box);
+  attachPlotUi(cfg, title);
+}
+
+// Buttons (zoom out, reset, CSV) and mouse/touch handling for one plot.
+function attachPlotUi(cfg, titleEl) {
+  const tools = el('span', 'p-tools');
+  const bOut = el('button', '', '−'); bOut.title = 'Zoom out';
+  const bReset = el('button', '', 'reset'); bReset.title = 'Show the window again (double-click the plot)';
+  const bCsv = el('button', '', 'CSV'); bCsv.title = 'Save the data of this plot, for the time range shown, as CSV';
+  const bWin = el('button', '', '↗'); bWin.title = 'Open this plot in its own window (it stays live)';
+  bWin.onclick = () => (cfg.win && !cfg.win.closed ? cfg.win.close() : popPlot(cfg));
+  cfg.winBtn = bWin;
+  bOut.onclick = () => { const r = cfg.range; if (!r) return; const c = (r[0] + r[1]) / 2, half = (r[1] - r[0]); setPlotView(cfg, [c - half, c + half]); };
+  bReset.onclick = () => setPlotView(cfg, null);
+  bCsv.onclick = () => exportPlot(cfg);
+  tools.append(bOut, bReset, bCsv, bWin); titleEl.append(tools);
+  const c = cfg.canvas;
+  c.title = 'Drag: zoom in · Shift+drag: pan · Ctrl+wheel: zoom · double-click: reset';
+  const tAt = x => { const g = cfg.geom; return g ? g.t0 + (x - g.L) / g.pw * (g.t1 - g.t0) : NaN; };
+  const xOf = e => e.clientX - c.getBoundingClientRect().left;
+  c.addEventListener('pointerdown', e => {
+    if (e.button !== 0 || !cfg.geom) return;
+    cfg.drag = { x0: xOf(e), x1: xOf(e), pan: e.shiftKey, range: cfg.range.slice() };
+    c.setPointerCapture(e.pointerId);
+  });
+  c.addEventListener('pointermove', e => {
+    const d = cfg.drag;
+    if (d) {
+      d.x1 = xOf(e);
+      if (d.pan && cfg.geom) {
+        const dt = (d.x1 - d.x0) / cfg.geom.pw * (d.range[1] - d.range[0]);
+        setPlotView(cfg, [d.range[0] - dt, d.range[1] - dt]);
+        return;
+      }
+    }
+    setHoverT(cfg, tAt(xOf(e)));
+  });
+  const end = () => {
+    const d = cfg.drag; cfg.drag = null;
+    if (d && !d.pan && Math.abs(d.x1 - d.x0) > 6) setPlotView(cfg, [tAt(Math.min(d.x0, d.x1)), tAt(Math.max(d.x0, d.x1))]);
+    else redrawPlots(cfg);
+  };
+  c.addEventListener('pointerup', end);
+  c.addEventListener('pointercancel', () => { cfg.drag = null; redrawPlots(cfg); });
+  c.addEventListener('pointerleave', () => { if (!cfg.drag) setHoverT(cfg, null); });
+  c.addEventListener('dblclick', () => setPlotView(cfg, null));
+  c.addEventListener('wheel', e => {
+    if (!(e.ctrlKey || e.metaKey) || !cfg.range) return;   // plain wheel scrolls the page
+    e.preventDefault();
+    const k = e.deltaY > 0 ? 1.25 : 0.8, tc = tAt(xOf(e)), r = cfg.range;
+    setPlotView(cfg, [tc - (tc - r[0]) * k, tc + (r[1] - tc) * k]);
+  }, { passive: false });
+}
+
+// One plot in its own window (it stays live); closing the window puts it back.
+function popPlot(cfg) {
+  const w = window.open('', 'rocketfc_plot_' + slug(cfg.title), 'width=1100,height=600');
+  if (!w) { setMsg('Pop-up blocked: allow pop-ups for this page.'); return; }
+  w.document.open();
+  w.document.write('<!doctype html><html lang="en"><head><meta charset="utf-8">' +
+    '<meta name="viewport" content="width=device-width, initial-scale=1"><title></title><style>' +
+    document.querySelector('style').textContent +
+    ' body{padding:12px} .plot canvas{height:calc(100vh - 60px) !important}</style></head><body></body></html>');
+  w.document.close();
+  w.document.title = cfg.title + ' – rocket-fc';
+  const box = cfg.canvas.parentElement;
+  const holder = el('div', 'note', cfg.title + ': shown in a separate window. ');
+  const back = el('button', 'mini', 'Bring back'); back.onclick = () => w.close(); holder.append(back);
+  box.replaceWith(holder);
+  w.document.body.append(w.document.adoptNode(box));
+  cfg.win = w; cfg.holder = holder; cfg.winBtn.textContent = '✕'; cfg.winBtn.title = 'Back to the main window';
+  w.addEventListener('pagehide', () => unpopPlot(cfg));
+  w.addEventListener('resize', () => redrawPlots(cfg));
+  redrawPlots(cfg);
+}
+function unpopPlot(cfg) {
+  if (!cfg.holder) return;
+  const box = cfg.canvas.parentElement;
+  cfg.holder.replaceWith(document.adoptNode(box));
+  cfg.holder = null; cfg.win = null; cfg.winBtn.textContent = '↗'; cfg.winBtn.title = 'Open this plot in its own window (it stays live)';
+  redrawPlots(cfg);
 }
 
 function drawPlot(cfg, frames, windowS) {
+  cfg.last = { frames, windowS };
   const [ctx, w, h] = fitCanvas(cfg.canvas);
   ctx.clearRect(0, 0, w, h);
   const L = 46, R = 8, T = 6, B = 20, pw = w - L - R, ph = h - T - B;
   ctx.font = '11px ' + css('--mono'); ctx.fillStyle = css('--muted'); ctx.strokeStyle = css('--line'); ctx.lineWidth = 1;
-  if (!frames.length) { ctx.fillText('no data', L + 6, T + 14); return; }
-  const tEnd = frames[frames.length - 1].t_ms / 1000;
-  const tStart = windowS > 0 ? tEnd - windowS : frames[0].t_ms / 1000;
-  let i0 = 0; while (i0 < frames.length && frames[i0].t_ms / 1000 < tStart) i0++;
-  const sel = frames.slice(i0);
+  cfg.geom = null;
+  if (!frames.length) { cfg.range = null; ctx.fillText('no data', L + 6, T + 14); return; }
+  const tLast = frames[frames.length - 1].t_ms / 1000;
+  const view = plotView(cfg);
+  const tStart = view ? view[0] : windowS > 0 ? tLast - windowS : frames[0].t_ms / 1000;
+  const tEnd = view ? view[1] : tLast;
+  cfg.range = [tStart, tEnd];
+  const i0 = lowerBound(frames, tStart * 1000), i1 = lowerBound(frames, tEnd * 1000 + 0.001);
+  // One sample before and after the range, so lines reach the edges.
+  const sel = frames.slice(Math.max(0, i0 - 1), Math.min(frames.length, i1 + 1));
+  const inner = frames.slice(i0, i1);
   const step = Math.max(1, Math.floor(sel.length / (pw * 2)));
   let lo = Infinity, hi = -Infinity;
-  for (const s of cfg.series) for (let i = 0; i < sel.length; i += step) { const v = s.get(sel[i]); if (isFinite(v)) { lo = Math.min(lo, v); hi = Math.max(hi, v); } }
-  if (!isFinite(lo)) { ctx.fillText('no data', L + 6, T + 14); return; }
+  for (const s of cfg.series) for (let i = 0; i < inner.length; i += step) { const v = s.get(inner[i]); if (isFinite(v)) { lo = Math.min(lo, v); hi = Math.max(hi, v); } }
+  if (!isFinite(lo)) { ctx.fillText('no data in this range', L + 6, T + 14); return; }
   if (hi - lo < 1e-6) { lo -= 1; hi += 1; }
   const pad = (hi - lo) * 0.08; lo -= pad; hi += pad;
-  const X = t => L + (t - tStart) / Math.max(1e-6, tEnd - tStart) * pw;
+  const span = Math.max(1e-6, tEnd - tStart);
+  const X = t => L + (t - tStart) / span * pw;
   const Y = v => T + (hi - v) / (hi - lo) * ph;
+  cfg.geom = { L, pw, t0: tStart, t1: tEnd };
   // grid + labels
   ctx.beginPath();
   for (let k = 0; k <= 4; k++) { const v = lo + (hi - lo) * k / 4, y = Math.round(Y(v)) + 0.5; ctx.moveTo(L, y); ctx.lineTo(L + pw, y); ctx.fillText(fmt(v, scaleDigits(hi - lo)).padStart(6), 2, y + 4); }
   ctx.stroke();
-  ctx.fillText(fmt(tStart, 0) + ' s', L, h - 5);
-  const endLabel = fmt(tEnd, 0) + ' s'; ctx.fillText(endLabel, L + pw - ctx.measureText(endLabel).width, h - 5);
+  // time axis: round ticks
+  const ts = niceStep(span, Math.max(2, Math.floor(pw / 90))), td = Number.isInteger(ts) ? 0 : Number.isInteger(Math.round(ts * 1e6) / 1e5) ? 1 : 2;
+  ctx.beginPath();
+  for (let t = Math.ceil(tStart / ts) * ts; t <= tEnd + 1e-9; t += ts) {
+    const x = Math.round(X(t)) + 0.5; ctx.moveTo(x, T + ph); ctx.lineTo(x, T + ph + 4);
+    const lab = fmt(t, td) + (t + ts > tEnd ? ' s' : ''), lw = ctx.measureText(lab).width;
+    ctx.fillText(lab, Math.min(Math.max(L, x - lw / 2), L + pw - lw), h - 4);
+  }
+  ctx.stroke();
+  if (view) { ctx.fillStyle = css('--accent'); ctx.fillText('zoomed', L + pw - ctx.measureText('zoomed').width - 2, T + 11); ctx.fillStyle = css('--muted'); }
   if (lo < 0 && hi > 0) { ctx.strokeStyle = css('--muted'); ctx.beginPath(); const y0 = Math.round(Y(0)) + 0.5; ctx.moveTo(L, y0); ctx.lineTo(L + pw, y0); ctx.stroke(); }
-  // series
+  // series (clipped to the plot area)
+  ctx.save(); ctx.beginPath(); ctx.rect(L, T, pw, ph); ctx.clip();
   cfg.series.forEach((s, si) => {
     ctx.strokeStyle = css(`--s${si + 1}`); ctx.lineWidth = 1.5; ctx.beginPath();
     let pen = false;
@@ -932,6 +1318,63 @@ function drawPlot(cfg, frames, windowS) {
     }
     ctx.stroke();
   });
+  ctx.restore();
+  // drag selection
+  const d = cfg.drag;
+  if (d && !d.pan) {
+    ctx.fillStyle = css('--accent'); ctx.globalAlpha = 0.15;
+    ctx.fillRect(Math.min(d.x0, d.x1), T, Math.abs(d.x1 - d.x0), ph); ctx.globalAlpha = 1;
+  }
+  // hover readout: the frame nearest the cursor
+  const tc = hoverT(cfg);
+  if (tc != null && isFinite(tc) && tc >= tStart && tc <= tEnd && inner.length) {
+    let j = lowerBound(frames, tc * 1000);
+    if (j > 0 && (j >= frames.length || tc * 1000 - frames[j - 1].t_ms < frames[j].t_ms - tc * 1000)) j--;
+    const f = frames[j], x = Math.round(X(f.t_ms / 1000)) + 0.5;
+    ctx.strokeStyle = css('--ink'); ctx.globalAlpha = 0.5; ctx.beginPath(); ctx.moveTo(x, T); ctx.lineTo(x, T + ph); ctx.stroke(); ctx.globalAlpha = 1;
+    const lines = [fmt(f.t_ms / 1000, 2) + ' s  ' + f.state].concat(cfg.series.map(s => s.label + ' ' + fmt(s.get(f), 3)));
+    const bw = Math.max(...lines.map(t => ctx.measureText(t).width)) + 10, bh = lines.length * 13 + 6;
+    const bx = x + 8 + bw > L + pw ? x - 8 - bw : x + 8;
+    ctx.fillStyle = css('--panel'); ctx.globalAlpha = 0.9; ctx.fillRect(bx, T + 2, bw, bh); ctx.globalAlpha = 1;
+    ctx.strokeStyle = css('--line'); ctx.strokeRect(bx + 0.5, T + 2.5, bw, bh);
+    lines.forEach((t, k) => { ctx.fillStyle = k ? css(`--s${k}`) : css('--ink'); ctx.fillText(t, bx + 5, T + 15 + k * 13); });
+  }
+}
+
+// --- CSV export ---
+function csvNum(v, digits = 5) { return isFinite(v) ? String(Number(Number(v).toFixed(digits))) : ''; }
+function slug(s) { return s.toLowerCase().replace(/\[.*?\]/g, '').replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, ''); }
+function exportPlot(cfg) {
+  const t = currentTrack(), frames = cfg.last ? cfg.last.frames : [];
+  if (!frames.length || !cfg.range) { setMsg('Nothing to export.'); return; }
+  const [t0, t1] = cfg.range;
+  const rows = frames.slice(lowerBound(frames, t0 * 1000), lowerBound(frames, t1 * 1000 + 0.001));
+  const utc = t.utc0 > 0;
+  const head = ['t_s'].concat(utc ? ['utc'] : [], ['state'], cfg.series.map(s => s.label.replace(/\W+/g, '_') + (s.unit ? '_' + s.unit.replace('/', 'p') : '')));
+  const out = [head.join(',')];
+  for (const f of rows)
+    out.push([csvNum(f.t_ms / 1000, 3)].concat(utc ? [new Date(t.utc0 + f.t_ms).toISOString()] : [], [f.state], cfg.series.map(s => csvNum(s.get(f)))).join(','));
+  const name = `rocketfc_${slug(cfg.title)}_${fmt(t0, 1)}-${fmt(t1, 1)}s.csv`;
+  download(name, out.join('\n') + '\n');
+  setMsg(`Saved ${rows.length} rows as ${name}.`);
+}
+function exportEvents() {
+  const t = currentTrack(), ev = t.events;
+  if (!ev.length) { setMsg('No events to export.'); return; }
+  const utc = t.utc0 > 0, q = s => /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  const out = [['t_s'].concat(utc ? ['utc'] : [], ['state', 'event', 'arg', 'meaning']).join(',')];
+  for (const e of ev) {
+    const m = EVENT_ARG[e.event] ? EVENT_ARG[e.event](e.arg) : '';
+    out.push([csvNum(e.t_ms / 1000, 3)].concat(utc ? [new Date(t.utc0 + e.t_ms).toISOString()] : [], [e.state, e.event, String(e.arg), q(m)]).join(','));
+  }
+  const name = `rocketfc_events_${stamp()}.csv`; download(name, out.join('\n') + '\n'); setMsg(`Saved ${ev.length} events as ${name}.`);
+}
+function exportGps() {
+  const t = currentTrack(), g = t.gps;
+  if (!g.length) { setMsg('No GPS frames to export.'); return; }
+  const out = [['t_s'].concat(GPS_COLUMNS.filter(k => k !== 't_ms')).join(',')];
+  for (const r of g) out.push([csvNum(r.t_ms / 1000, 3)].concat(GPS_COLUMNS.filter(k => k !== 't_ms').map(k => k === 'state' ? r[k] : k === 'lat' || k === 'lon' ? csvNum(r[k], 7) : csvNum(r[k], 3))).join(','));
+  const name = `rocketfc_gps_${stamp()}.csv`; download(name, out.join('\n') + '\n'); setMsg(`Saved ${g.length} GPS frames as ${name}.`);
 }
 
 // --- 3D attitude view (wireframe, canvas 2D) ---
@@ -998,6 +1441,7 @@ function norm(a) { const n = Math.hypot(...a); return a.map(v => v / n); }
 // ===========================================================================
 
 function currentTrack() {
+  if (replay.on) return tracks.replay;
   const sel = $('source').value;
   if (sel !== 'auto') return tracks[sel];
   const r = tracks.radio;
@@ -1025,6 +1469,7 @@ function buildUi() {
     c.btn = b; cmds.append(b);
   });
   BATT_READOUTS.forEach(r => { const tr = el('tr'); tr.append(el('td', '', r[0]), r.valEl = el('td', 'num', '—')); $('batt-readouts').append(tr); });
+  BATT_PLOT.canvas = $('batt-plot'); attachPlotUi(BATT_PLOT, $('batt-plot').previousElementSibling);
   GPS_READOUTS.forEach(r => { const tr = el('tr'); tr.append(el('td', '', r[0]), r.valEl = el('td', 'num', '—')); $('gps-readouts').append(tr); });
   for (const [label, id] of [['Tilt from vertical', 'att-tilt'], ['Nose leans toward', 'att-lean'], ['Roll rate', 'att-roll'], ['Quaternion (w x y z)', 'att-q']]) {
     const tr = el('tr'); tr.append(el('td', '', label), el('td', 'num', '—')); tr.lastChild.id = id; $('att-readouts').append(tr);
@@ -1034,7 +1479,7 @@ function buildUi() {
   }
 }
 
-const BATT_PLOT = { title: 'Battery [V]', series: [{ label: 'battery', get: f => (f.batt_v > 2.5 ? f.batt_v : NaN) }] };
+const BATT_PLOT = { title: 'Battery [V]', series: [{ label: 'battery', unit: 'V', get: f => (f.batt_v > 2.5 ? f.batt_v : NaN) }] };
 function renderBattery(t, f) {
   const c = chargeState(t);
   $('chg-state').textContent = c.label;
@@ -1042,8 +1487,7 @@ function renderBattery(t, f) {
   $('chg-pill').textContent = f ? 'battery: ' + c.label.toLowerCase() : 'battery: —';
   $('chg-pill').className = 'pill ' + c.cls + (c.label.startsWith('CHARGING') ? ' on' : '');
   BATT_READOUTS.forEach(r => { r.valEl.textContent = r[1](f, t, c); });
-  if (!panelOpen('batt-panel')) return;  // collapsed: nothing to draw
-  BATT_PLOT.canvas = $('batt-plot');
+  if (!panelOpen('batt-panel') && !BATT_PLOT.win) return;  // collapsed and not in its own window: nothing to draw
   drawPlot(BATT_PLOT, t.frames, 0);
 }
 
@@ -1095,11 +1539,12 @@ let lastEventsKey = '';
 let gpsPill = null, ejectPill = null;
 function render() {
   for (const k in popups) if (popups[k].win.closed) restorePanel(k);  // window closed without pagehide
+  for (const p of PLOTS.concat([BATT_PLOT])) if (p.win && p.win.closed) unpopPlot(p);
   const t = currentTrack(), f = t.latest();
   const live = t.lastRx && performance.now() - t.lastRx < 3000;
   // flight panel
   const st = $('state');
-  st.textContent = f ? f.state + (t.name === 'file' ? ' (log)' : live ? '' : ' (stale)') : '—';
+  st.textContent = f ? f.state + (t.name === 'file' ? ' (log)' : t.name === 'replay' ? ' (replay)' : live ? '' : ' (stale)') : '—';
   st.className = 'state ' + (f ? STATE_CLASS[f.state] || '' : '');
   READOUTS.forEach(r => { r.valEl.textContent = f ? r[1](f, t) : '—'; });
   FLAGS.forEach(fg => {
@@ -1309,22 +1754,28 @@ async function wifiApply() {
 // Collapsible panels and panels in their own window
 // ===========================================================================
 
-const POP_PANELS = ['gps-panel', 'batt-panel', 'set-panel'];
+// Every panel can be collapsed (click its title) and moved into its own window.
+const POP_PANELS = ['flight-panel', 'att-panel', 'link-panel', 'launch-panel', 'eject-panel', 'sens-panel',
+  'gps-panel', 'batt-panel', 'plots-panel', 'events-panel', 'fc-panel', 'set-panel'];
+const COLLAPSED_AT_START = ['gps-panel', 'batt-panel', 'set-panel'];
+// Extra style in a panel's own window: big canvases use the room.
+const POPUP_CSS = ' body{padding:12px} .panel{max-width:none} #attitude{height:max(300px, calc(100vh - 260px))}' +
+  ' .plots{grid-template-columns:repeat(auto-fill,minmax(460px,1fr))}';
 function panelOpen(id) { const p = $(id); return !!p && !p.classList.contains('collapsed'); }
 function setCollapsed(id, c) { $(id).classList.toggle('collapsed', c); gpsDrawKey = ''; settingsKey = ''; render(); }
 function setupPanels() {
   for (const id of POP_PANELS) {
-    const p = $(id), h = p.querySelector(':scope > h2');
-    const head = el('div', 'panel-head');
-    h.replaceWith(head);
-    head.append(h);
-    const b = el('button', 'mini', 'Open in window ↗');
+    const p = $(id), h = p.querySelector('h2');
+    let head = h.parentElement;
+    if (head === p) { head = el('div', 'panel-head'); h.replaceWith(head); head.append(h); }
+    else head.classList.add('panel-head');   // title already in a row with controls
+    const b = el('button', 'mini pop-btn', 'Open in window ↗');
     b.title = 'Show this panel in its own window (it stays live)';
     b.onclick = e => { e.stopPropagation(); if (popups[id]) popups[id].win.close(); else popOut(id); };
     head.append(b);
     h.title = 'Click to show or hide';
     h.onclick = () => setCollapsed(id, !p.classList.contains('collapsed'));
-    p.classList.add('collapsed');  // collapsed by default
+    if (COLLAPSED_AT_START.includes(id)) p.classList.add('collapsed');
   }
 }
 // Moves the panel (with its live controls) into a new window; closing the
@@ -1337,7 +1788,7 @@ function popOut(id) {
   w.document.open();
   w.document.write('<!doctype html><html lang="en"><head><meta charset="utf-8">' +
     '<meta name="viewport" content="width=device-width, initial-scale=1"><title></title><style>' +
-    document.querySelector('style').textContent + ' body{padding:12px} .panel{max-width:none}</style></head><body></body></html>');
+    document.querySelector('style').textContent + POPUP_CSS + '</style></head><body></body></html>');
   w.document.close();
   w.document.title = title + ' – rocket-fc';
   const holder = el('div', 'panel popped-note note');
@@ -1347,7 +1798,7 @@ function popOut(id) {
   p.replaceWith(holder);
   p.classList.remove('collapsed');
   w.document.body.append(w.document.adoptNode(p));
-  p.querySelector('.panel-head button.mini').textContent = 'Back to main window';
+  p.querySelector('.pop-btn').textContent = 'Back to main window';
   popups[id] = { win: w, holder, node: p };
   w.addEventListener('pagehide', () => restorePanel(id));
   gpsDrawKey = ''; settingsKey = '';
@@ -1358,7 +1809,7 @@ function restorePanel(id) {
   if (!e) return;
   delete popups[id];
   e.holder.replaceWith(document.adoptNode(e.node));
-  e.node.querySelector('.panel-head button.mini').textContent = 'Open in window ↗';
+  e.node.querySelector('.pop-btn').textContent = 'Open in window ↗';
   gpsDrawKey = ''; settingsKey = '';
   render();
 }
@@ -1724,6 +2175,30 @@ $('btn-set-defaults').onclick = async () => {
   if (await paramSend('fc', 'param reset all')) readFcSettings();
 };
 $('btn-set-export').onclick = exportSettings;
+// --- plots, CSV export, replay ---
+$('btn-zoom-reset').onclick = resetZoom;
+$('window').addEventListener('change', resetZoom);
+$('plot-link').onchange = () => { zoom.hoverT = null; resetZoom(); };
+$('btn-events-csv').onclick = exportEvents;
+$('btn-gps-csv').onclick = exportGps;
+$('source').addEventListener('change', () => { if (replay.on) replayStop(); resetZoom(); });
+$('rp-play').onclick = () => (replay.playing ? replayPause() : replayPlay());
+$('rp-stop').onclick = () => replayStop();
+$('rp-video').onclick = () => openVideo();
+const rpRange = r => { setReplayRange(r); if (replay.on) replaySeek(replay.pos); renderReplayBar(); render(); };
+$('rp-flight').onclick = () => rpRange(flightRange());
+$('rp-all').onclick = () => rpRange(replayBounds());
+$('rp-from').onchange = $('rp-to').onchange = () => rpRange(replayFromTo());
+$('rp-speed').onchange = () => { replay.wallPos = replay.pos; replay.wall = performance.now(); };
+$('rp-pos').addEventListener('pointerdown', () => { replay.scrubbing = true; });
+$('rp-pos').addEventListener('change', () => { replay.scrubbing = false; });
+$('rp-pos').addEventListener('input', () => {
+  const [a, b] = replayFromTo();
+  if (!replay.on) { replay.on = true; resetZoom(); $('window').value = '0'; }
+  replaySeek(a + (b - a) * Number($('rp-pos').value) / 1000);
+  renderReplayBar(); render();
+});
+setInterval(replayTick, 40);
 $('btn-set-import').onclick = () => $('set-file').click();
 $('set-file').onchange = async () => { const f = $('set-file').files[0]; if (f) await importSettings(await f.text()); $('set-file').value = ''; };
 $('set-filter').oninput = () => renderSettings();
@@ -1742,6 +2217,7 @@ $('file').onchange = async () => {
   let n = 0;
   for (const line of text.split(/\r?\n/)) { const before = tracks.file.received; handleGroundLine(tracks.file, line, false); if (tracks.file.received > before) n++; }
   $('source').value = 'file'; $('window').value = '0';
+  resetZoom(); replayInit();
   setMsg(`${file.name}: ${n} records.`);
   $('file').value = '';
 };
