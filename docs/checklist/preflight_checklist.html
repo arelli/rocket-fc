@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>rocket-fc pre-flight checklist</title>
+<!-- Print to PDF: A4, margins none, background graphics on. -->
+<style>
+@page { size: A4; margin: 9mm 11mm 8mm; }
+* { box-sizing: border-box; }
+body { margin: 0; font: 8.8pt/1.28 Inter, "Helvetica Neue", Arial, sans-serif; color: #111; }
+h1 { font: 800 17pt/1 Inter, sans-serif; margin: 0; letter-spacing: -.3pt; }
+h1 span { color: #e8641e; }
+.sub { font: 8pt/1.2 "DejaVu Sans Mono", monospace; color: #555; margin-top: 3pt; }
+.head { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 1.6pt solid #111; padding-bottom: 5pt; }
+.page-no { font: 8pt "DejaVu Sans Mono", monospace; color: #555; }
+.fields { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3pt 10pt; margin: 6pt 0 2pt; font-size: 8.2pt; }
+.fields div { border-bottom: .6pt solid #999; padding: 8pt 0 1pt; color: #444; }
+h2 { font: 700 9.4pt/1 Inter, sans-serif; text-transform: uppercase; letter-spacing: .8pt; margin: 7pt 0 2.5pt;
+     padding: 3.5pt 6pt; background: #111; color: #fff; display: flex; justify-content: space-between; }
+h2 small { font-weight: 500; text-transform: none; letter-spacing: 0; color: #ddd; font-size: 8pt; }
+h2.warn { background: #c62d1f; }
+ul { list-style: none; margin: 0; padding: 0; }
+li { position: relative; padding: 1.2pt 0 1.2pt 15pt; border-bottom: .4pt solid #e2e2e2; break-inside: avoid; }
+li::before { content: ""; position: absolute; left: 1pt; top: 2.6pt; width: 8pt; height: 8pt; border: .9pt solid #111; border-radius: 1.5pt; }
+li.n::before { display: none; }
+li.n { padding-left: 1pt; color: #444; font-style: italic; }
+.b { font: normal 700 6.4pt/1 Inter, sans-serif; color: #fff; padding: 1pt 2.4pt; border-radius: 1.5pt; margin-right: 3.5pt; vertical-align: .8pt; letter-spacing: .3pt; }
+.b.u { background: #2b5fd9; }
+.b.h { background: #555; }
+b { font-weight: 700; }
+code { font: 8pt "DejaVu Sans Mono", monospace; background: #f0f0f0; padding: 0 2pt; border-radius: 1.5pt; }
+.key { font-weight: 700; color: #c62d1f; }
+.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12pt; align-items: start; }
+.legend { font-size: 7.8pt; color: #444; margin-top: 4pt; }
+table { width: 100%; border-collapse: collapse; font-size: 7.5pt; line-height: 1.22; }
+th, td { border: .5pt solid #bbb; padding: 1.4pt 4pt; text-align: left; vertical-align: top; }
+th { background: #eee; font-weight: 700; }
+.log td { height: 14pt; }
+.page { page-break-after: always; }
+.page:last-child { page-break-after: auto; }
+.foot { font-size: 7pt; color: #777; margin-top: 6pt; border-top: .5pt solid #ccc; padding-top: 3pt; }
+</style>
+</head>
+<body>
+
+<!-- ============================== PAGE 1 ============================== -->
+<div class="page">
+<div class="head">
+  <div><h1>rocket<span>-fc</span> pre-flight checklist</h1>
+  <div class="sub">flight computer + ground station · one sheet per launch day</div></div>
+  <div class="page-no">1 / 2</div>
+</div>
+<div class="fields">
+  <div>Date</div><div>Site</div><div>Rocket</div><div>Motor / delay</div>
+  <div>Firmware commit</div><div>Settings CRC</div><div>Wind / weather</div><div>RSO / club</div>
+</div>
+<div class="legend"><i class="b u">UI</i>= on the ground station's WiFi page (phone at http://192.168.4.1) &nbsp;·&nbsp;
+<i class="b h">BOX</i>= on the ground station box &nbsp;·&nbsp; unmarked = physical, on the rocket or the field</div>
+
+<h2>1. At home, the day before <small>arm link out, no charge fitted</small></h2>
+<div class="cols">
+<ul>
+  <li>Firmware on both kits from a clean commit: boot banner shows no <code>-dirty</code>. Note the commit above</li>
+  <li><i class="b u">UI</i>Settings → Read settings. Check for this motor: <code>deploy_delay_ms</code>, <code>backup_deploy_ms</code>, <code>min_deploy_alt_m</code></li>
+  <li><i class="b u">UI</i><code>manual_eject</code> as intended (default 0 = off)</li>
+  <li><i class="b u">UI</i>No <b>rf_key</b> default warning (both kits)</li>
+  <li><i class="b u">UI</i>Save to flash → Reboot rocket. Export… the settings file; note the CRC above</li>
+  <li><i class="b u">UI</i>If any flight-safety setting changed: BENCH mode → Flight computer → <b>Simulated flight</b>: LAUNCH, APOGEE, fire, LANDED in Events. Then Reboot rocket</li>
+</ul>
+<ul>
+  <li><i class="b u">UI</i>IMU remounted? Rocket nose up, still → Attitude → <b>Set upright</b> → reboot. Tilt ≈ 0° upright</li>
+  <li>Wiring changed? Pyro test with bare nichrome first (docs/TESTING.md step 3)</li>
+  <li><i class="b u">UI</i>Flight computer → List sessions: old flights downloaded; erase the flash log if nearly full</li>
+  <li>Flight cell (18350) charged: ≥ 4.1 V at rest</li>
+  <li>Ground station cell (18650), phone and power bank charged</li>
+  <li>Recovery packed: parachute, shock cord, wadding / protector, nose cone fits</li>
+</ul>
+</div>
+
+<h2>2. Packing list</h2>
+<div class="cols">
+<ul>
+  <li>Rocket, flight computer, <b>arm link</b> (jumper / key)</li>
+  <li>Motors, motor igniters, ejection charges / e-matches</li>
+  <li>Spare charged 18350; USB-C data cable</li>
+  <li>Ground station with <b>both antennas</b> (LoRa on the Wio, 2.4 GHz WiFi on the XIAO)</li>
+  <li>Launch leads + clips, launch pad + rod/rail, blast deflector</li>
+</ul>
+<ul>
+  <li>Phone (station WiFi password saved), power bank</li>
+  <li>Multimeter, small screwdriver, tape, spare nichrome, cable ties</li>
+  <li>Fire extinguisher or water, first-aid kit</li>
+  <li>This sheet, pen; GPS module fitted (if used)</li>
+  <li>Laptop (optional): USB console, <code>pio device monitor</code></li>
+</ul>
+</div>
+
+<h2>3. Ground station setup at the field <small>ARM switch OFF</small></h2>
+<div class="cols">
+<ul>
+  <li><i class="b h">BOX</i><span class="key">ARM switch OFF</span>, MODE switch = <b>BENCH</b> for now</li>
+  <li><i class="b h">BOX</i>LoRa and WiFi antennas fitted; station placed near the pad with short launch leads</li>
+  <li><i class="b h">BOX</i>Power on: ON LED steady (double blink = battery low)</li>
+  <li>Phone joins <code>rocketfc-XXXX</code>, opens <b>http://192.168.4.1</b> (stay connected without internet)</li>
+</ul>
+<ul>
+  <li><i class="b u">UI</i>Pill "station: connected"</li>
+  <li><i class="b u">UI</i>Radio link → Ground station → Battery: OK, not LOW</li>
+  <li><i class="b u">UI</i>Radio link → Heartbeat to the rocket: <b>on</b>, pad beeps every 10 s → Apply</li>
+  <li><i class="b u">UI</i>Launch panel shows "ARM off"</li>
+</ul>
+</div>
+
+<h2>4. Flight computer prep <small>in the prep area · arm link OUT · motor not in the pad</small></h2>
+<div class="cols">
+<ul>
+  <li><span class="key">Arm link OUT.</span> Ejection charge / e-match installed and wired to the igniter terminal</li>
+  <li>Main switch ON with the rocket <b>still and vertical</b> during the countdown ticks</li>
+  <li><b>2 beeps</b> = self-test OK. N long beeps = fault N (see page 2): do not fly</li>
+  <li>LED 1 flash/s (PAD, no continuity yet)</li>
+  <li><i class="b u">UI</i>Flight: state <b>PAD</b>; IMU and BARO green; <b>ARMED, FIRED, BATT LOW, RESUMED off</b></li>
+  <li><i class="b u">UI</i>Flight: Battery ≥ 3.9 V; Altitude ≈ 0 m and steady</li>
+  <li><i class="b u">UI</i>Attitude: tilt ≈ 0° with the rocket vertical</li>
+</ul>
+<ul>
+  <li><i class="b u">UI</i>Radio link: "Rocket hears ground: yes", rate ≈ 1 /s, lost ≈ 0 %, SNR margin positive</li>
+  <li><i class="b u">UI</i><b>Ping rocket</b>: rocket beeps, then the station beeps</li>
+  <li><i class="b u">UI</i>GPS and recovery (if fitted): fix, satellites ≥ 6; pad position recorded</li>
+  <li><i class="b u">UI</i>Ejection charge: "MANUAL EJECT" pill only if you intend to use it</li>
+  <li><i class="b u">UI</i>Events: no unexpected warnings since boot</li>
+  <li>Parachute, wadding, nose cone closed; flight computer bay vented</li>
+  <li>Motor installed and retained; <b>motor igniter not yet inserted</b></li>
+</ul>
+</div>
+<div class="foot">rocket-fc · docs/checklist · Indicators: docs/INDICATORS.md · Full test procedure: docs/TESTING.md · Follow your club's safety code and minimum distances.</div>
+</div>
+
+<!-- ============================== PAGE 2 ============================== -->
+<div class="page">
+<div class="head">
+  <div><h1>rocket<span>-fc</span> pre-flight checklist</h1>
+  <div class="sub">pad · launch · misfire · recovery</div></div>
+  <div class="page-no">2 / 2</div>
+</div>
+
+<h2 class="warn">5. At the pad <small>range clear · ARM switch OFF</small></h2>
+<div class="cols">
+<ul>
+  <li>Rocket on the rod / rail, moves freely; nose up</li>
+  <li><i class="b h">BOX</i>MODE switch = <b>FLIGHT</b></li>
+  <li><i class="b u">UI</i>No BENCH banner; Flight state PAD</li>
+  <li><i class="b u">UI</i>Launch: "rocket ready"</li>
+  <li><b>Fit the arm link LAST</b>, from the side, never over the rocket</li>
+  <li>LED 2 quick flashes/s; 3 short beeps every 10 s (continuity)</li>
+  <li><i class="b u">UI</i>Flight: <b>CONTINUITY</b> green; ARMED and FIRED still off</li>
+</ul>
+<ul>
+  <li><i class="b h">BOX</i><span class="key">ARM OFF confirmed</span>, then insert the motor igniter and clip the launch leads</li>
+  <li><i class="b u">UI</i>Launch: still "ARM off", "igniter —"</li>
+  <li><i class="b h">BOX</i><b>ARM ON</b>, the last action at the pad: 3 beeps, then a chirp every 2 s</li>
+  <li><i class="b u">UI</i>Launch: <b>ARMED</b>, <b>igniter OK</b>, <b>rocket ready</b></li>
+  <li>Walk straight back to the safety distance with the phone; nobody returns to the pad</li>
+  <li class="n">Club rules require the arming key at the launch position? Use long leads and keep the station with you.</li>
+</ul>
+</div>
+
+<h2 class="warn">6. Launch <small>from the safety distance</small></h2>
+<div class="cols">
+<ul>
+  <li>Range and sky clear; RSO / spotters ready; loud announcement</li>
+  <li><i class="b u">UI</i>Last look: rocket PAD, CONTINUITY, ARMED off, link fresh ("Last frame" &lt; 2 s)</li>
+  <li><i class="b u">UI</i><b>LAUNCH</b> (or the station button): countdown 3 s, then the igniter pulse</li>
+  <li class="n"><b>ABORT</b> during the countdown stops it (or press the button again).</li>
+</ul>
+<ul>
+  <li><i class="b u">UI</i>Watch Flight: BOOST → COAST → DESCENT; Events: LAUNCH, APOGEE, deployment</li>
+  <li><i class="b u">UI</i>Note Max altitude; GPS and recovery: "From the pad" distance and bearing</li>
+  <li><i class="b h">BOX</i>After lift-off, when the pad is safe: <b>ARM OFF</b></li>
+</ul>
+</div>
+
+<h2 class="warn">7. Misfire</h2>
+<ul>
+  <li><i class="b u">UI</i>ABORT if still counting. Station beeps 3 short = refused / aborted</li>
+  <li><span class="key">Wait at least 60 s</span> before anyone approaches the pad</li>
+  <li><i class="b h">BOX</i>ARM OFF, unclip the launch leads, remove the motor igniter</li>
+  <li><b>Rocket arm link OUT</b> before handling the rocket; then check the igniter and retry from section 5</li>
+</ul>
+
+<h2>8. Recovery and after the flight</h2>
+<div class="cols">
+<ul>
+  <li><i class="b u">UI</i>Lost sight? GPS and recovery: last known position, distance and bearing from the pad</li>
+  <li><i class="b u">UI</i>Close but hidden? Radio link → <b>Search mode</b> (or hold the station button 1.5 s): faster ticks = stronger signal</li>
+  <li>At the rocket: <span class="key">arm link OUT first</span> (an unfired charge may still be live)</li>
+  <li><i class="b u">UI</i>Flight: FIRED on? If not, treat the charge as live</li>
+</ul>
+<ul>
+  <li>Listen to the altitude beacon (1 long beep, then digits), note it, then main switch OFF</li>
+  <li><i class="b u">UI</i>Flight computer → <b>Rocket WiFi</b> → List sessions → Download this flight</li>
+  <li><i class="b u">UI</i>Save radio log</li>
+  <li>Recharge both cells; replace the ejection charge and wadding</li>
+</ul>
+</div>
+
+<h2>Quick reference</h2>
+<div class="cols">
+<table>
+  <tr><th colspan="2">Flight computer</th></tr>
+  <tr><td>Ticks each second</td><td>Countdown (INIT): keep still</td></tr>
+  <tr><td>2 beeps</td><td>Self-test passed</td></tr>
+  <tr><td>N long beeps / 10 s</td><td>FAULT N: 1 baro · 2 pressure · 3 settings · 4 IMU · 5 radio · 6 battery · 7 GPS</td></tr>
+  <tr><td>LED 1 flash/s · 1 long beep</td><td>PAD, no continuity</td></tr>
+  <tr><td>LED 2 flashes/s · 3 short beeps</td><td>PAD, continuity OK</td></tr>
+  <tr><td>LED solid</td><td>In flight</td></tr>
+  <tr><td>Rapid beeping 10 s</td><td>Test fire / manual ejection ARMED: stay clear</td></tr>
+  <tr><td>LED slow 1 Hz blink</td><td>Battery low</td></tr>
+</table>
+<table>
+  <tr><th colspan="2">Ground station</th></tr>
+  <tr><td>3 beeps, chirp every 2 s</td><td>ARMED</td></tr>
+  <tr><td>1 beep/s, then long tone</td><td>Countdown, igniter pulse</td></tr>
+  <tr><td>3 short beeps</td><td>Refused / aborted / no answer</td></tr>
+  <tr><td>ON LED steady · 2 Hz · fast · double</td><td>Running · ARMED · countdown or firing (or radio failed) · battery low</td></tr>
+  <tr><td>CONNECTED LED</td><td>On while rocket frames arrive</td></tr>
+  <tr><td>Button, ARM off</td><td>Short = ping · hold 1.5 s = search mode</td></tr>
+  <tr><td>Button, ARM on</td><td>Short = LAUNCH · again = abort</td></tr>
+</table>
+</div>
+
+<h2>Flight log</h2>
+<table class="log">
+  <tr><th style="width:5%">#</th><th style="width:9%">Time</th><th style="width:16%">Motor / delay</th><th style="width:12%">Max alt (m)</th><th style="width:12%">Beacon (m)</th><th style="width:12%">Deployed</th><th>Notes</th></tr>
+  <tr><td>1</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+  <tr><td>2</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+  <tr><td>3</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+</table>
+<div class="foot">rocket-fc · Fly under your club's and your country's rules. Indicator details: docs/INDICATORS.md · Interlocks: docs/FLIGHT_LOGIC.md.</div>
+</div>
+
+</body>
+</html>
