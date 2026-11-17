@@ -12,6 +12,12 @@ version number (`tlm::kVersion`, docs/TELEMETRY.md).
   Project-local symbol library for the XIAO kit, sensor breakouts and GPS;
   design rules for a home-etched two-layer board. The board itself is in
   progress. `tools/schematics.py` now draws the ground station only.
+- Hardware: footprints for every part of the flight PCB (XIAO kit, SparkFun
+  MPU-9250 from SparkFun's board file, 6-pin GY-BMP280, L76K, capacitor lying
+  flat); through-hole resistors.
+- Docs: L76K pins corrected from Seeed's schematic (wake-up at the D0 position,
+  reset at D10, RX at D6; the D2 position is unused). Barometer is the 6-pin
+  GY-BMP280 board (CSB to 3V3, SDO to GND).
 - UI: zoom on every plot (drag, Shift+drag to pan, Ctrl+wheel, double-click to
   reset; linked time axes), hover readout, CSV export of each plot (range
   shown), of the events and of the GPS frames, plots in their own window.

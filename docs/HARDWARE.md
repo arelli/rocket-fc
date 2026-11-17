@@ -37,17 +37,22 @@ All header pins are used.
 
 ## GPS (optional): Seeed L76K GNSS module for XIAO
 
-Not stacked on the XIAO: that board also connects to D0, D2 and D6, which are
-the battery sense, the buzzer and the LED here. Wire it with four leads:
+Not stacked on the XIAO: stacked, it would use D0, D6 and D10, which are the
+battery sense, the LED and the radio here. Its pins sit in the XIAO pattern;
+functions from Seeed's schematic (109100021, V1.0):
 
-| L76K pin | Connect to | Why |
+| L76K pin (its XIAO position) | Connect to | Why |
 |---|---|---|
-| 3V3 (VCC) | XIAO 3V3 | ~41 mA while tracking |
+| 3V3 | XIAO 3V3 | ~41 mA while tracking |
 | GND | GND | |
-| TX (GPS data out) | **D7** | Read at 9600 baud (setting `gps_baud`) |
-| RX (GPS data in) | 3V3 | Not used (default NMEA output is enough); held at the idle level |
-| the two control pins at its D0 and D2 positions | 3V3 | Seeed: both must be held high for normal operation |
-| its D6 position | not connected | |
+| TXD, GPS data out (D7) | **D7** | Read at 9600 baud (setting `gps_baud`) |
+| RXD, GPS data in (D6) | 3V3 | Not used (default NMEA output is enough); held at the idle level |
+| WAKE_UP (D0), RESET_N (D10) | 3V3 | Pulled up on the module; tied high as well, so a loose lead cannot reset or sleep it |
+| D1–D5, D8, D9, 5V positions | not connected | Not used on the module |
+
+Earlier versions of this table named the D0 and D2 positions as the control
+pins. On the module the D2 position connects to nothing, so a lead from it to
+3V3 is harmless; reset is at the D10 position.
 
 - Settings (group "gps"): `gps_mode` = auto (default: used if present, a
   self-test warning if not), off (D7 unused), required (self-test FAULT 7 without
@@ -166,12 +171,15 @@ Use any visible 3 mm/5 mm LED.
 
 | Board | VCC | GND | SDA | SCL | Other |
 |---|---|---|---|---|---|
-| MPU-9250 (SparkFun breakout, no regulator) | 3V3 | GND | D4 | D5 | CS → 3V3, FSYNC → GND; AD0, INT open (0x68 via SJ2) |
-| GY-BMP280-5V (4 pins) | **3V3**, never 5V | GND | D4 | D5 | Nothing else: regulator, level shifter, pull-ups and address are on the board |
+| MPU-9250 (SparkFun breakout SEN-13762, no regulator) | 3V3 | GND | D4 | D5 | nCS and VDDIO → 3V3, FSYNC → GND; AD0, INT open (0x68 via SJ2) |
+| GY-BMP280, 6 pins ("GYBMEP", 3.3 V) | **3V3**, never 5V | GND | D4 | D5 | CSB → 3V3 (I²C mode), SDO → GND (address 0x76) |
 
-- The GY-BMP280-5V board's 10k pull-ups go to its VCC pin. At VCC = 5 V they
-  would pull SDA/SCL to 5 V, above the ESP32-S3's 3.6 V limit; at 3V3 its
-  662K regulator simply passes ~3.2 V through to the sensor.
+- The 6-pin board has no regulator: 3V3 only. The 4-pin GY-BMP280-5V board
+  also works when hand-wired, with VCC on 3V3 (its 10k pull-ups go to VCC: at
+  5 V they would pull SDA/SCL above the ESP32-S3's 3.6 V limit). The PCB has
+  the 6-pin footprint.
+- The PCB ties the MPU-9250 board's VDDIO pin to 3V3 too; that is harmless if
+  the board already links it to VDD.
 - The firmware identifies the IMU chip from WHO_AM_I. Many "MPU-9250" boards
   carry an MPU-6500 (no magnetometer); the boot message and `status` say which
   you have. Everything works without the magnetometer.

@@ -25,7 +25,7 @@
 				)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "rocket-fc:XIAO_ESP32S3_Wio-SX1262_THT"
 			(at 0 0 0)
 			(hide yes)
 			(effects
@@ -43,7 +43,7 @@
 				)
 			)
 		)
-		(property "Description" "Seeed XIAO ESP32-S3 with the Wio-SX1262 LoRa board (kit). Pins 1-14: XIAO header (D8-D10 and the B2B connector belong to the radio). 15/16: BAT pads on the underside."
+		(property "Description" "Seeed XIAO ESP32-S3 with the Wio-SX1262 LoRa board (kit). Pins 1-14: XIAO header (D8-D10 and the B2B connector belong to the radio). 15/16: BAT pads on the underside, wired to pads."
 			(at 0 0 0)
 			(hide yes)
 			(effects
@@ -366,7 +366,7 @@
 		)
 		(embedded_fonts no)
 	)
-	(symbol "MPU-9250_Breakout"
+	(symbol "SparkFun_MPU-9250_Breakout"
 		(pin_names
 			(offset 1.016)
 		)
@@ -374,22 +374,22 @@
 		(in_bom yes)
 		(on_board yes)
 		(property "Reference" "U"
-			(at 3.81 11.43 0)
+			(at 3.81 16.51 0)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
 			)
 		)
-		(property "Value" "MPU-9250_Breakout"
-			(at 3.81 8.89 0)
+		(property "Value" "SparkFun_MPU-9250_Breakout"
+			(at 3.81 13.97 0)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "rocket-fc:SparkFun_MPU-9250_Breakout_v10"
 			(at 0 0 0)
 			(hide yes)
 			(effects
@@ -407,7 +407,7 @@
 				)
 			)
 		)
-		(property "Description" "MPU-9250 / 9255 / 6500 IMU breakout without regulator (SparkFun style). Pin numbers provisional until the footprint is measured."
+		(property "Description" "SparkFun IMU Breakout MPU-9250 (SEN-13762, board v10), no regulator: supply 3.3 V. Pin numbers follow the footprint: 1-4 SCL SDA VDD GND, 5-8 VDDIO AD0 nCS INT, 9-11 AUXCL FSYNC AUXDA."
 			(at 0 0 0)
 			(hide yes)
 			(effects
@@ -416,7 +416,7 @@
 				)
 			)
 		)
-		(property "ki_keywords" "IMU accelerometer gyroscope I2C"
+		(property "ki_keywords" "IMU accelerometer gyroscope I2C MPU-9250 MPU-6500"
 			(at 0 0 0)
 			(hide yes)
 			(effects
@@ -425,10 +425,10 @@
 				)
 			)
 		)
-		(symbol "MPU-9250_Breakout_0_1"
+		(symbol "SparkFun_MPU-9250_Breakout_0_1"
 			(rectangle
-				(start -5.08 7.62)
-				(end 12.7 -10.16)
+				(start -5.08 12.7)
+				(end 12.7 -12.7)
 				(stroke
 					(width 0.254)
 					(type default)
@@ -438,9 +438,9 @@
 				)
 			)
 		)
-		(symbol "MPU-9250_Breakout_1_1"
+		(symbol "SparkFun_MPU-9250_Breakout_1_1"
 			(pin bidirectional line
-				(at -7.62 5.08 0)
+				(at -7.62 10.16 0)
 				(length 2.54)
 				(name "SDA"
 					(effects
@@ -449,7 +449,7 @@
 						)
 					)
 				)
-				(number "3"
+				(number "2"
 					(effects
 						(font
 							(size 1.27 1.27)
@@ -458,7 +458,7 @@
 				)
 			)
 			(pin input line
-				(at -7.62 2.54 0)
+				(at -7.62 7.62 0)
 				(length 2.54)
 				(name "SCL"
 					(effects
@@ -467,7 +467,7 @@
 						)
 					)
 				)
-				(number "4"
+				(number "1"
 					(effects
 						(font
 							(size 1.27 1.27)
@@ -475,10 +475,10 @@
 					)
 				)
 			)
-			(pin passive line
-				(at -7.62 0 0)
+			(pin power_in line
+				(at -7.62 5.08 0)
 				(length 2.54)
-				(name "AD0"
+				(name "VDDIO"
 					(effects
 						(font
 							(size 1.27 1.27)
@@ -493,8 +493,26 @@
 					)
 				)
 			)
+			(pin passive line
+				(at -7.62 2.54 0)
+				(length 2.54)
+				(name "AD0"
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+				(number "6"
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+			)
 			(pin input line
-				(at -7.62 -2.54 0)
+				(at -7.62 0 0)
 				(length 2.54)
 				(name "~{CS}"
 					(effects
@@ -512,27 +530,9 @@
 				)
 			)
 			(pin output line
-				(at -7.62 -5.08 0)
+				(at -7.62 -2.54 0)
 				(length 2.54)
 				(name "INT"
-					(effects
-						(font
-							(size 1.27 1.27)
-						)
-					)
-				)
-				(number "6"
-					(effects
-						(font
-							(size 1.27 1.27)
-						)
-					)
-				)
-			)
-			(pin input line
-				(at -7.62 -7.62 0)
-				(length 2.54)
-				(name "FSYNC"
 					(effects
 						(font
 							(size 1.27 1.27)
@@ -547,17 +547,53 @@
 					)
 				)
 			)
-			(pin power_in line
-				(at 7.62 10.16 270)
+			(pin input line
+				(at -7.62 -5.08 0)
 				(length 2.54)
-				(name "VCC"
+				(name "FSYNC"
 					(effects
 						(font
 							(size 1.27 1.27)
 						)
 					)
 				)
-				(number "1"
+				(number "10"
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+			)
+			(pin passive line
+				(at -7.62 -7.62 0)
+				(length 2.54)
+				(name "AUXCL"
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+				(number "9"
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+			)
+			(pin passive line
+				(at -7.62 -10.16 0)
+				(length 2.54)
+				(name "AUXDA"
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+				(number "11"
 					(effects
 						(font
 							(size 1.27 1.27)
@@ -566,7 +602,25 @@
 				)
 			)
 			(pin power_in line
-				(at 7.62 -12.7 90)
+				(at 7.62 15.24 270)
+				(length 2.54)
+				(name "VDD"
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+				(number "3"
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+			)
+			(pin power_in line
+				(at 7.62 -15.24 90)
 				(length 2.54)
 				(name "GND"
 					(effects
@@ -575,7 +629,7 @@
 						)
 					)
 				)
-				(number "2"
+				(number "4"
 					(effects
 						(font
 							(size 1.27 1.27)
@@ -586,7 +640,7 @@
 		)
 		(embedded_fonts no)
 	)
-	(symbol "GY-BMP280-5V"
+	(symbol "GY-BMP280_6pin"
 		(pin_names
 			(offset 1.016)
 		)
@@ -594,6 +648,14 @@
 		(in_bom yes)
 		(on_board yes)
 		(property "Reference" "U"
+			(at 2.54 11.43 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "GY-BMP280_6pin"
 			(at 2.54 8.89 0)
 			(effects
 				(font
@@ -601,15 +663,7 @@
 				)
 			)
 		)
-		(property "Value" "GY-BMP280-5V"
-			(at 2.54 6.35 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
+		(property "Footprint" "rocket-fc:GY-BMP280_6pin_P2.54mm"
 			(at 0 0 0)
 			(hide yes)
 			(effects
@@ -627,7 +681,7 @@
 				)
 			)
 		)
-		(property "Description" "GY-BMP280-5V barometer breakout, 4 pins (regulator, level shifter, pull-ups and address on board). Supply from 3V3 only."
+		(property "Description" "Purple 6-pin BMP280 / BME280 breakout (\"GYBMEP\"), 3.3 V: VCC GND SCL SDA CSB SDO. CSB high = I2C; SDO low = address 0x76."
 			(at 0 0 0)
 			(hide yes)
 			(effects
@@ -636,7 +690,7 @@
 				)
 			)
 		)
-		(property "ki_keywords" "barometer pressure I2C"
+		(property "ki_keywords" "barometer pressure I2C BMP280"
 			(at 0 0 0)
 			(hide yes)
 			(effects
@@ -645,9 +699,9 @@
 				)
 			)
 		)
-		(symbol "GY-BMP280-5V_0_1"
+		(symbol "GY-BMP280_6pin_0_1"
 			(rectangle
-				(start -5.08 5.08)
+				(start -5.08 7.62)
 				(end 10.16 -7.62)
 				(stroke
 					(width 0.254)
@@ -658,9 +712,27 @@
 				)
 			)
 		)
-		(symbol "GY-BMP280-5V_1_1"
+		(symbol "GY-BMP280_6pin_1_1"
 			(pin input line
-				(at -7.62 2.54 0)
+				(at -7.62 5.08 0)
+				(length 2.54)
+				(name "CSB"
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+				(number "5"
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+			)
+			(pin input line
+				(at -7.62 0 0)
 				(length 2.54)
 				(name "SCL"
 					(effects
@@ -678,7 +750,7 @@
 				)
 			)
 			(pin bidirectional line
-				(at -7.62 0 0)
+				(at -7.62 -2.54 0)
 				(length 2.54)
 				(name "SDA"
 					(effects
@@ -695,8 +767,26 @@
 					)
 				)
 			)
+			(pin input line
+				(at -7.62 -5.08 0)
+				(length 2.54)
+				(name "SDO"
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+				(number "6"
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+			)
 			(pin power_in line
-				(at 5.08 7.62 270)
+				(at 5.08 10.16 270)
 				(length 2.54)
 				(name "VCC"
 					(effects
@@ -734,7 +824,7 @@
 		)
 		(embedded_fonts no)
 	)
-	(symbol "L76K_GNSS"
+	(symbol "L76K_GNSS_XIAO"
 		(pin_names
 			(offset 1.016)
 		)
@@ -742,22 +832,22 @@
 		(in_bom yes)
 		(on_board yes)
 		(property "Reference" "U"
-			(at 3.81 11.43 0)
+			(at 0 13.97 0)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
 			)
 		)
-		(property "Value" "L76K_GNSS"
-			(at 3.81 8.89 0)
+		(property "Value" "L76K_GNSS_XIAO"
+			(at 0 11.43 0)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "rocket-fc:L76K_GNSS_XIAO_THT"
 			(at 0 0 0)
 			(hide yes)
 			(effects
@@ -775,7 +865,7 @@
 				)
 			)
 		)
-		(property "Description" "Seeed L76K GNSS module for XIAO (external patch antenna on U.FL). Wired with leads, not stacked. Pin numbers provisional until the footprint is measured."
+		(property "Description" "Seeed L76K GNSS module for XIAO (109100021), XIAO header pattern, U.FL antenna. Seeed schematic V1.0: WAKE_UP (D0 pos) and RESET_N (D10 pos) pulled up on the module; D1-D5, D8, D9 and 5V unused."
 			(at 0 0 0)
 			(hide yes)
 			(effects
@@ -784,7 +874,7 @@
 				)
 			)
 		)
-		(property "ki_keywords" "GPS GNSS UART"
+		(property "ki_keywords" "GPS GNSS UART L76K"
 			(at 0 0 0)
 			(hide yes)
 			(effects
@@ -793,10 +883,10 @@
 				)
 			)
 		)
-		(symbol "L76K_GNSS_0_1"
+		(symbol "L76K_GNSS_XIAO_0_1"
 			(rectangle
-				(start -5.08 7.62)
-				(end 12.7 -7.62)
+				(start -12.7 10.16)
+				(end 12.7 -10.16)
 				(stroke
 					(width 0.254)
 					(type default)
@@ -806,11 +896,65 @@
 				)
 			)
 		)
-		(symbol "L76K_GNSS_1_1"
+		(symbol "L76K_GNSS_XIAO_1_1"
 			(pin input line
-				(at -7.62 5.08 0)
+				(at -15.24 7.62 0)
 				(length 2.54)
-				(name "RX"
+				(name "WAKE_UP"
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+				(number "1"
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+			)
+			(pin passive line
+				(at -15.24 5.08 0)
+				(length 2.54)
+				(name "D1"
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+				(number "2"
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+			)
+			(pin passive line
+				(at -15.24 2.54 0)
+				(length 2.54)
+				(name "D2"
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+				(number "3"
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+			)
+			(pin passive line
+				(at -15.24 0 0)
+				(length 2.54)
+				(name "D3"
 					(effects
 						(font
 							(size 1.27 1.27)
@@ -825,10 +969,10 @@
 					)
 				)
 			)
-			(pin input line
-				(at -7.62 2.54 0)
+			(pin passive line
+				(at -15.24 -2.54 0)
 				(length 2.54)
-				(name "D0_POS"
+				(name "D4"
 					(effects
 						(font
 							(size 1.27 1.27)
@@ -843,10 +987,10 @@
 					)
 				)
 			)
-			(pin input line
-				(at -7.62 0 0)
+			(pin passive line
+				(at -15.24 -5.08 0)
 				(length 2.54)
-				(name "D2_POS"
+				(name "D5"
 					(effects
 						(font
 							(size 1.27 1.27)
@@ -861,10 +1005,10 @@
 					)
 				)
 			)
-			(pin passive line
-				(at -7.62 -2.54 0)
+			(pin input line
+				(at -15.24 -7.62 0)
 				(length 2.54)
-				(name "D6_POS"
+				(name "RXD"
 					(effects
 						(font
 							(size 1.27 1.27)
@@ -880,16 +1024,70 @@
 				)
 			)
 			(pin output line
-				(at -7.62 -5.08 0)
+				(at 15.24 7.62 180)
 				(length 2.54)
-				(name "TX"
+				(name "TXD"
 					(effects
 						(font
 							(size 1.27 1.27)
 						)
 					)
 				)
-				(number "3"
+				(number "8"
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+			)
+			(pin passive line
+				(at 15.24 5.08 180)
+				(length 2.54)
+				(name "D8"
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+				(number "9"
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+			)
+			(pin passive line
+				(at 15.24 2.54 180)
+				(length 2.54)
+				(name "D9"
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+				(number "10"
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+			)
+			(pin input line
+				(at 15.24 0 180)
+				(length 2.54)
+				(name "~{RESET}"
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+				(number "11"
 					(effects
 						(font
 							(size 1.27 1.27)
@@ -898,7 +1096,7 @@
 				)
 			)
 			(pin power_in line
-				(at 7.62 10.16 270)
+				(at -2.54 12.7 270)
 				(length 2.54)
 				(name "3V3"
 					(effects
@@ -907,7 +1105,25 @@
 						)
 					)
 				)
-				(number "1"
+				(number "12"
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+			)
+			(pin passive line
+				(at 2.54 12.7 270)
+				(length 2.54)
+				(name "5V"
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+				(number "14"
 					(effects
 						(font
 							(size 1.27 1.27)
@@ -916,7 +1132,7 @@
 				)
 			)
 			(pin power_in line
-				(at 7.62 -10.16 90)
+				(at 0 -12.7 90)
 				(length 2.54)
 				(name "GND"
 					(effects
@@ -925,7 +1141,7 @@
 						)
 					)
 				)
-				(number "2"
+				(number "13"
 					(effects
 						(font
 							(size 1.27 1.27)

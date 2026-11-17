@@ -1690,7 +1690,7 @@
 			)
 			(embedded_fonts no)
 		)
-		(symbol "rocket-fc:GY-BMP280-5V"
+		(symbol "rocket-fc:GY-BMP280_6pin"
 			(pin_names
 				(offset 1.016)
 			)
@@ -1698,6 +1698,14 @@
 			(in_bom yes)
 			(on_board yes)
 			(property "Reference" "U"
+				(at 2.54 11.43 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" "GY-BMP280_6pin"
 				(at 2.54 8.89 0)
 				(effects
 					(font
@@ -1705,15 +1713,7 @@
 					)
 				)
 			)
-			(property "Value" "GY-BMP280-5V"
-				(at 2.54 6.35 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Footprint" ""
+			(property "Footprint" "rocket-fc:GY-BMP280_6pin_P2.54mm"
 				(at 0 0 0)
 				(hide yes)
 				(effects
@@ -1731,7 +1731,7 @@
 					)
 				)
 			)
-			(property "Description" "GY-BMP280-5V barometer breakout, 4 pins (regulator, level shifter, pull-ups and address on board). Supply from 3V3 only."
+			(property "Description" "Purple 6-pin BMP280 / BME280 breakout (\"GYBMEP\"), 3.3 V: VCC GND SCL SDA CSB SDO. CSB high = I2C; SDO low = address 0x76."
 				(at 0 0 0)
 				(hide yes)
 				(effects
@@ -1740,7 +1740,7 @@
 					)
 				)
 			)
-			(property "ki_keywords" "barometer pressure I2C"
+			(property "ki_keywords" "barometer pressure I2C BMP280"
 				(at 0 0 0)
 				(hide yes)
 				(effects
@@ -1749,9 +1749,9 @@
 					)
 				)
 			)
-			(symbol "GY-BMP280-5V_0_1"
+			(symbol "GY-BMP280_6pin_0_1"
 				(rectangle
-					(start -5.08 5.08)
+					(start -5.08 7.62)
 					(end 10.16 -7.62)
 					(stroke
 						(width 0.254)
@@ -1762,9 +1762,27 @@
 					)
 				)
 			)
-			(symbol "GY-BMP280-5V_1_1"
+			(symbol "GY-BMP280_6pin_1_1"
 				(pin input line
-					(at -7.62 2.54 0)
+					(at -7.62 5.08 0)
+					(length 2.54)
+					(name "CSB"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "5"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin input line
+					(at -7.62 0 0)
 					(length 2.54)
 					(name "SCL"
 						(effects
@@ -1782,7 +1800,7 @@
 					)
 				)
 				(pin bidirectional line
-					(at -7.62 0 0)
+					(at -7.62 -2.54 0)
 					(length 2.54)
 					(name "SDA"
 						(effects
@@ -1799,8 +1817,26 @@
 						)
 					)
 				)
+				(pin input line
+					(at -7.62 -5.08 0)
+					(length 2.54)
+					(name "SDO"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "6"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
 				(pin power_in line
-					(at 5.08 7.62 270)
+					(at 5.08 10.16 270)
 					(length 2.54)
 					(name "VCC"
 						(effects
@@ -1838,7 +1874,7 @@
 			)
 			(embedded_fonts no)
 		)
-		(symbol "rocket-fc:L76K_GNSS"
+		(symbol "rocket-fc:L76K_GNSS_XIAO"
 			(pin_names
 				(offset 1.016)
 			)
@@ -1846,22 +1882,22 @@
 			(in_bom yes)
 			(on_board yes)
 			(property "Reference" "U"
-				(at 3.81 11.43 0)
+				(at 0 13.97 0)
 				(effects
 					(font
 						(size 1.27 1.27)
 					)
 				)
 			)
-			(property "Value" "L76K_GNSS"
-				(at 3.81 8.89 0)
+			(property "Value" "L76K_GNSS_XIAO"
+				(at 0 11.43 0)
 				(effects
 					(font
 						(size 1.27 1.27)
 					)
 				)
 			)
-			(property "Footprint" ""
+			(property "Footprint" "rocket-fc:L76K_GNSS_XIAO_THT"
 				(at 0 0 0)
 				(hide yes)
 				(effects
@@ -1879,7 +1915,7 @@
 					)
 				)
 			)
-			(property "Description" "Seeed L76K GNSS module for XIAO (external patch antenna on U.FL). Wired with leads, not stacked. Pin numbers provisional until the footprint is measured."
+			(property "Description" "Seeed L76K GNSS module for XIAO (109100021), XIAO header pattern, U.FL antenna. Seeed schematic V1.0: WAKE_UP (D0 pos) and RESET_N (D10 pos) pulled up on the module; D1-D5, D8, D9 and 5V unused."
 				(at 0 0 0)
 				(hide yes)
 				(effects
@@ -1888,7 +1924,7 @@
 					)
 				)
 			)
-			(property "ki_keywords" "GPS GNSS UART"
+			(property "ki_keywords" "GPS GNSS UART L76K"
 				(at 0 0 0)
 				(hide yes)
 				(effects
@@ -1897,10 +1933,10 @@
 					)
 				)
 			)
-			(symbol "L76K_GNSS_0_1"
+			(symbol "L76K_GNSS_XIAO_0_1"
 				(rectangle
-					(start -5.08 7.62)
-					(end 12.7 -7.62)
+					(start -12.7 10.16)
+					(end 12.7 -10.16)
 					(stroke
 						(width 0.254)
 						(type default)
@@ -1910,11 +1946,65 @@
 					)
 				)
 			)
-			(symbol "L76K_GNSS_1_1"
+			(symbol "L76K_GNSS_XIAO_1_1"
 				(pin input line
-					(at -7.62 5.08 0)
+					(at -15.24 7.62 0)
 					(length 2.54)
-					(name "RX"
+					(name "WAKE_UP"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at -15.24 5.08 0)
+					(length 2.54)
+					(name "D1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at -15.24 2.54 0)
+					(length 2.54)
+					(name "D2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "3"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at -15.24 0 0)
+					(length 2.54)
+					(name "D3"
 						(effects
 							(font
 								(size 1.27 1.27)
@@ -1929,10 +2019,10 @@
 						)
 					)
 				)
-				(pin input line
-					(at -7.62 2.54 0)
+				(pin passive line
+					(at -15.24 -2.54 0)
 					(length 2.54)
-					(name "D0_POS"
+					(name "D4"
 						(effects
 							(font
 								(size 1.27 1.27)
@@ -1947,10 +2037,10 @@
 						)
 					)
 				)
-				(pin input line
-					(at -7.62 0 0)
+				(pin passive line
+					(at -15.24 -5.08 0)
 					(length 2.54)
-					(name "D2_POS"
+					(name "D5"
 						(effects
 							(font
 								(size 1.27 1.27)
@@ -1965,10 +2055,10 @@
 						)
 					)
 				)
-				(pin passive line
-					(at -7.62 -2.54 0)
+				(pin input line
+					(at -15.24 -7.62 0)
 					(length 2.54)
-					(name "D6_POS"
+					(name "RXD"
 						(effects
 							(font
 								(size 1.27 1.27)
@@ -1984,16 +2074,70 @@
 					)
 				)
 				(pin output line
-					(at -7.62 -5.08 0)
+					(at 15.24 7.62 180)
 					(length 2.54)
-					(name "TX"
+					(name "TXD"
 						(effects
 							(font
 								(size 1.27 1.27)
 							)
 						)
 					)
-					(number "3"
+					(number "8"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 15.24 5.08 180)
+					(length 2.54)
+					(name "D8"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "9"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 15.24 2.54 180)
+					(length 2.54)
+					(name "D9"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "10"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin input line
+					(at 15.24 0 180)
+					(length 2.54)
+					(name "~{RESET}"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "11"
 						(effects
 							(font
 								(size 1.27 1.27)
@@ -2002,7 +2146,7 @@
 					)
 				)
 				(pin power_in line
-					(at 7.62 10.16 270)
+					(at -2.54 12.7 270)
 					(length 2.54)
 					(name "3V3"
 						(effects
@@ -2011,7 +2155,25 @@
 							)
 						)
 					)
-					(number "1"
+					(number "12"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 2.54 12.7 270)
+					(length 2.54)
+					(name "5V"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "14"
 						(effects
 							(font
 								(size 1.27 1.27)
@@ -2020,7 +2182,7 @@
 					)
 				)
 				(pin power_in line
-					(at 7.62 -10.16 90)
+					(at 0 -12.7 90)
 					(length 2.54)
 					(name "GND"
 						(effects
@@ -2029,7 +2191,7 @@
 							)
 						)
 					)
-					(number "2"
+					(number "13"
 						(effects
 							(font
 								(size 1.27 1.27)
@@ -2040,7 +2202,7 @@
 			)
 			(embedded_fonts no)
 		)
-		(symbol "rocket-fc:MPU-9250_Breakout"
+		(symbol "rocket-fc:SparkFun_MPU-9250_Breakout"
 			(pin_names
 				(offset 1.016)
 			)
@@ -2048,22 +2210,22 @@
 			(in_bom yes)
 			(on_board yes)
 			(property "Reference" "U"
-				(at 3.81 11.43 0)
+				(at 3.81 16.51 0)
 				(effects
 					(font
 						(size 1.27 1.27)
 					)
 				)
 			)
-			(property "Value" "MPU-9250_Breakout"
-				(at 3.81 8.89 0)
+			(property "Value" "SparkFun_MPU-9250_Breakout"
+				(at 3.81 13.97 0)
 				(effects
 					(font
 						(size 1.27 1.27)
 					)
 				)
 			)
-			(property "Footprint" ""
+			(property "Footprint" "rocket-fc:SparkFun_MPU-9250_Breakout_v10"
 				(at 0 0 0)
 				(hide yes)
 				(effects
@@ -2081,7 +2243,7 @@
 					)
 				)
 			)
-			(property "Description" "MPU-9250 / 9255 / 6500 IMU breakout without regulator (SparkFun style). Pin numbers provisional until the footprint is measured."
+			(property "Description" "SparkFun IMU Breakout MPU-9250 (SEN-13762, board v10), no regulator: supply 3.3 V. Pin numbers follow the footprint: 1-4 SCL SDA VDD GND, 5-8 VDDIO AD0 nCS INT, 9-11 AUXCL FSYNC AUXDA."
 				(at 0 0 0)
 				(hide yes)
 				(effects
@@ -2090,7 +2252,7 @@
 					)
 				)
 			)
-			(property "ki_keywords" "IMU accelerometer gyroscope I2C"
+			(property "ki_keywords" "IMU accelerometer gyroscope I2C MPU-9250 MPU-6500"
 				(at 0 0 0)
 				(hide yes)
 				(effects
@@ -2099,10 +2261,10 @@
 					)
 				)
 			)
-			(symbol "MPU-9250_Breakout_0_1"
+			(symbol "SparkFun_MPU-9250_Breakout_0_1"
 				(rectangle
-					(start -5.08 7.62)
-					(end 12.7 -10.16)
+					(start -5.08 12.7)
+					(end 12.7 -12.7)
 					(stroke
 						(width 0.254)
 						(type default)
@@ -2112,9 +2274,9 @@
 					)
 				)
 			)
-			(symbol "MPU-9250_Breakout_1_1"
+			(symbol "SparkFun_MPU-9250_Breakout_1_1"
 				(pin bidirectional line
-					(at -7.62 5.08 0)
+					(at -7.62 10.16 0)
 					(length 2.54)
 					(name "SDA"
 						(effects
@@ -2123,7 +2285,7 @@
 							)
 						)
 					)
-					(number "3"
+					(number "2"
 						(effects
 							(font
 								(size 1.27 1.27)
@@ -2132,7 +2294,7 @@
 					)
 				)
 				(pin input line
-					(at -7.62 2.54 0)
+					(at -7.62 7.62 0)
 					(length 2.54)
 					(name "SCL"
 						(effects
@@ -2141,7 +2303,7 @@
 							)
 						)
 					)
-					(number "4"
+					(number "1"
 						(effects
 							(font
 								(size 1.27 1.27)
@@ -2149,10 +2311,10 @@
 						)
 					)
 				)
-				(pin passive line
-					(at -7.62 0 0)
+				(pin power_in line
+					(at -7.62 5.08 0)
 					(length 2.54)
-					(name "AD0"
+					(name "VDDIO"
 						(effects
 							(font
 								(size 1.27 1.27)
@@ -2167,8 +2329,26 @@
 						)
 					)
 				)
+				(pin passive line
+					(at -7.62 2.54 0)
+					(length 2.54)
+					(name "AD0"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "6"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
 				(pin input line
-					(at -7.62 -2.54 0)
+					(at -7.62 0 0)
 					(length 2.54)
 					(name "~{CS}"
 						(effects
@@ -2186,27 +2366,9 @@
 					)
 				)
 				(pin output line
-					(at -7.62 -5.08 0)
+					(at -7.62 -2.54 0)
 					(length 2.54)
 					(name "INT"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "6"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin input line
-					(at -7.62 -7.62 0)
-					(length 2.54)
-					(name "FSYNC"
 						(effects
 							(font
 								(size 1.27 1.27)
@@ -2221,17 +2383,53 @@
 						)
 					)
 				)
-				(pin power_in line
-					(at 7.62 10.16 270)
+				(pin input line
+					(at -7.62 -5.08 0)
 					(length 2.54)
-					(name "VCC"
+					(name "FSYNC"
 						(effects
 							(font
 								(size 1.27 1.27)
 							)
 						)
 					)
-					(number "1"
+					(number "10"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at -7.62 -7.62 0)
+					(length 2.54)
+					(name "AUXCL"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "9"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at -7.62 -10.16 0)
+					(length 2.54)
+					(name "AUXDA"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "11"
 						(effects
 							(font
 								(size 1.27 1.27)
@@ -2240,7 +2438,25 @@
 					)
 				)
 				(pin power_in line
-					(at 7.62 -12.7 90)
+					(at 7.62 15.24 270)
+					(length 2.54)
+					(name "VDD"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "3"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin power_in line
+					(at 7.62 -15.24 90)
 					(length 2.54)
 					(name "GND"
 						(effects
@@ -2249,7 +2465,7 @@
 							)
 						)
 					)
-					(number "2"
+					(number "4"
 						(effects
 							(font
 								(size 1.27 1.27)
@@ -2283,7 +2499,7 @@
 					)
 				)
 			)
-			(property "Footprint" ""
+			(property "Footprint" "rocket-fc:XIAO_ESP32S3_Wio-SX1262_THT"
 				(at 0 0 0)
 				(hide yes)
 				(effects
@@ -2301,7 +2517,7 @@
 					)
 				)
 			)
-			(property "Description" "Seeed XIAO ESP32-S3 with the Wio-SX1262 LoRa board (kit). Pins 1-14: XIAO header (D8-D10 and the B2B connector belong to the radio). 15/16: BAT pads on the underside."
+			(property "Description" "Seeed XIAO ESP32-S3 with the Wio-SX1262 LoRa board (kit). Pins 1-14: XIAO header (D8-D10 and the B2B connector belong to the radio). 15/16: BAT pads on the underside, wired to pads."
 				(at 0 0 0)
 				(hide yes)
 				(effects
@@ -2676,7 +2892,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "rocket-fc:XIAO_ESP32S3_Wio-SX1262_THT"
 			(at 76.2 63.5 0)
 			(hide yes)
 			(effects
@@ -3534,7 +3750,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "Capacitor_THT:CP_Radial_D10.0mm_P5.00mm"
+		(property "Footprint" "rocket-fc:CP_Radial_D10.0mm_L20.0mm_P5.00mm_Horizontal"
 			(at 210.82 48.26 0)
 			(hide yes)
 			(effects
@@ -3698,7 +3914,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "Resistor_SMD:R_1206_3216Metric"
+		(property "Footprint" "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P2.54mm_Vertical"
 			(at 231.14 44.45 0)
 			(hide yes)
 			(effects
@@ -3787,7 +4003,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "Resistor_SMD:R_1206_3216Metric"
+		(property "Footprint" "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P2.54mm_Vertical"
 			(at 231.14 52.07 0)
 			(hide yes)
 			(effects
@@ -3957,7 +4173,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "Capacitor_SMD:C_1206_3216Metric"
+		(property "Footprint" "Capacitor_THT:C_Disc_D3.0mm_W1.6mm_P2.50mm"
 			(at 254 52.07 0)
 			(hide yes)
 			(effects
@@ -5003,7 +5219,7 @@
 				)
 			)
 		)
-		(property "Footprint" "Resistor_SMD:R_1206_3216Metric"
+		(property "Footprint" "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P2.54mm_Vertical"
 			(at 53.34 185.42 0)
 			(hide yes)
 			(effects
@@ -5112,7 +5328,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "Resistor_SMD:R_1206_3216Metric"
+		(property "Footprint" "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P2.54mm_Vertical"
 			(at 69.85 194.31 0)
 			(hide yes)
 			(effects
@@ -5276,7 +5492,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "Resistor_SMD:R_1206_3216Metric"
+		(property "Footprint" "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P2.54mm_Vertical"
 			(at 127 175.26 0)
 			(hide yes)
 			(effects
@@ -5365,7 +5581,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "Resistor_SMD:R_1206_3216Metric"
+		(property "Footprint" "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P2.54mm_Vertical"
 			(at 127 182.88 0)
 			(hide yes)
 			(effects
@@ -5535,7 +5751,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "Capacitor_SMD:C_1206_3216Metric"
+		(property "Footprint" "Capacitor_THT:C_Disc_D3.0mm_W1.6mm_P2.50mm"
 			(at 152.4 182.88 0)
 			(hide yes)
 			(effects
@@ -5717,8 +5933,8 @@
 		(uuid "c0050eaf-7066-5db8-a0f0-83b962f6693f")
 	)
 	(symbol
-		(lib_id "rocket-fc:MPU-9250_Breakout")
-		(at 233.68 157.48 0)
+		(lib_id "rocket-fc:SparkFun_MPU-9250_Breakout")
+		(at 233.68 154.94 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -5726,7 +5942,7 @@
 		(dnp no)
 		(uuid "46812a3a-5e10-52b5-9634-9e0b75496abd")
 		(property "Reference" "U2"
-			(at 243.84 146.05 0)
+			(at 243.84 137.16 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5734,8 +5950,8 @@
 				(justify left)
 			)
 		)
-		(property "Value" "MPU-9250"
-			(at 243.84 148.59 0)
+		(property "Value" "MPU-9250 SparkFun"
+			(at 243.84 139.7 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5743,8 +5959,8 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" ""
-			(at 233.68 157.48 0)
+		(property "Footprint" "rocket-fc:SparkFun_MPU-9250_Breakout_v10"
+			(at 233.68 154.94 0)
 			(hide yes)
 			(effects
 				(font
@@ -5753,7 +5969,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 233.68 157.48 0)
+			(at 233.68 154.94 0)
 			(hide yes)
 			(effects
 				(font
@@ -5762,7 +5978,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 233.68 157.48 0)
+			(at 233.68 154.94 0)
 			(hide yes)
 			(effects
 				(font
@@ -5770,29 +5986,38 @@
 				)
 			)
 		)
-		(pin "3"
+		(pin "2"
 			(uuid "8857bfc1-d61d-50b1-a364-191f12899961")
 		)
-		(pin "4"
+		(pin "1"
 			(uuid "45d5570e-47e4-5ee6-961e-e723a2047023")
 		)
 		(pin "5"
 			(uuid "f17bbf4e-e549-5b10-bdba-4e7208018c8e")
 		)
-		(pin "7"
+		(pin "6"
 			(uuid "37e9f88d-1c5b-53dd-9abf-3a37db5a784c")
 		)
-		(pin "6"
+		(pin "7"
 			(uuid "c7320ef5-e928-5668-a729-e0def6fe0f9d")
 		)
 		(pin "8"
 			(uuid "e5c56002-297f-51c5-8ecc-a467249c46ab")
 		)
-		(pin "1"
+		(pin "10"
 			(uuid "d43a0ca5-fbc1-5b00-975b-74cba30e0605")
 		)
-		(pin "2"
+		(pin "9"
 			(uuid "c5f36568-43f4-5745-80ef-15eb516e4598")
+		)
+		(pin "11"
+			(uuid "7f39d9bd-864f-574c-8573-9186bf141d2d")
+		)
+		(pin "3"
+			(uuid "5bc6046c-f4b9-5b42-8ff6-5f7a86296d3f")
+		)
+		(pin "4"
+			(uuid "80e6fb57-7552-55b3-9298-d59e33c9fdc2")
 		)
 		(instances
 			(project "rocket-fc-flight"
@@ -5805,25 +6030,25 @@
 	)
 	(wire
 		(pts
-			(xy 241.3 147.32) (xy 241.3 144.78)
+			(xy 241.3 139.7) (xy 241.3 137.16)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
-		(uuid "7f39d9bd-864f-574c-8573-9186bf141d2d")
+		(uuid "10b8af3f-48df-5193-bf5a-14a25808ab2d")
 	)
 	(symbol
 		(lib_id "power:+3V3")
-		(at 241.3 144.78 0)
+		(at 241.3 137.16 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom no)
 		(on_board no)
 		(dnp no)
-		(uuid "5bc6046c-f4b9-5b42-8ff6-5f7a86296d3f")
+		(uuid "7b678883-ef18-56c1-badb-53e948728e62")
 		(property "Reference" "#PWR16"
-			(at 241.3 144.78 0)
+			(at 241.3 137.16 0)
 			(hide yes)
 			(effects
 				(font
@@ -5832,7 +6057,7 @@
 			)
 		)
 		(property "Value" "+3V3"
-			(at 241.3 140.97 0)
+			(at 241.3 133.35 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5840,7 +6065,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 241.3 144.78 0)
+			(at 241.3 137.16 0)
 			(hide yes)
 			(effects
 				(font
@@ -5849,7 +6074,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 241.3 144.78 0)
+			(at 241.3 137.16 0)
 			(hide yes)
 			(effects
 				(font
@@ -5858,7 +6083,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 241.3 144.78 0)
+			(at 241.3 137.16 0)
 			(hide yes)
 			(effects
 				(font
@@ -5867,7 +6092,7 @@
 			)
 		)
 		(pin "1"
-			(uuid "80e6fb57-7552-55b3-9298-d59e33c9fdc2")
+			(uuid "013ac1b2-417e-5dd6-9d43-d0ece909eb35")
 		)
 		(instances
 			(project "rocket-fc-flight"
@@ -5886,7 +6111,7 @@
 			(width 0)
 			(type default)
 		)
-		(uuid "10b8af3f-48df-5193-bf5a-14a25808ab2d")
+		(uuid "bfbda470-cb1b-565b-bbb5-25bb7c5cd325")
 	)
 	(symbol
 		(lib_id "power:GND")
@@ -5896,7 +6121,7 @@
 		(in_bom no)
 		(on_board no)
 		(dnp no)
-		(uuid "7b678883-ef18-56c1-badb-53e948728e62")
+		(uuid "095be22c-7772-5cab-b08d-f0c171e4184d")
 		(property "Reference" "#PWR17"
 			(at 241.3 172.72 0)
 			(hide yes)
@@ -5942,7 +6167,7 @@
 			)
 		)
 		(pin "1"
-			(uuid "013ac1b2-417e-5dd6-9d43-d0ece909eb35")
+			(uuid "e8060883-95eb-5e66-b072-e91879428799")
 		)
 		(instances
 			(project "rocket-fc-flight"
@@ -5955,73 +6180,65 @@
 	)
 	(wire
 		(pts
-			(xy 226.06 152.4) (xy 223.52 152.4)
+			(xy 226.06 144.78) (xy 223.52 144.78)
 		)
 		(stroke
 			(width 0)
 			(type default)
-		)
-		(uuid "bfbda470-cb1b-565b-bbb5-25bb7c5cd325")
-	)
-	(label "SDA"
-		(at 223.52 152.4 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right bottom)
-		)
-		(uuid "095be22c-7772-5cab-b08d-f0c171e4184d")
-	)
-	(wire
-		(pts
-			(xy 226.06 154.94) (xy 223.52 154.94)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "e8060883-95eb-5e66-b072-e91879428799")
-	)
-	(label "SCL"
-		(at 223.52 154.94 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right bottom)
 		)
 		(uuid "9d1aa8fc-1a99-5e21-a111-d805a7e7c002")
 	)
-	(no_connect
-		(at 226.06 157.48)
+	(label "SDA"
+		(at 223.52 144.78 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
 		(uuid "aa01e965-3c73-5252-8ade-f7057f3dcf25")
-	)
-	(no_connect
-		(at 226.06 162.56)
-		(uuid "5b37adb5-2008-5cfc-909a-87c9c21f06b8")
 	)
 	(wire
 		(pts
-			(xy 226.06 160.02) (xy 223.52 160.02)
+			(xy 226.06 147.32) (xy 223.52 147.32)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
+		(uuid "5b37adb5-2008-5cfc-909a-87c9c21f06b8")
+	)
+	(label "SCL"
+		(at 223.52 147.32 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
 		(uuid "8deb623b-df89-56c1-999d-5c48ef0efdf4")
+	)
+	(wire
+		(pts
+			(xy 226.06 149.86) (xy 223.52 149.86)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "f3bb59bb-c2e7-5caa-9878-7071fbf04b77")
 	)
 	(symbol
 		(lib_id "power:+3V3")
-		(at 223.52 160.02 90)
+		(at 223.52 149.86 90)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom no)
 		(on_board no)
 		(dnp no)
-		(uuid "f3bb59bb-c2e7-5caa-9878-7071fbf04b77")
+		(uuid "b66ce3a5-107f-5b6b-8d46-c4736cc2b4b0")
 		(property "Reference" "#PWR18"
-			(at 223.52 160.02 90)
+			(at 223.52 149.86 90)
 			(hide yes)
 			(effects
 				(font
@@ -6030,7 +6247,7 @@
 			)
 		)
 		(property "Value" "+3V3"
-			(at 219.71 160.02 90)
+			(at 219.71 149.86 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6038,7 +6255,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 223.52 160.02 0)
+			(at 223.52 149.86 0)
 			(hide yes)
 			(effects
 				(font
@@ -6047,7 +6264,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 223.52 160.02 0)
+			(at 223.52 149.86 0)
 			(hide yes)
 			(effects
 				(font
@@ -6056,7 +6273,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 223.52 160.02 0)
+			(at 223.52 149.86 0)
 			(hide yes)
 			(effects
 				(font
@@ -6065,7 +6282,7 @@
 			)
 		)
 		(pin "1"
-			(uuid "b66ce3a5-107f-5b6b-8d46-c4736cc2b4b0")
+			(uuid "6dc8fe61-03e1-5e4b-b1a4-19d25c8a42da")
 		)
 		(instances
 			(project "rocket-fc-flight"
@@ -6076,27 +6293,31 @@
 			)
 		)
 	)
+	(no_connect
+		(at 226.06 152.4)
+		(uuid "ae1cb656-1990-54c8-a724-57c10420cb88")
+	)
 	(wire
 		(pts
-			(xy 226.06 165.1) (xy 223.52 165.1)
+			(xy 226.06 154.94) (xy 223.52 154.94)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
-		(uuid "6dc8fe61-03e1-5e4b-b1a4-19d25c8a42da")
+		(uuid "09654a5c-924b-5bcf-aaab-9607eac76c1a")
 	)
 	(symbol
-		(lib_id "power:GND")
-		(at 223.52 165.1 270)
+		(lib_id "power:+3V3")
+		(at 223.52 154.94 90)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom no)
 		(on_board no)
 		(dnp no)
-		(uuid "ae1cb656-1990-54c8-a724-57c10420cb88")
+		(uuid "a9245707-ede8-513d-ad1a-05aee6fcfd70")
 		(property "Reference" "#PWR19"
-			(at 223.52 165.1 270)
+			(at 223.52 154.94 90)
 			(hide yes)
 			(effects
 				(font
@@ -6104,8 +6325,8 @@
 				)
 			)
 		)
-		(property "Value" "GND"
-			(at 218.44 165.1 270)
+		(property "Value" "+3V3"
+			(at 219.71 154.94 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6113,7 +6334,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 223.52 165.1 0)
+			(at 223.52 154.94 0)
 			(hide yes)
 			(effects
 				(font
@@ -6122,7 +6343,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 223.52 165.1 0)
+			(at 223.52 154.94 0)
 			(hide yes)
 			(effects
 				(font
@@ -6131,7 +6352,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 223.52 165.1 0)
+			(at 223.52 154.94 0)
 			(hide yes)
 			(effects
 				(font
@@ -6140,7 +6361,7 @@
 			)
 		)
 		(pin "1"
-			(uuid "09654a5c-924b-5bcf-aaab-9607eac76c1a")
+			(uuid "6a98c8c0-f8bb-596c-b136-8ea08f90e91b")
 		)
 		(instances
 			(project "rocket-fc-flight"
@@ -6151,15 +6372,102 @@
 			)
 		)
 	)
+	(no_connect
+		(at 226.06 157.48)
+		(uuid "060e622b-6302-56fe-8e96-66f95b14be75")
+	)
+	(wire
+		(pts
+			(xy 226.06 160.02) (xy 223.52 160.02)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "cfd9f536-b02d-5c87-a51a-3fc516c06b17")
+	)
 	(symbol
-		(lib_id "rocket-fc:GY-BMP280-5V")
+		(lib_id "power:GND")
+		(at 223.52 160.02 270)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board no)
+		(dnp no)
+		(uuid "419033a7-3b1c-5db6-8aba-652ec17c5ead")
+		(property "Reference" "#PWR20"
+			(at 223.52 160.02 270)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "GND"
+			(at 218.44 160.02 270)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 223.52 160.02 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 223.52 160.02 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 223.52 160.02 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "6bbadb48-cea4-5a0a-ab66-c7242f637bb3")
+		)
+		(instances
+			(project "rocket-fc-flight"
+				(path "/7aaf2683-f922-50eb-996b-c87fdd60c861"
+					(reference "#PWR20")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(no_connect
+		(at 226.06 162.56)
+		(uuid "def57d8a-5ec4-5021-81d9-4d4622829dab")
+	)
+	(no_connect
+		(at 226.06 165.1)
+		(uuid "e86f01ca-aa8f-5aa1-8bcf-b36f949f7547")
+	)
+	(symbol
+		(lib_id "rocket-fc:GY-BMP280_6pin")
 		(at 274.32 157.48 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
-		(uuid "a9245707-ede8-513d-ad1a-05aee6fcfd70")
+		(uuid "3a788307-433d-5643-9fd9-3c011add9fcd")
 		(property "Reference" "U3"
 			(at 274.32 146.05 0)
 			(effects
@@ -6169,7 +6477,7 @@
 				(justify right)
 			)
 		)
-		(property "Value" "GY-BMP280-5V"
+		(property "Value" "GYBMEP (BMP280)"
 			(at 274.32 148.59 0)
 			(effects
 				(font
@@ -6178,7 +6486,7 @@
 				(justify right)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "rocket-fc:GY-BMP280_6pin_P2.54mm"
 			(at 274.32 157.48 0)
 			(hide yes)
 			(effects
@@ -6205,17 +6513,23 @@
 				)
 			)
 		)
+		(pin "5"
+			(uuid "090735e3-724a-5c75-b181-0f3764df7a01")
+		)
 		(pin "3"
-			(uuid "6a98c8c0-f8bb-596c-b136-8ea08f90e91b")
+			(uuid "9cf51b9a-3149-52a7-8708-726892a16ec6")
 		)
 		(pin "4"
-			(uuid "060e622b-6302-56fe-8e96-66f95b14be75")
+			(uuid "8fdac5a4-0d02-5c2d-9b8b-12858856597c")
+		)
+		(pin "6"
+			(uuid "2c4fec9c-14c3-59ef-8e9c-bcec6b6a96ae")
 		)
 		(pin "1"
-			(uuid "cfd9f536-b02d-5c87-a51a-3fc516c06b17")
+			(uuid "a3e84881-9e2b-5dc8-9ef8-8106996b0e94")
 		)
 		(pin "2"
-			(uuid "419033a7-3b1c-5db6-8aba-652ec17c5ead")
+			(uuid "dc369a92-4820-51b0-bacd-452dc903fd56")
 		)
 		(instances
 			(project "rocket-fc-flight"
@@ -6228,25 +6542,25 @@
 	)
 	(wire
 		(pts
-			(xy 279.4 149.86) (xy 279.4 147.32)
+			(xy 279.4 147.32) (xy 279.4 144.78)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
-		(uuid "6bbadb48-cea4-5a0a-ab66-c7242f637bb3")
+		(uuid "8c34e229-9b5f-5811-850a-2b68b6b9d0da")
 	)
 	(symbol
 		(lib_id "power:+3V3")
-		(at 279.4 147.32 0)
+		(at 279.4 144.78 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom no)
 		(on_board no)
 		(dnp no)
-		(uuid "def57d8a-5ec4-5021-81d9-4d4622829dab")
-		(property "Reference" "#PWR20"
-			(at 279.4 147.32 0)
+		(uuid "e2fdb24c-d3f7-5290-af43-4c703ca1fb35")
+		(property "Reference" "#PWR21"
+			(at 279.4 144.78 0)
 			(hide yes)
 			(effects
 				(font
@@ -6255,7 +6569,7 @@
 			)
 		)
 		(property "Value" "+3V3"
-			(at 279.4 143.51 0)
+			(at 279.4 140.97 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6263,7 +6577,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 279.4 147.32 0)
+			(at 279.4 144.78 0)
 			(hide yes)
 			(effects
 				(font
@@ -6272,7 +6586,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 279.4 147.32 0)
+			(at 279.4 144.78 0)
 			(hide yes)
 			(effects
 				(font
@@ -6281,7 +6595,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 279.4 147.32 0)
+			(at 279.4 144.78 0)
 			(hide yes)
 			(effects
 				(font
@@ -6290,12 +6604,12 @@
 			)
 		)
 		(pin "1"
-			(uuid "e86f01ca-aa8f-5aa1-8bcf-b36f949f7547")
+			(uuid "bf4c5b3e-cb02-5bdb-939f-28d0ebd885de")
 		)
 		(instances
 			(project "rocket-fc-flight"
 				(path "/7aaf2683-f922-50eb-996b-c87fdd60c861"
-					(reference "#PWR20")
+					(reference "#PWR21")
 					(unit 1)
 				)
 			)
@@ -6309,7 +6623,7 @@
 			(width 0)
 			(type default)
 		)
-		(uuid "3a788307-433d-5643-9fd9-3c011add9fcd")
+		(uuid "18b972c3-69d4-51ef-afa7-152530c7660c")
 	)
 	(symbol
 		(lib_id "power:GND")
@@ -6319,8 +6633,8 @@
 		(in_bom no)
 		(on_board no)
 		(dnp no)
-		(uuid "090735e3-724a-5c75-b181-0f3764df7a01")
-		(property "Reference" "#PWR21"
+		(uuid "ae65621e-5056-565f-93d1-714f662ae7ff")
+		(property "Reference" "#PWR22"
 			(at 279.4 170.18 0)
 			(hide yes)
 			(effects
@@ -6365,12 +6679,12 @@
 			)
 		)
 		(pin "1"
-			(uuid "9cf51b9a-3149-52a7-8708-726892a16ec6")
+			(uuid "f9b83a1c-abad-5c74-8022-6dd07e3bc5c5")
 		)
 		(instances
 			(project "rocket-fc-flight"
 				(path "/7aaf2683-f922-50eb-996b-c87fdd60c861"
-					(reference "#PWR21")
+					(reference "#PWR22")
 					(unit 1)
 				)
 			)
@@ -6378,23 +6692,78 @@
 	)
 	(wire
 		(pts
-			(xy 266.7 154.94) (xy 264.16 154.94)
+			(xy 266.7 152.4) (xy 264.16 152.4)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
-		(uuid "8fdac5a4-0d02-5c2d-9b8b-12858856597c")
+		(uuid "cbaafa67-7448-56fb-bc49-2044a73cc8b4")
 	)
-	(label "SCL"
-		(at 264.16 154.94 180)
-		(effects
-			(font
-				(size 1.27 1.27)
+	(symbol
+		(lib_id "power:+3V3")
+		(at 264.16 152.4 90)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board no)
+		(dnp no)
+		(uuid "e093084f-a1bf-5835-b59d-616abec6db39")
+		(property "Reference" "#PWR23"
+			(at 264.16 152.4 90)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
 			)
-			(justify right bottom)
 		)
-		(uuid "2c4fec9c-14c3-59ef-8e9c-bcec6b6a96ae")
+		(property "Value" "+3V3"
+			(at 260.35 152.4 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 264.16 152.4 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 264.16 152.4 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 264.16 152.4 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "6473e9d2-82e0-58fd-b3d9-cef549c2a76d")
+		)
+		(instances
+			(project "rocket-fc-flight"
+				(path "/7aaf2683-f922-50eb-996b-c87fdd60c861"
+					(reference "#PWR23")
+					(unit 1)
+				)
+			)
+		)
 	)
 	(wire
 		(pts
@@ -6404,9 +6773,9 @@
 			(width 0)
 			(type default)
 		)
-		(uuid "a3e84881-9e2b-5dc8-9ef8-8106996b0e94")
+		(uuid "23ffacde-61d7-54ac-b8c4-964ac575fcf6")
 	)
-	(label "SDA"
+	(label "SCL"
 		(at 264.16 157.48 180)
 		(effects
 			(font
@@ -6414,18 +6783,113 @@
 			)
 			(justify right bottom)
 		)
-		(uuid "dc369a92-4820-51b0-bacd-452dc903fd56")
+		(uuid "6ffe34a4-7035-5928-90aa-e92f3e331065")
 	)
-	(text "MPU-9250: AD0 open (address 0x68), INT unused, CS high (I2C), FSYNC low.\nOne IMU axis along the rocket axis (any sign: \"Set upright\").\nBMP280 board on 3V3, never 5V (its pull-ups go to VCC).\nBarometer: vented bay, foam, away from the ejection gases."
+	(wire
+		(pts
+			(xy 266.7 160.02) (xy 264.16 160.02)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "d4ffaafc-220a-55ae-a1f6-6bd2f92dd623")
+	)
+	(label "SDA"
+		(at 264.16 160.02 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "d1941220-e32d-571b-ad38-891c11ed7512")
+	)
+	(wire
+		(pts
+			(xy 266.7 162.56) (xy 264.16 162.56)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "a88088ce-7605-5139-b62b-648ee9a6e497")
+	)
+	(symbol
+		(lib_id "power:GND")
+		(at 264.16 162.56 270)
+		(unit 1)
 		(exclude_from_sim no)
-		(at 203.2 180.34 0)
+		(in_bom no)
+		(on_board no)
+		(dnp no)
+		(uuid "06eb86ff-a2f5-5b83-8dc8-1e7c0adcb6b0")
+		(property "Reference" "#PWR24"
+			(at 264.16 162.56 270)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "GND"
+			(at 259.08 162.56 270)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 264.16 162.56 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 264.16 162.56 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 264.16 162.56 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "43564821-5564-5942-9888-2fdc1b3e32fa")
+		)
+		(instances
+			(project "rocket-fc-flight"
+				(path "/7aaf2683-f922-50eb-996b-c87fdd60c861"
+					(reference "#PWR24")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(text "MPU-9250: AD0 open (0x68 via SJ2), INT unused, nCS and VDDIO high (I2C), FSYNC low.\nOne IMU axis along the rocket axis (any sign: \"Set upright\").\nBMP280 (6-pin, 3.3 V): CSB high = I2C, SDO low = address 0x76.\nBarometer: vented bay, foam, away from the ejection gases."
+		(exclude_from_sim no)
+		(at 203.2 184.15 0)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
 			(justify left top)
 		)
-		(uuid "8c34e229-9b5f-5811-850a-2b68b6b9d0da")
+		(uuid "b9868a2d-d398-50b3-be4c-e09cd20163b6")
 	)
 	(rectangle
 		(start 312.42 124.46)
@@ -6437,7 +6901,7 @@
 		(fill
 			(type none)
 		)
-		(uuid "e2fdb24c-d3f7-5290-af43-4c703ca1fb35")
+		(uuid "25bddda4-cd69-59e0-aef1-307aad1330ab")
 	)
 	(text "GPS (optional): Seeed L76K"
 		(exclude_from_sim no)
@@ -6449,19 +6913,19 @@
 			)
 			(justify left top)
 		)
-		(uuid "bf4c5b3e-cb02-5bdb-939f-28d0ebd885de")
+		(uuid "216cf084-999c-55ec-be87-eb7c00cc4731")
 	)
 	(symbol
-		(lib_id "rocket-fc:L76K_GNSS")
+		(lib_id "rocket-fc:L76K_GNSS_XIAO")
 		(at 360.68 157.48 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
-		(uuid "18b972c3-69d4-51ef-afa7-152530c7660c")
+		(uuid "7ef7da28-1345-542e-8c0c-be5edbcd32dc")
 		(property "Reference" "U4"
-			(at 370.84 146.05 0)
+			(at 365.76 139.7 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6469,8 +6933,8 @@
 				(justify left)
 			)
 		)
-		(property "Value" "L76K"
-			(at 370.84 148.59 0)
+		(property "Value" "L76K GNSS for XIAO"
+			(at 365.76 142.24 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6478,7 +6942,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "rocket-fc:L76K_GNSS_XIAO_THT"
 			(at 360.68 157.48 0)
 			(hide yes)
 			(effects
@@ -6514,26 +6978,47 @@
 				)
 			)
 		)
-		(pin "4"
-			(uuid "ae65621e-5056-565f-93d1-714f662ae7ff")
-		)
-		(pin "5"
-			(uuid "f9b83a1c-abad-5c74-8022-6dd07e3bc5c5")
-		)
-		(pin "6"
-			(uuid "cbaafa67-7448-56fb-bc49-2044a73cc8b4")
-		)
-		(pin "7"
-			(uuid "e093084f-a1bf-5835-b59d-616abec6db39")
-		)
-		(pin "3"
-			(uuid "6473e9d2-82e0-58fd-b3d9-cef549c2a76d")
-		)
 		(pin "1"
-			(uuid "23ffacde-61d7-54ac-b8c4-964ac575fcf6")
+			(uuid "9e446792-b645-50fa-928d-ebcf44a030b8")
 		)
 		(pin "2"
-			(uuid "6ffe34a4-7035-5928-90aa-e92f3e331065")
+			(uuid "a76b11a1-243c-54f9-9de3-236a67a3e17a")
+		)
+		(pin "3"
+			(uuid "186150aa-e7d6-5daa-b002-9faeace8ff51")
+		)
+		(pin "4"
+			(uuid "9e4242e7-0875-5767-a6dd-ef1ad486a326")
+		)
+		(pin "5"
+			(uuid "c0783752-62cb-519a-8e94-08bcc88b4258")
+		)
+		(pin "6"
+			(uuid "f540e37d-d1a4-5f2d-bc9a-96855a5497a4")
+		)
+		(pin "7"
+			(uuid "9e2ca5a2-9d08-5b3e-8daa-90b1605eeb4b")
+		)
+		(pin "8"
+			(uuid "a079b244-f980-506d-84e5-633fbc268313")
+		)
+		(pin "9"
+			(uuid "e668bbe3-872d-515f-8d3b-b50610ee1d9c")
+		)
+		(pin "10"
+			(uuid "146ff42e-0b5b-5f56-b8b5-6869dd8ef475")
+		)
+		(pin "11"
+			(uuid "398e49a5-a7a9-54f0-a5ce-0cb18ec0ee94")
+		)
+		(pin "12"
+			(uuid "af14b396-5af8-5c47-94d4-4deed8228c33")
+		)
+		(pin "14"
+			(uuid "bfc693ad-4605-5680-89c3-ac5ffa6fd5ef")
+		)
+		(pin "13"
+			(uuid "960a28b2-2240-5945-9268-8b0dc7b87651")
 		)
 		(instances
 			(project "rocket-fc-flight"
@@ -6546,25 +7031,25 @@
 	)
 	(wire
 		(pts
-			(xy 368.3 147.32) (xy 368.3 144.78)
+			(xy 345.44 149.86) (xy 342.9 149.86)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
-		(uuid "d4ffaafc-220a-55ae-a1f6-6bd2f92dd623")
+		(uuid "951c0dab-8647-5257-8e70-0c79c3b15fe5")
 	)
 	(symbol
 		(lib_id "power:+3V3")
-		(at 368.3 144.78 0)
+		(at 342.9 149.86 90)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom no)
 		(on_board no)
 		(dnp no)
-		(uuid "d1941220-e32d-571b-ad38-891c11ed7512")
-		(property "Reference" "#PWR22"
-			(at 368.3 144.78 0)
+		(uuid "40702d8f-d65f-5933-bb07-decc41bdefbb")
+		(property "Reference" "#PWR25"
+			(at 342.9 149.86 90)
 			(hide yes)
 			(effects
 				(font
@@ -6573,7 +7058,7 @@
 			)
 		)
 		(property "Value" "+3V3"
-			(at 368.3 140.97 0)
+			(at 339.09 149.86 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6581,7 +7066,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 368.3 144.78 0)
+			(at 342.9 149.86 0)
 			(hide yes)
 			(effects
 				(font
@@ -6590,7 +7075,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 368.3 144.78 0)
+			(at 342.9 149.86 0)
 			(hide yes)
 			(effects
 				(font
@@ -6599,7 +7084,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 368.3 144.78 0)
+			(at 342.9 149.86 0)
 			(hide yes)
 			(effects
 				(font
@@ -6608,12 +7093,107 @@
 			)
 		)
 		(pin "1"
-			(uuid "a88088ce-7605-5139-b62b-648ee9a6e497")
+			(uuid "79864dad-8763-55d3-ba11-1ad74f1906c8")
 		)
 		(instances
 			(project "rocket-fc-flight"
 				(path "/7aaf2683-f922-50eb-996b-c87fdd60c861"
-					(reference "#PWR22")
+					(reference "#PWR25")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(no_connect
+		(at 345.44 152.4)
+		(uuid "a7a571b6-80f8-5164-a9cc-0918f246a8ab")
+	)
+	(no_connect
+		(at 345.44 154.94)
+		(uuid "009e4c75-7845-58d4-85e0-0da1baaf05c8")
+	)
+	(no_connect
+		(at 345.44 157.48)
+		(uuid "ecf77fc6-ef8b-5214-b5ad-3511ef00e978")
+	)
+	(no_connect
+		(at 345.44 160.02)
+		(uuid "7986c06a-3d27-5574-9274-a1ffcbde5694")
+	)
+	(no_connect
+		(at 345.44 162.56)
+		(uuid "95e8e1e8-7d5b-5e0a-b1cb-7c571b0f2529")
+	)
+	(wire
+		(pts
+			(xy 345.44 165.1) (xy 342.9 165.1)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "a842eabc-df1f-5773-bf1f-98f8c26e0690")
+	)
+	(symbol
+		(lib_id "power:+3V3")
+		(at 342.9 165.1 90)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board no)
+		(dnp no)
+		(uuid "099ee4b9-99d6-544e-a74d-52eabe773fc3")
+		(property "Reference" "#PWR26"
+			(at 342.9 165.1 90)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "+3V3"
+			(at 339.09 165.1 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 342.9 165.1 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 342.9 165.1 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 342.9 165.1 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "7a6cda40-69d0-52fd-a812-b9199e280089")
+		)
+		(instances
+			(project "rocket-fc-flight"
+				(path "/7aaf2683-f922-50eb-996b-c87fdd60c861"
+					(reference "#PWR26")
 					(unit 1)
 				)
 			)
@@ -6621,25 +7201,207 @@
 	)
 	(wire
 		(pts
-			(xy 368.3 167.64) (xy 368.3 170.18)
+			(xy 375.92 149.86) (xy 381 149.86)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
-		(uuid "06eb86ff-a2f5-5b83-8dc8-1e7c0adcb6b0")
+		(uuid "18ac5380-0ec9-5520-9950-0ba6df27c06d")
+	)
+	(label "GPS_TX"
+		(at 381 149.86 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "8247cc35-b56d-5eb1-8e88-8054b819ee52")
+	)
+	(no_connect
+		(at 375.92 152.4)
+		(uuid "d2b527c9-4eb5-531f-a88e-4607fa8c73b6")
+	)
+	(no_connect
+		(at 375.92 154.94)
+		(uuid "e8ecdd73-23d9-5f8c-862c-1efdbab5c196")
+	)
+	(wire
+		(pts
+			(xy 375.92 157.48) (xy 378.46 157.48)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "8db554fb-fdd2-5c54-832b-093cf16d4177")
 	)
 	(symbol
-		(lib_id "power:GND")
-		(at 368.3 170.18 0)
+		(lib_id "power:+3V3")
+		(at 378.46 157.48 270)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom no)
 		(on_board no)
 		(dnp no)
-		(uuid "43564821-5564-5942-9888-2fdc1b3e32fa")
-		(property "Reference" "#PWR23"
-			(at 368.3 170.18 0)
+		(uuid "1773270f-dac4-5aec-8f68-6d41b2c930eb")
+		(property "Reference" "#PWR27"
+			(at 378.46 157.48 270)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "+3V3"
+			(at 382.27 157.48 270)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 378.46 157.48 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 378.46 157.48 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 378.46 157.48 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "106e1cac-be23-5505-91f9-7052cdf0d55f")
+		)
+		(instances
+			(project "rocket-fc-flight"
+				(path "/7aaf2683-f922-50eb-996b-c87fdd60c861"
+					(reference "#PWR27")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(wire
+		(pts
+			(xy 358.14 144.78) (xy 358.14 142.24)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "e52ee895-5e94-585e-9969-d227fa39609e")
+	)
+	(symbol
+		(lib_id "power:+3V3")
+		(at 358.14 142.24 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board no)
+		(dnp no)
+		(uuid "8c585d32-aec8-5f35-8d06-d7bccd6be38b")
+		(property "Reference" "#PWR28"
+			(at 358.14 142.24 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "+3V3"
+			(at 358.14 138.43 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 358.14 142.24 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 358.14 142.24 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 358.14 142.24 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "2e903f18-72bc-5b91-8610-7360c163ba0d")
+		)
+		(instances
+			(project "rocket-fc-flight"
+				(path "/7aaf2683-f922-50eb-996b-c87fdd60c861"
+					(reference "#PWR28")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(no_connect
+		(at 363.22 144.78)
+		(uuid "d3e83bd2-4854-5a34-89b2-600931af8f08")
+	)
+	(wire
+		(pts
+			(xy 360.68 170.18) (xy 360.68 172.72)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "954d46ce-e10e-5278-8cfe-b3c3c9848d10")
+	)
+	(symbol
+		(lib_id "power:GND")
+		(at 360.68 172.72 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board no)
+		(dnp no)
+		(uuid "e5397054-bb93-578a-8504-b9cc71ae2e8d")
+		(property "Reference" "#PWR29"
+			(at 360.68 172.72 0)
 			(hide yes)
 			(effects
 				(font
@@ -6648,7 +7410,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 368.3 176.53 0)
+			(at 360.68 179.07 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6656,7 +7418,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 368.3 170.18 0)
+			(at 360.68 172.72 0)
 			(hide yes)
 			(effects
 				(font
@@ -6665,7 +7427,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 368.3 170.18 0)
+			(at 360.68 172.72 0)
 			(hide yes)
 			(effects
 				(font
@@ -6674,7 +7436,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 368.3 170.18 0)
+			(at 360.68 172.72 0)
 			(hide yes)
 			(effects
 				(font
@@ -6683,162 +7445,27 @@
 			)
 		)
 		(pin "1"
-			(uuid "b9868a2d-d398-50b3-be4c-e09cd20163b6")
+			(uuid "a7b6f3e6-bd27-58d5-a9e5-fcf8f2690b8a")
 		)
 		(instances
 			(project "rocket-fc-flight"
 				(path "/7aaf2683-f922-50eb-996b-c87fdd60c861"
-					(reference "#PWR23")
+					(reference "#PWR29")
 					(unit 1)
 				)
 			)
 		)
 	)
-	(wire
-		(pts
-			(xy 353.06 162.56) (xy 350.52 162.56)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "25bddda4-cd69-59e0-aef1-307aad1330ab")
-	)
-	(label "GPS_TX"
-		(at 350.52 162.56 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right bottom)
-		)
-		(uuid "216cf084-999c-55ec-be87-eb7c00cc4731")
-	)
-	(no_connect
-		(at 353.06 160.02)
-		(uuid "7ef7da28-1345-542e-8c0c-be5edbcd32dc")
-	)
-	(wire
-		(pts
-			(xy 353.06 152.4) (xy 350.52 152.4)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "9e446792-b645-50fa-928d-ebcf44a030b8")
-	)
-	(wire
-		(pts
-			(xy 353.06 154.94) (xy 350.52 154.94)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "a76b11a1-243c-54f9-9de3-236a67a3e17a")
-	)
-	(wire
-		(pts
-			(xy 353.06 157.48) (xy 350.52 157.48)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "186150aa-e7d6-5daa-b002-9faeace8ff51")
-	)
-	(wire
-		(pts
-			(xy 350.52 152.4) (xy 350.52 157.48)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "9e4242e7-0875-5767-a6dd-ef1ad486a326")
-	)
-	(junction
-		(at 350.52 154.94)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "c0783752-62cb-519a-8e94-08bcc88b4258")
-	)
-	(symbol
-		(lib_id "power:+3V3")
-		(at 350.52 152.4 0)
-		(unit 1)
+	(text "Pinout: Seeed schematic V1.0. XIAO positions:\nD0 WAKE_UP, D6 RXD, D7 TXD, D10 RESET.\nWAKE_UP and RESET: pulled up on the module, tied high here too.\nRXD unused (idle high). TXD at 9600 baud into D7.\nCeramic patch antenna on U.FL, facing the nose. About 41 mA."
 		(exclude_from_sim no)
-		(in_bom no)
-		(on_board no)
-		(dnp no)
-		(uuid "f540e37d-d1a4-5f2d-bc9a-96855a5497a4")
-		(property "Reference" "#PWR24"
-			(at 350.52 152.4 0)
-			(hide yes)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "+3V3"
-			(at 350.52 148.59 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 350.52 152.4 0)
-			(hide yes)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 350.52 152.4 0)
-			(hide yes)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" ""
-			(at 350.52 152.4 0)
-			(hide yes)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "9e2ca5a2-9d08-5b3e-8daa-90b1605eeb4b")
-		)
-		(instances
-			(project "rocket-fc-flight"
-				(path "/7aaf2683-f922-50eb-996b-c87fdd60c861"
-					(reference "#PWR24")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(text "RX and the two control pins (its D0 / D2 positions) held high (Seeed).\nTX at 9600 baud into D7. Ceramic patch antenna on U.FL, facing the nose.\nAbout 41 mA while tracking."
-		(exclude_from_sim no)
-		(at 317.5 180.34 0)
+		(at 317.5 184.15 0)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
 			(justify left top)
 		)
-		(uuid "a079b244-f980-506d-84e5-633fbc268313")
+		(uuid "c66837a2-0c87-537a-b802-825e8e145a8d")
 	)
 	(rectangle
 		(start 198.12 208.28)
@@ -6850,7 +7477,7 @@
 		(fill
 			(type none)
 		)
-		(uuid "e668bbe3-872d-515f-8d3b-b50610ee1d9c")
+		(uuid "17fca8c3-12fb-51a8-82eb-b8e0b6db8d23")
 	)
 	(text "Buzzer and status LED"
 		(exclude_from_sim no)
@@ -6862,7 +7489,7 @@
 			)
 			(justify left top)
 		)
-		(uuid "146ff42e-0b5b-5f56-b8b5-6869dd8ef475")
+		(uuid "0d439c46-7228-5bab-9450-890c765f6099")
 	)
 	(symbol
 		(lib_id "Device:Buzzer")
@@ -6872,7 +7499,7 @@
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
-		(uuid "398e49a5-a7a9-54f0-a5ce-0cb18ec0ee94")
+		(uuid "8133ca94-8c5f-5d49-b3e2-d07cdc3ff1a9")
 		(property "Reference" "BZ1"
 			(at 224.79 227.33 0)
 			(effects
@@ -6919,10 +7546,10 @@
 			)
 		)
 		(pin "1"
-			(uuid "af14b396-5af8-5c47-94d4-4deed8228c33")
+			(uuid "3dd19e9f-ebf7-5fec-b1af-fbcd138fafc5")
 		)
 		(pin "2"
-			(uuid "bfc693ad-4605-5680-89c3-ac5ffa6fd5ef")
+			(uuid "ce620453-31a3-58c4-b57f-db35f7f0ac42")
 		)
 		(instances
 			(project "rocket-fc-flight"
@@ -6941,7 +7568,7 @@
 			(width 0)
 			(type default)
 		)
-		(uuid "960a28b2-2240-5945-9268-8b0dc7b87651")
+		(uuid "fe567357-ab88-5322-b65d-60d882395a28")
 	)
 	(label "BUZZER"
 		(at 215.9 226.06 180)
@@ -6951,7 +7578,7 @@
 			)
 			(justify right bottom)
 		)
-		(uuid "951c0dab-8647-5257-8e70-0c79c3b15fe5")
+		(uuid "c8274fc1-5ecf-55f8-ae4f-77c739fbbcf8")
 	)
 	(wire
 		(pts
@@ -6961,7 +7588,7 @@
 			(width 0)
 			(type default)
 		)
-		(uuid "40702d8f-d65f-5933-bb07-decc41bdefbb")
+		(uuid "9af7f244-db55-5dab-8827-6695c7070022")
 	)
 	(symbol
 		(lib_id "power:GND")
@@ -6971,8 +7598,8 @@
 		(in_bom no)
 		(on_board no)
 		(dnp no)
-		(uuid "79864dad-8763-55d3-ba11-1ad74f1906c8")
-		(property "Reference" "#PWR25"
+		(uuid "ac48b0ac-d4b4-5cbf-88c2-560427071fb6")
+		(property "Reference" "#PWR30"
 			(at 215.9 231.14 270)
 			(hide yes)
 			(effects
@@ -7017,12 +7644,12 @@
 			)
 		)
 		(pin "1"
-			(uuid "a7a571b6-80f8-5164-a9cc-0918f246a8ab")
+			(uuid "314f3535-56b4-5ca7-a85d-ec47ecd8938a")
 		)
 		(instances
 			(project "rocket-fc-flight"
 				(path "/7aaf2683-f922-50eb-996b-c87fdd60c861"
-					(reference "#PWR25")
+					(reference "#PWR30")
 					(unit 1)
 				)
 			)
@@ -7036,7 +7663,7 @@
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
-		(uuid "009e4c75-7845-58d4-85e0-0da1baaf05c8")
+		(uuid "63c7687c-f203-55ed-a286-a7148de861cc")
 		(property "Reference" "R8"
 			(at 256.54 222.25 90)
 			(effects
@@ -7053,7 +7680,7 @@
 				)
 			)
 		)
-		(property "Footprint" "Resistor_SMD:R_1206_3216Metric"
+		(property "Footprint" "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P2.54mm_Vertical"
 			(at 256.54 226.06 0)
 			(hide yes)
 			(effects
@@ -7081,10 +7708,10 @@
 			)
 		)
 		(pin "1"
-			(uuid "ecf77fc6-ef8b-5214-b5ad-3511ef00e978")
+			(uuid "5b3fe78f-bd97-5792-ab3d-2bbd028cb8ad")
 		)
 		(pin "2"
-			(uuid "7986c06a-3d27-5574-9274-a1ffcbde5694")
+			(uuid "8e0e5dd4-7b16-50d2-ad94-5b681e6d512e")
 		)
 		(instances
 			(project "rocket-fc-flight"
@@ -7103,7 +7730,7 @@
 			(width 0)
 			(type default)
 		)
-		(uuid "95e8e1e8-7d5b-5e0a-b1cb-7c571b0f2529")
+		(uuid "cf638fd8-b300-59f2-b807-d4447f7e18df")
 	)
 	(label "LED"
 		(at 250.19 226.06 180)
@@ -7113,7 +7740,7 @@
 			)
 			(justify right bottom)
 		)
-		(uuid "a842eabc-df1f-5773-bf1f-98f8c26e0690")
+		(uuid "420e465e-d7a4-5e1b-85cd-6d038927d438")
 	)
 	(wire
 		(pts
@@ -7123,7 +7750,7 @@
 			(width 0)
 			(type default)
 		)
-		(uuid "099ee4b9-99d6-544e-a74d-52eabe773fc3")
+		(uuid "16ed80f9-7cfc-5d43-aabc-ed91e1a79b4a")
 	)
 	(label "LED_A"
 		(at 262.89 226.06 0)
@@ -7133,7 +7760,7 @@
 			)
 			(justify left bottom)
 		)
-		(uuid "7a6cda40-69d0-52fd-a812-b9199e280089")
+		(uuid "b3e4dfe5-d01a-57e1-abe2-be4b23cf4581")
 	)
 	(symbol
 		(lib_id "Device:LED")
@@ -7143,7 +7770,7 @@
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
-		(uuid "18ac5380-0ec9-5520-9950-0ba6df27c06d")
+		(uuid "31ff02bb-766d-55b9-8c8f-7f92767bd92b")
 		(property "Reference" "D1"
 			(at 285.75 229.87 90)
 			(effects
@@ -7160,7 +7787,7 @@
 				)
 			)
 		)
-		(property "Footprint" "LED_THT:LED_D3.0mm"
+		(property "Footprint" "LED_THT:LED_D5.0mm"
 			(at 279.4 231.14 0)
 			(hide yes)
 			(effects
@@ -7188,10 +7815,10 @@
 			)
 		)
 		(pin "1"
-			(uuid "8247cc35-b56d-5eb1-8e88-8054b819ee52")
+			(uuid "78345718-5c00-5ccd-b797-211a5f74127d")
 		)
 		(pin "2"
-			(uuid "d2b527c9-4eb5-531f-a88e-4607fa8c73b6")
+			(uuid "3e791d47-25ba-5835-86d4-cb565f8eb9f9")
 		)
 		(instances
 			(project "rocket-fc-flight"
@@ -7210,7 +7837,7 @@
 			(width 0)
 			(type default)
 		)
-		(uuid "e8ecdd73-23d9-5f8c-862c-1efdbab5c196")
+		(uuid "c783d29f-67a7-5a09-8da2-f245e9522420")
 	)
 	(label "LED_A"
 		(at 279.4 224.79 90)
@@ -7220,7 +7847,7 @@
 			)
 			(justify left bottom)
 		)
-		(uuid "8db554fb-fdd2-5c54-832b-093cf16d4177")
+		(uuid "9abbb206-2cb7-5c16-a98b-4b3ab3aca4c1")
 	)
 	(wire
 		(pts
@@ -7230,7 +7857,7 @@
 			(width 0)
 			(type default)
 		)
-		(uuid "1773270f-dac4-5aec-8f68-6d41b2c930eb")
+		(uuid "7962c0cc-1af2-5bc5-8adb-fe87a56c7df6")
 	)
 	(symbol
 		(lib_id "power:GND")
@@ -7240,8 +7867,8 @@
 		(in_bom no)
 		(on_board no)
 		(dnp no)
-		(uuid "106e1cac-be23-5505-91f9-7052cdf0d55f")
-		(property "Reference" "#PWR26"
+		(uuid "d5e5d63a-835f-5f2d-8282-c8a80bc01148")
+		(property "Reference" "#PWR31"
 			(at 279.4 237.49 0)
 			(hide yes)
 			(effects
@@ -7286,12 +7913,12 @@
 			)
 		)
 		(pin "1"
-			(uuid "e52ee895-5e94-585e-9969-d227fa39609e")
+			(uuid "4d66fc17-9395-539c-b5d8-799df9199eb5")
 		)
 		(instances
 			(project "rocket-fc-flight"
 				(path "/7aaf2683-f922-50eb-996b-c87fdd60c861"
-					(reference "#PWR26")
+					(reference "#PWR31")
 					(unit 1)
 				)
 			)
@@ -7306,7 +7933,7 @@
 			)
 			(justify left top)
 		)
-		(uuid "8c585d32-aec8-5f35-8d06-d7bccd6be38b")
+		(uuid "aba021f4-744c-579c-905c-8896fc609b0e")
 	)
 	(rectangle
 		(start 289.56 20.32)
@@ -7318,7 +7945,7 @@
 		(fill
 			(type none)
 		)
-		(uuid "2e903f18-72bc-5b91-8610-7360c163ba0d")
+		(uuid "0f1776c1-a6f6-5cf4-9f75-41be606b7057")
 	)
 	(text "Notes"
 		(exclude_from_sim no)
@@ -7330,9 +7957,9 @@
 			)
 			(justify left top)
 		)
-		(uuid "d3e83bd2-4854-5a34-89b2-600931af8f08")
+		(uuid "d9b3e963-15d8-589d-afd0-5c0230f819f4")
 	)
-	(text "This schematic is the wiring master of the flight computer.\nChange it together with include/board_pins.h and docs/HARDWARE.md,\nthen run: python tools/pcb_export.py\n\nNet names: same label = connected.\nNet classes (project settings):\n  Pyro  CELL+, ARM, IGN+, IGN-   2.5 mm\n  Power BAT_SW, +3V3, GND        0.8 mm\n  Default                        0.5 mm, clearance 0.4 mm\n\nOff-board, each on a connector: cell (J1), main switch (J2),\narm link (J3), igniter (J4).\nModule pin numbers (U1-U4) are provisional until the\nfootprints are drawn from measured parts."
+	(text "This schematic is the wiring master of the flight computer.\nChange it together with include/board_pins.h and docs/HARDWARE.md,\nthen run: python tools/pcb_export.py\n\nNet names: same label = connected.\nNet classes (project settings):\n  Pyro  CELL+, ARM, IGN+, IGN-   2.5 mm\n  Power BAT_SW, +3V3, GND        0.8 mm\n  Default                        0.5 mm, clearance 0.4 mm\n\nOff-board, each on a connector: cell (J1), main switch (J2),\narm link (J3), igniter (J4).\nFootprints: U1/U4 Seeed dimensions, U2 SparkFun board file (v10),\nU3 outline provisional. Check all with the 1:1 fit-test print."
 		(exclude_from_sim no)
 		(at 294.64 30.48 0)
 		(effects
@@ -7341,7 +7968,7 @@
 			)
 			(justify left top)
 		)
-		(uuid "954d46ce-e10e-5278-8cfe-b3c3c9848d10")
+		(uuid "87959c5d-0d8a-5318-9f0d-398c89d70123")
 	)
 	(sheet_instances
 		(path "/"

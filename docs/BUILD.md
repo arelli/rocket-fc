@@ -18,8 +18,8 @@ is in [TESTING.md](TESTING.md).
 | Part | Qty | Notes |
 |---|---|---|
 | Seeed XIAO ESP32-S3 + Wio-SX1262 kit | 1 | Processor and LoRa radio, with the 868/915 MHz antenna |
-| MPU-9250 breakout (SparkFun or similar, no regulator) | 1 | MPU-9255/6500 also work (no magnetometer on the 6500) |
-| GY-BMP280-5V breakout (4 pins) | 1 | BME280 also works; powered from 3V3 |
+| MPU-9250 breakout (SparkFun SEN-13762 or similar, no regulator) | 1 | MPU-9255/6500 also work (no magnetometer on the 6500); the PCB footprint is the SparkFun board |
+| GY-BMP280 breakout, 6 pins ("GYBMEP", 3.3 V) | 1 | BME280 also works; the 4-pin GY-BMP280-5V board too when hand-wired (on 3V3) |
 | 18350 Li-ion cell (≈ 700 mAh) | 1 | Soldered tabs or a tight holder |
 | IRLB8748PBF logic-level MOSFET | 1 | Pyro driver |
 | Resistor 1 Ω 5 W | 1 | Pyro current limit |
@@ -89,14 +89,16 @@ Assembly order (test as you go):
 3. **Power:** cell → main switch → BAT+; 1000 µF across BAT+/GND (mind
    polarity); battery divider (2 × 100k) to D0.
 4. **Sensors:** MPU-9250 and BMP280 on 3V3, SDA = D4, SCL = D5. BMP280 VCC on
-   **3V3, never 5V**. MPU-9250: CS to 3V3, FSYNC to GND.
+   **3V3, never 5V**. MPU-9250: CS to 3V3, FSYNC to GND. 6-pin BMP280 board:
+   CSB to 3V3, SDO to GND.
 5. **Buzzer** on D2, **LED** with 100 Ω on D6.
 6. **Pyro channel last:** from the cell + *before* the main switch → arm-link
    terminal → 1 Ω 5 W → igniter terminal → MOSFET drain; source straight to
    cell −. Gate: D3 → 100 Ω → gate, 100k gate to GND. Continuity divider
    (2 × 100k) from the drain to D1. Thick wire for the whole loop.
-7. **GPS (optional):** L76K TX → D7; its 3V3, RX and the two control pins at
-   its D0 / D2 positions to 3V3; GND to GND. Do not stack it on the XIAO.
+7. **GPS (optional):** L76K TX (its D7 position) → D7; its 3V3, RX (D6
+   position), wake-up (D0 position) and reset (D10 position) to 3V3; GND to
+   GND. Do not stack it on the XIAO.
 
 Mount the IMU with one axis along the rocket's long axis (any of ±X, ±Y,
 ±Z; the direction is set in software later). Give the barometer a vented,
