@@ -1,8 +1,15 @@
 # Hardware
 
 All GPIO numbers live in [include/board_pins.h](../include/board_pins.h).
-If you change wiring, change that file, this document and the schematics
-(`tools/schematics.py`) in the same commit.
+If you change wiring, change that file, this document and the schematic in
+the same commit:
+
+- Flight computer: the KiCad project in [hardware/flight-pcb](../hardware/flight-pcb)
+  is the wiring master. After editing it in KiCad 10, run
+  `python tools/pcb_export.py` (electrical rules check, then
+  `docs/schematics/flight.svg`).
+- Ground station: `tools/schematics.py`
+  (`python tools/schematics.py docs/schematics`).
 
 Schematics: [flight computer](schematics/flight.svg),
 [ground station](schematics/ground.svg). Step-by-step assembly and

@@ -67,8 +67,10 @@ for bench tests.
 
 ## 2. Wiring
 
-The drawings are generated from [tools/schematics.py](../tools/schematics.py)
-(`python tools/schematics.py docs/schematics`). Net labels with the same name
+The flight computer schematic is the KiCad project in
+[hardware/flight-pcb](../hardware/flight-pcb) (drawing exported with
+`python tools/pcb_export.py`); the ground station drawing is generated from
+[tools/schematics.py](../tools/schematics.py). Net labels with the same name
 are connected. Pin numbers are defined once in
 [include/board_pins.h](../include/board_pins.h).
 

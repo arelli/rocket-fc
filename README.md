@@ -121,7 +121,10 @@ src/flight/     flight computer firmware (wiring of core + drivers)
 src/ground/     ground station firmware and its WiFi server
 test/           unit tests (pio test -e native)
 tools/          ground_station.html (the UI), ground_station.py (USB recorder),
-                schematics.py (wiring drawings), build scripts
+                pcb_export.py (KiCad checks and exports),
+                schematics.py (ground station drawing), build scripts
+hardware/       flight-pcb: KiCad 10 project of the flight computer
+                (schematic = wiring master; PCB in progress)
 docs/           documentation and schematics
 ```
 

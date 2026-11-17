@@ -1,4 +1,5 @@
-# Generates docs/schematics/flight.svg and ground.svg (wiring). Usage: python tools/schematics.py docs/schematics
+# Generates docs/schematics/ground.svg (ground station wiring). Usage: python tools/schematics.py docs/schematics
+# The flight computer is drawn in KiCad (hardware/flight-pcb); its SVG comes from tools/pcb_export.py.
 import html, math
 E = html.escape
 
@@ -172,110 +173,6 @@ def xiao_hub(c, left_nets, right_nets, bottom, title_note):
         else: c.net(x, by + bh + 26, net, 'left')  # (x,y) is end; label to the left
     c.note(14, c.H - 14 - 16 * (len(title_note) - 1), title_note)
 
-# ======================================================================= FLIGHT
-def flight():
-    cards = []
-    W = 1240
-    # Hub
-    c = Card(0, 0, 610, 460, 'Flight computer: XIAO pin map', 'net labels: same name = connected')
-    xiao_hub(c,
-             [('D0', 'SENSE_BAT', ''), ('D1', 'SENSE_PYRO', ''), ('D2', 'BUZZER', ''), ('D3', 'PYRO_GATE', 'hot'),
-              ('D4', 'SDA', ''), ('D5', 'SCL', ''), ('D6', 'LED', '')],
-             [('5V', '', 'nc'), ('GND', '', 'gnd'), ('3V3', '3V3', ''), ('D10', '', 'wio'), ('D9', '', 'wio'),
-              ('D8', '', 'wio'), ('D7', 'GPS_TX', '')],
-             [('BAT+', 'BAT+ sw'), ('BAT−', 'GND')],
-             ['Wio-SX1262 U.FL: 868 MHz LoRa antenna.', 'XIAO U.FL (WiFi): unused in the rocket.'])
-    cards.append(c.end())
-
-    # Power
-    c = Card(630, 0, 610, 460, 'Power and battery sense', 'cell on the XIAO BAT pads through the main switch')
-    c.batt_v(70, 120, 250, 'B1', '18350 3.7 V')
-    c.gnd(70, 250, 14)
-    c.w((70, 120), (70, 80), (150, 80))
-    c.dot(110, 80); c.w((110, 80), (110, 56)); c.net(110, 56, 'CELL+', 'right', 'net hotnet')
-    c.t(176, 60, 'to the pyro channel (before the switch)', 'val')
-    c.sw_h(150, 200, 80, 'SW1', 'main switch')
-    c.w((203, 80), (560, 80))
-    c.net(560, 80, 'BAT+ sw', 'left'); c.t(560, 108, 'to XIAO BAT+ pad', 'val', 'end')
-    c.dot(260, 80); c.cap_v(260, 80, 200, 'C1', '1000 µF 16 V'); c.gnd(260, 200, 14)
-    c.dot(400, 80); c.res_v(400, 80, 170, 'R1', '100k')
-    c.dot(400, 170); c.res_v(400, 170, 260, 'R2', '100k'); c.gnd(400, 260, 14)
-    c.w((400, 170), (470, 170)); c.net(470, 170, 'SENSE_BAT', 'right')
-    c.note(14, 330, ['BAT− is the pad nearest the USB connector. Check twice.',
-                     'C1 rides through pyro and radio current peaks (mind the polarity).',
-                     'Charge: USB-C with SW1 on. Divider ratio 2.0 = setting batt_divider.'])
-    cards.append(c.end())
-
-    # Pyro
-    c = Card(0, 480, 700, 400, 'Pyro channel (deployment charge)', 'thick line = high-current loop, ≥ 22 AWG')
-    c.net(80, 90, 'CELL+', 'left', 'net hotnet')
-    c.w((80, 90), (120, 90), cls='w thick')
-    c.term(124, 90); c.term(166, 90)
-    c.o.append('<path class="sym opt" d="M124,84 Q145,62 166,84"/>')
-    c.t(145, 60, 'ARM link', 'lbl', 'middle'); c.t(145, 116, 'removable', 'val', 'middle')
-    c.w((170, 90), (205, 90), cls='w thick')
-    c.res_h(205, 275, 90, 'R3', '1 Ω 5 W')
-    c.w((275, 90), (325, 90), cls='w thick')
-    c.term(329, 90); c.coil_h(334, 394, 90, 'igniter', 'nichrome'); c.term(399, 90)
-    c.w((403, 90), (450, 90), (450, 200), cls='w thick')
-    c.dot(450, 120); c.w((450, 120), (620, 120))
-    c.res_v(620, 120, 200, 'R4', '100k'); c.dot(620, 200); c.res_v(620, 200, 280, 'R5', '100k'); c.gnd(620, 280, 12)
-    c.w((600, 200), (620, 200)); c.net(600, 200, 'SENSE_PYRO', 'left')
-    c.nmos(440, 230, 'Q1', 'IRLB8748')
-    c.w((450, 260), (450, 300), cls='w thick'); c.gnd(450, 300, 6)
-    c.t(462, 318, 'to cell − directly', 'val')
-    c.net(120, 230, 'PYRO_GATE', 'left', 'net hotnet')
-    c.res_h(120, 200, 230, 'R6', '100 Ω')
-    c.w((200, 230), (410, 230))
-    c.dot(330, 230); c.res_v(330, 230, 300, 'R7', '100k', 'left'); c.gnd(330, 300, 12)
-    c.note(14, 356, ['Fit the ARM link on the pad only, after the PAD state. R7 keeps Q1 off during boot/reset.',
-                     'Continuity: the drain reads ≥ 60 % of the battery through the intact bridge.'])
-    cards.append(c.end())
-
-    # Buzzer
-    c = Card(720, 480, 300, 400, 'Buzzer', 'active buzzer straight on the pin')
-    c.net(90, 90, 'BUZZER', 'left')
-    c.w((90, 90), (150, 90), (150, 130)); c.buzzer_v(150, 130, 200, 'BZ1', 'active, 3–5 V'); c.gnd(150, 200, 14)
-    c.note(14, 300, ['Firmware sets the strongest pin', 'drive (≈ 40 mA). Small active', 'buzzers draw 10–30 mA.'])
-    cards.append(c.end())
-
-    # LED
-    c = Card(1040, 480, 200, 400, 'Status LED', '')
-    c.net(52, 90, 'LED', 'left')
-    c.res_h(52, 102, 90, 'R8', '100 Ω')
-    c.w((102, 90), (110, 90), (110, 130)); c.led_v(110, 130, 200, 'LED1', 'any'); c.gnd(110, 200, 14)
-    c.note(14, 300, ['≈ 13 mA (red).', 'Patterns: see', 'docs/INDICATORS.md'])
-    cards.append(c.end())
-
-    # Sensors
-    c = Card(0, 900, 760, 330, 'Sensors (I²C 400 kHz)', 'both boards on 3V3; pull-ups are on the BMP280 board')
-    ends = c.module(40, 70, 170, 'MPU-9250', ['VCC', 'GND', 'SDA', 'SCL', 'CS', 'FSYNC'], 'right', 28, 34, None)
-    for (x, y), (n, k) in zip(ends, [('3V3', ''), ('GND', 'g'), ('SDA', ''), ('SCL', ''), ('3V3', ''), ('GND', 'g')]):
-        c.w((x, y), (x + 30, y))
-        if k == 'g': c.w((x + 30, y), (x + 40, y)); c.gnd(x + 40, y, 4)
-        else: c.net(x + 30, y, n, 'right')
-    c.t(14, 312, 'MPU-9250: SparkFun breakout, AD0 and INT open (address 0x68).', 'note')
-    ends = c.module(420, 70, 170, 'GY-BMP280-5V', ['VCC', 'GND', 'SCL', 'SDA'], 'right', 28, 34, None)
-    for (x, y), (n, k) in zip(ends, [('3V3', ''), ('GND', 'g'), ('SCL', ''), ('SDA', '')]):
-        c.w((x, y), (x + 30, y))
-        if k == 'g': c.w((x + 30, y), (x + 40, y)); c.gnd(x + 40, y, 4)
-        else: c.net(x + 30, y, n, 'right')
-    c.t(505, 250, 'VCC on 3V3, never 5V', 'warn', 'middle')
-    c.t(505, 266, '(its pull-ups go to VCC)', 'val', 'middle')
-    cards.append(c.end())
-
-    # GPS
-    c = Card(780, 900, 460, 330, 'GPS (optional): Seeed L76K', 'four leads, not stacked on the XIAO')
-    ends = c.module(40, 60, 190, 'L76K', ['3V3', 'GND', 'TX', 'RX', 'D0 position', 'D2 position', 'D6 position'], 'right', 26, 34, None)
-    for (x, y), (n, k) in zip(ends, [('3V3', ''), ('GND', 'g'), ('GPS_TX', ''), ('3V3', ''), ('3V3', ''), ('3V3', ''), ('', 'nc')]):
-        c.w((x, y), (x + 30, y))
-        if k == 'g': c.w((x + 30, y), (x + 40, y)); c.gnd(x + 40, y, 4)
-        elif k == 'nc': c.t(x + 34, y + 4, 'not connected', 'val')
-        else: c.net(x + 30, y, n, 'right')
-    c.note(14, 312, ['RX and the two control pins held high (Seeed); 9600 baud.'])
-    cards.append(c.end())
-    return W, 1230, cards
-
 # ======================================================================= GROUND
 def ground():
     cards = []
@@ -404,5 +301,5 @@ if __name__ == '__main__':
     import sys
     out = sys.argv[1]
     inline = len(sys.argv) > 2 and sys.argv[2] == '--inline'  # page styles them (no <style>)
-    for name, sh in (('flight', flight), ('ground', ground)):
+    for name, sh in (('ground', ground),):
         open(f'{out}/{name}{"_inline" if inline else ""}.svg', 'w', encoding='utf-8').write(svg(sh, not inline))

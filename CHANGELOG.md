@@ -6,6 +6,12 @@ version number (`tlm::kVersion`, docs/TELEMETRY.md).
 
 ## Unreleased
 
+- Hardware: KiCad 10 project for the flight computer (`hardware/flight-pcb`).
+  Its schematic is now the wiring master and gives `docs/schematics/flight.svg`
+  (`python tools/pcb_export.py`, which also runs the electrical rules check).
+  Project-local symbol library for the XIAO kit, sensor breakouts and GPS;
+  design rules for a home-etched two-layer board. The board itself is in
+  progress. `tools/schematics.py` now draws the ground station only.
 - UI: zoom on every plot (drag, Shift+drag to pan, Ctrl+wheel, double-click to
   reset; linked time axes), hover readout, CSV export of each plot (range
   shown), of the events and of the GPS frames, plots in their own window.
