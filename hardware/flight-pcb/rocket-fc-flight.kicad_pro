@@ -19,6 +19,7 @@
       "diff_pair_dimensions": [],
       "drc_exclusions": [],
       "rule_severities": {
+        "isolated_copper": "ignore",
         "lib_footprint_mismatch": "ignore",
         "npth_inside_courtyard": "ignore",
         "pth_inside_courtyard": "ignore",
@@ -36,7 +37,7 @@
         "min_hole_to_hole": 0.5,
         "min_microvia_diameter": 0.2,
         "min_microvia_drill": 0.1,
-        "min_resolved_spokes": 2,
+        "min_resolved_spokes": 1,
         "min_silk_clearance": 0.0,
         "min_text_height": 0.8,
         "min_text_thickness": 0.12,

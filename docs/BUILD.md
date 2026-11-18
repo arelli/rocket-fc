@@ -39,8 +39,8 @@ is in [TESTING.md](TESTING.md).
 The flight computer can be built on the home-made board in
 [hardware/flight-pcb](../hardware/flight-pcb): its README covers making it
 (laser, etch, drill: *Making the board*) and the soldering order (*Assembly
-order*), and `python tools/pcb_export.py laser` writes the laser files and a
-placement map. On top of the parts above (no perfboard, no LED):
+order*), and `python tools/pcb_export.py laser` writes the laser files (vector
+isolation G-code and raster images) and a placement map. On top of the parts above (no perfboard, no LED):
 
 | Part / material | Qty | Notes |
 |---|---|---|

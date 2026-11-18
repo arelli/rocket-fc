@@ -6,7 +6,8 @@
 2. Connections. Without plating, a track only connects to a pin on a face where that pin is soldered: the face
    opposite its part, or the part's own face when the pin is exposed there (e.g. the leads of a resistor lying
    flat; those pins are listed to be soldered on both faces). Wire vias must be reachable on both faces.
-3. Keep-outs. No foreign copper under the IRLB8748's metal tab (it is the drain) and none under the M3 screw heads.
+3. Keep-outs. No foreign copper (tracks, vias, poured copper) under the IRLB8748's metal tab (it is the drain) and
+   none under the M3 screw heads.
 4. Tube envelope. The board is centred in a 32 mm airframe: every part must fit inside a 15.5 mm radius
    (0.5 mm clearance), taking its height and its distance from the centre line.
 
@@ -189,6 +190,27 @@ def check_copper(model):
             if any(math.hypot(mm(q.x) - hx, mm(q.y) - hy) < SCREW_HEAD_R + half for q in pts):
                 errors.append('track %s on %s runs under an M3 screw head' % (net, lname(layer)))
                 break
+    for z in board.Zones():                              # poured copper: same keep-outs as tracks
+        if z.GetIsRuleArea():
+            continue
+        net = z.GetNetname()
+        for layer in (pcbnew.F_Cu, pcbnew.B_Cu):
+            if not z.IsOnLayer(layer):
+                continue
+            fill = z.GetFilledPolysList(layer)
+            for ref, padnum in METAL_TAB.items():
+                fp, b = model.fps.get(ref), model.body.get(ref)
+                if fp is None or b is None or layer != fp.GetLayer():
+                    continue
+                tab_net = [p.GetNetname() for p in fp.Pads() if p.GetNumber() == padnum][0]
+                box = pcbnew.SHAPE_RECT(pcbnew.VECTOR2I(int(b[0] * 1e6), int(b[1] * 1e6)),
+                                        int((b[2] - b[0]) * 1e6), int((b[3] - b[1]) * 1e6))
+                if net != tab_net and fill.Collide(box, 0):
+                    errors.append('zone %s on %s reaches under the metal tab of %s' % (net, lname(layer), ref))
+            for hx, hy in holes:
+                if fill.Collide(pcbnew.SHAPE_CIRCLE(pcbnew.VECTOR2I(int(hx * 1e6), int(hy * 1e6)),
+                                                    int(SCREW_HEAD_R * 1e6)), 0):
+                    errors.append('zone %s on %s reaches under an M3 screw head' % (net, lname(layer)))
     return sorted(both)
 
 

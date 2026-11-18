@@ -32,7 +32,9 @@ version number (`tlm::kVersion`, docs/TELEMETRY.md).
   way to the footprint with the sensor up).
 - Hardware: laser files for a home-made board (`python tools/pcb_export.py
   laser`): negative copper images (bottom mirrored) as SVG and as pure
-  black-and-white 254 dpi PNG (0.1 mm per line, for LaserGRBL Passthrough),
+  black-and-white PNG at 12.5 lines/mm (0.08 mm, exact in the file) for
+  LaserGRBL: a horizontal Passthrough pass then a vertical Line To Line
+  pass, which clears the paint between lines and the sawtooth edges,
   a registration jig using the M3 holes, drill file and report. Copper TOP /
   BOT labels show whether the bottom came out mirrored correctly.
 - Hardware: copper fattened after the first test etch (thin tracks and pad
@@ -43,6 +45,18 @@ version number (`tlm::kVersion`, docs/TELEMETRY.md).
   laser step): parts on both faces over the lasered copper, wire vias and
   both-face pins marked. The build guide lists the PCB materials and points
   to the board's making and assembly steps; LaserGRBL settings documented.
+- Hardware: GND pour on both faces of the flight PCB (0.7 mm from other
+  nets, keep-outs under Q1's tab and the screw heads, checked by
+  `tools/pcb_check.py`). The laser only clears a band around the copper and
+  the etch removes far less of it.
+- Hardware: vector isolation G-code for the laser (`tools/pcb_isolation.py`,
+  in the laser step): outlines around the copper instead of a raster, about
+  15 minutes a face instead of 70; checks its own result (design copper
+  intact, no nets joined).
+- Hardware: order files for a PCB maker (`python tools/pcb_export.py fab`):
+  Gerbers for copper, mask, silkscreen and outline, Excellon drill files with
+  plated and unplated holes apart, and one zip to upload; the laser jig layer
+  stays out. The board README has the order settings.
 - Tools: `tools/pcb_check.py` checks what KiCad's DRC cannot on a board without
   plated holes (every joint can be soldered, with the assembly order; tracks
   meet pins only on faces where they are soldered; no copper under the MOSFET

@@ -5,9 +5,11 @@ Usage:
     python tools/pcb_export.py check      # ERC, DRC + schematic parity, tools/pcb_check.py; exit 1 on problems
     python tools/pcb_export.py docs       # docs/schematics/flight.svg, printable PDF in hardware/flight-pcb/out/
     python tools/pcb_export.py board      # 1:1 placement PDFs (top, bottom) and 3D renders in hardware/flight-pcb/out/
-    python tools/pcb_export.py laser      # laser copper images, registration jig, drill file, placement map in
-                                          # hardware/flight-pcb/out/laser/
-                                          # (PNG line spacing: LASER_DPI, default 254 dpi = 0.1 mm)
+    python tools/pcb_export.py laser      # laser copper images, isolation G-code, registration jig, drill file,
+                                          # placement map in hardware/flight-pcb/out/laser/
+                                          # (PNG line spacing: LASER_LPMM lines/mm, default 12.5 = 0.08 mm)
+    python tools/pcb_export.py fab        # Gerbers, drill files and a zip to order from a PCB maker in
+                                          # hardware/flight-pcb/out/fab/
 
 Needs KiCad 10 (kicad-cli). Found on PATH, in KICAD_CLI, or in the default install folder. tools/pcb_check.py
 runs with KiCad's own Python (next to kicad-cli, or KICAD_PYTHON). Until the board is routed, DRC's unrouted
@@ -18,9 +20,11 @@ import json
 import os
 import re
 import shutil
+import struct
 import subprocess
 import sys
 import tempfile
+import zlib
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PROJECT = os.path.join(ROOT, 'hardware', 'flight-pcb')
@@ -142,19 +146,33 @@ def laser(cli):
               '--generate-map', '--map-format', 'pdf', '--generate-report',
               '--report-path', os.path.join(dst, NAME + '-drill-report.txt'), '-o', dst + os.sep, PCB,
               quiet=True) == 0
-    # PNGs for raster software (LaserGRBL "Passthrough": one engraved line per pixel row, so the DPI is the line
-    # spacing; 254 dpi = 0.1 mm). Pure black and white, no grey edge pixels to be re-interpreted. Needs PyMuPDF.
-    dpi = int(os.environ.get('LASER_DPI', '254'))
+    # vector isolation G-code (top, bottom mirrored): outlines around the copper instead of a full raster
+    iso = subprocess.run([kicad_python(cli), os.path.join(ROOT, 'tools', 'pcb_isolation.py'), PCB, dst, NAME],
+                         stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    for line in iso.stdout.splitlines():
+        if line.startswith('isolation'):
+            print(line)
+    ok &= iso.returncode == 0
+    # PNGs for raster software. LaserGRBL engraves one line per pixel row (Passthrough: horizontal; Line To Line:
+    # also vertical, for a cross pass), so the resolution is the line spacing: LASER_LPMM lines per mm, default
+    # 12.5 (0.08 mm). Written exactly into the PNG, so Line To Line at the same lines/mm does not resample. Pure
+    # black and white, no grey edge pixels to be re-interpreted. Needs PyMuPDF.
+    lpmm = float(os.environ.get('LASER_LPMM', '12.5'))
+    tag = ('%.3f' % (1 / lpmm)).rstrip('0')
     try:
         import pymupdf
+        for old in glob.glob(os.path.join(dst, NAME + '-*dpi.png')) + glob.glob(os.path.join(dst, NAME + '-*mm.png')):
+            os.remove(old)
+        zoom = lpmm * 25.4 / 72
         for name in ('top', 'bottom'):
             pix = pymupdf.open(os.path.join(dst, '%s-%s.svg' % (NAME, name)))[0].get_pixmap(
-                dpi=dpi, colorspace=pymupdf.csGRAY)
+                matrix=pymupdf.Matrix(zoom, zoom), colorspace=pymupdf.csGRAY)
             bw = pymupdf.Pixmap(pymupdf.csGRAY, pix.width, pix.height,
                                 bytes(255 if v >= 128 else 0 for v in pix.samples), False)
-            bw.set_dpi(dpi, dpi)
-            bw.save(os.path.join(dst, '%s-%s-%ddpi.png' % (NAME, name, dpi)))
-        pngs = ' and %d dpi PNGs' % dpi
+            png = os.path.join(dst, '%s-%s-%smm.png' % (NAME, name, tag))
+            bw.save(png)
+            set_png_resolution(png, round(lpmm * 1000))
+        pngs = ' and PNGs at %g lines/mm (%s mm)' % (lpmm, tag)
         # placement map: parts, wire vias and both-face pins over the copper (tools/pcb_map.py)
         with tempfile.TemporaryDirectory() as tmp:
             parts = os.path.join(tmp, 'parts.json')
@@ -168,9 +186,58 @@ def laser(cli):
                 ok = False
     except ImportError:
         pngs = ' (pip install pymupdf for the PNGs and the placement map)'
-    print('laser: top, bottom (mirrored) and jig SVGs%s; drill file and report in hardware/flight-pcb/out/laser/'
+    print('laser: top, bottom (mirrored) and jig SVGs%s; isolation G-code, drill file and report in '
+          'hardware/flight-pcb/out/laser/'
           % pngs)
     return ok
+
+
+def set_png_resolution(path, px_per_m):
+    """Write the exact resolution into a PNG (pHYs chunk, pixels per metre: 12500 = 12.5 lines/mm)."""
+    data = open(path, 'rb').read()
+    chunks, pos = [], 8
+    while pos < len(data):
+        n = struct.unpack('>I', data[pos:pos + 4])[0]
+        chunks.append((data[pos + 4:pos + 8], data[pos:pos + 12 + n]))
+        pos += 12 + n
+    body = b'pHYs' + struct.pack('>IIB', px_per_m, px_per_m, 1)
+    phys = struct.pack('>I', 9) + body + struct.pack('>I', zlib.crc32(body))
+    out = [c for t, c in chunks if t != b'pHYs']
+    out.insert(1, phys)                                 # right after IHDR
+    with open(path, 'wb') as fh:
+        fh.write(data[:8] + b''.join(out))
+
+
+FAB_LAYERS = 'F.Cu,B.Cu,F.Mask,B.Mask,F.Silkscreen,B.Silkscreen,Edge.Cuts'
+
+
+def fab(cli):
+    """Order files for a PCB maker, in out/fab/: Gerbers (Protel extensions, no X2 or netlist attributes, silkscreen
+    clipped at the mask openings), Excellon drill files in mm with PTH and NPTH separate, and one zip to upload.
+    Only the layers in FAB_LAYERS go in: the laser jig (User.1), fab, courtyard and comment layers stay out."""
+    if not routed():
+        print('fab: board not routed yet')
+        return False
+    dst = os.path.join(OUT, 'fab')
+    files = os.path.join(dst, 'gerbers')
+    shutil.rmtree(dst, ignore_errors=True)
+    os.makedirs(files)
+    ok = run(cli, 'pcb', 'export', 'gerbers', '--layers', FAB_LAYERS, '--no-x2', '--no-netlist',
+             '--subtract-soldermask', '-o', files + os.sep, PCB, quiet=True) == 0
+    ok &= run(cli, 'pcb', 'export', 'drill', '--format', 'excellon', '--excellon-units', 'mm',
+              '--excellon-zeros-format', 'decimal', '--drill-origin', 'absolute', '--excellon-separate-th',
+              '--generate-report', '--report-path', os.path.join(dst, NAME + '-drill-report.txt'),
+              '-o', files + os.sep, PCB, quiet=True) == 0
+    if not ok:
+        return False
+    names = sorted(os.listdir(files))
+    archive = os.path.join(dst, NAME + '-fab.zip')
+    import zipfile
+    with zipfile.ZipFile(archive, 'w', zipfile.ZIP_DEFLATED) as z:
+        for n in names:
+            z.write(os.path.join(files, n), n)
+    print('fab: %s (%s)' % (os.path.relpath(archive, ROOT), ', '.join(names)))
+    return True
 
 
 def write_if_changed(path, text):
@@ -201,9 +268,9 @@ def main():
     steps = sys.argv[1:] or ['check', 'docs', 'board']
     cli = kicad_cli()
     for step in steps:
-        if step not in ('check', 'docs', 'board', 'laser'):
+        if step not in ('check', 'docs', 'board', 'laser', 'fab'):
             sys.exit(__doc__)
-        if not {'check': check, 'docs': docs, 'board': board, 'laser': laser}[step](cli):
+        if not {'check': check, 'docs': docs, 'board': board, 'laser': laser, 'fab': fab}[step](cli):
             sys.exit(1)
 
 

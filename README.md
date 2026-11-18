@@ -122,7 +122,7 @@ src/ground/     ground station firmware and its WiFi server
 test/           unit tests (pio test -e native)
 tools/          ground_station.html (the UI), ground_station.py (USB recorder),
                 pcb_export.py (KiCad checks and exports; with
-                pcb_check.py and pcb_map.py),
+                pcb_check.py, pcb_map.py, pcb_isolation.py),
                 schematics.py (ground station drawing), build scripts
 hardware/       flight-pcb: KiCad 10 project of the flight computer
                 (schematic = wiring master; routed board, laser files
