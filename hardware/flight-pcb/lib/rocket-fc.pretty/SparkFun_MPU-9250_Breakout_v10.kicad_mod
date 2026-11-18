@@ -316,5 +316,19 @@
 			)
 		)
 	)
+	(model "${KIPRJMOD}/lib/rocket-fc.3dshapes/SparkFun_MPU-9250_Breakout_v10.wrl"
+		(offset
+			(xyz 0 0 0
+			)
+		)
+		(scale
+			(xyz 1 1 1
+			)
+		)
+		(rotate
+			(xyz 0 0 0
+			)
+		)
+	)
 	(embedded_fonts no)
 )

@@ -186,5 +186,19 @@
 		(layers "*.Cu" "*.Mask")
 		(remove_unused_layers no)
 	)
+	(model "${KIPRJMOD}/lib/rocket-fc.3dshapes/L76K_GNSS_XIAO_THT.wrl"
+		(offset
+			(xyz 0 0 0
+			)
+		)
+		(scale
+			(xyz 1 1 1
+			)
+		)
+		(rotate
+			(xyz 0 0 0
+			)
+		)
+	)
 	(embedded_fonts no)
 )

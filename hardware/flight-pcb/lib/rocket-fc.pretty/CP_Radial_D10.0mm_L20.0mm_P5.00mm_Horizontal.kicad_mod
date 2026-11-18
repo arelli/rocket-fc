@@ -111,5 +111,19 @@
 		(layers "*.Cu" "*.Mask")
 		(remove_unused_layers no)
 	)
+	(model "${KIPRJMOD}/lib/rocket-fc.3dshapes/CP_Radial_D10.0mm_L20.0mm_P5.00mm_Horizontal.wrl"
+		(offset
+			(xyz 0 0 0
+			)
+		)
+		(scale
+			(xyz 1 1 1
+			)
+		)
+		(rotate
+			(xyz 0 0 0
+			)
+		)
+	)
 	(embedded_fonts no)
 )

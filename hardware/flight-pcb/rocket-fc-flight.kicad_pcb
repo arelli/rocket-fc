@@ -1149,6 +1149,17 @@
 			(uuid "8b3eed21-65d3-42f2-8baa-171afdfff579")
 		)
 		(embedded_fonts no)
+		(model "${KIPRJMOD}/lib/rocket-fc.3dshapes/XIAO_ESP32S3_Wio-SX1262_THT.wrl"
+			(offset
+				(xyz 0 0 0)
+			)
+			(scale
+				(xyz 1 1 1)
+			)
+			(rotate
+				(xyz 0 0 0)
+			)
+		)
 	)
 	(footprint "MountingHole:MountingHole_3.2mm_M3"
 		(layer "F.Cu")
@@ -1502,6 +1513,17 @@
 			(uuid "2024dde6-5898-40b9-8486-4b3c36269d19")
 		)
 		(embedded_fonts no)
+		(model "${KIPRJMOD}/lib/rocket-fc.3dshapes/CP_Radial_D10.0mm_L20.0mm_P5.00mm_Horizontal.wrl"
+			(offset
+				(xyz 0 0 0)
+			)
+			(scale
+				(xyz 1 1 1)
+			)
+			(rotate
+				(xyz 0 0 0)
+			)
+		)
 	)
 	(footprint "MountingHole:MountingHole_3.2mm_M3"
 		(layer "F.Cu")
@@ -2930,6 +2952,17 @@
 			(uuid "87ad5af7-1590-4ac0-a69d-0210f742d789")
 		)
 		(embedded_fonts no)
+		(model "${KIPRJMOD}/lib/rocket-fc.3dshapes/GY-BMP280_6pin_P2.54mm.wrl"
+			(offset
+				(xyz 0 0 0)
+			)
+			(scale
+				(xyz 1 1 1)
+			)
+			(rotate
+				(xyz 0 0 0)
+			)
+		)
 	)
 	(footprint "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal"
 		(layer "F.Cu")
@@ -5491,6 +5524,17 @@
 			(uuid "fa3311da-7cbc-48d8-851b-92e113a34bf9")
 		)
 		(embedded_fonts no)
+		(model "${KIPRJMOD}/lib/rocket-fc.3dshapes/SparkFun_MPU-9250_Breakout_v10.wrl"
+			(offset
+				(xyz 0 0 0)
+			)
+			(scale
+				(xyz 1 1 1)
+			)
+			(rotate
+				(xyz 0 0 0)
+			)
+		)
 	)
 	(gr_line
 		(start 100 43)

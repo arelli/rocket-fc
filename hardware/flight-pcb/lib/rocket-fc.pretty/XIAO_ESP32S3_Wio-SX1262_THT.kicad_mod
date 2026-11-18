@@ -148,6 +148,16 @@
 		)
 	)
 	(fp_circle
+		(center 7.62 2.54)
+		(end 8.12 2.54)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(fill no)
+		(layer "F.Fab")
+	)
+	(fp_circle
 		(center 7.62 0)
 		(end 8.12 0)
 		(stroke
@@ -170,16 +180,6 @@
 	(fp_circle
 		(center 7.62 5.08)
 		(end 8.12 5.08)
-		(stroke
-			(width 0.1)
-			(type solid)
-		)
-		(fill no)
-		(layer "F.Fab")
-	)
-	(fp_circle
-		(center 7.62 2.54)
-		(end 8.12 2.54)
 		(stroke
 			(width 0.1)
 			(type solid)
@@ -270,6 +270,20 @@
 		(drill 1)
 		(layers "*.Cu" "*.Mask")
 		(remove_unused_layers no)
+	)
+	(model "${KIPRJMOD}/lib/rocket-fc.3dshapes/XIAO_ESP32S3_Wio-SX1262_THT.wrl"
+		(offset
+			(xyz 0 0 0
+			)
+		)
+		(scale
+			(xyz 1 1 1
+			)
+		)
+		(rotate
+			(xyz 0 0 0
+			)
+		)
 	)
 	(embedded_fonts no)
 )

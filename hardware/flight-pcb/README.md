@@ -11,6 +11,7 @@ pin numbers follow [include/board_pins.h](../../include/board_pins.h), and
 | `rocket-fc-flight.kicad_pcb` | Board: 30 x 90.1 mm (97.1 mm with the mounting ears), two layers |
 | `lib/rocket-fc.kicad_sym` | Symbols: XIAO ESP32-S3 + Wio-SX1262, SparkFun MPU-9250 breakout, 6-pin GY-BMP280, L76K |
 | `lib/rocket-fc.pretty/` | Footprints of those modules and of the 1000 uF capacitor lying flat |
+| `lib/rocket-fc.3dshapes/` | Simplified 3D models of those (boxes and cylinders, for the renders and the tube check by eye) |
 | `out/` | Generated files (not committed) |
 
 The library tables use `${KIPRJMOD}`, so the project opens on any computer
