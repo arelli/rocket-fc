@@ -16,10 +16,12 @@ pin numbers follow [include/board_pins.h](../../include/board_pins.h), and
 The library tables use `${KIPRJMOD}`, so the project opens on any computer
 with no library setup.
 
-**Status:** schematic done (ERC clean), parts placed (DRC and placement
-checks clean). **Routing in progress:** an automatic attempt routes every
-connection but still leaves a few crossings and clearance errors around the
-XIAO; it is not committed.
+**Status:** schematic done (ERC clean), board routed: DRC 0 problems,
+schematic parity 0, `tools/pcb_check.py` ok. Laser exports and a test etch
+still to do.
+
+Routing uses both faces and **35 wire vias**: a hole with a short wire
+soldered on both sides wherever a track changes face (no plated holes).
 
 ## Layout
 
@@ -56,8 +58,11 @@ centre line and only low parts (resistors lying flat) are near the edges.
 ## Assembly order
 
 No plated holes: a part is soldered on the face opposite to it, and some
-joints end up under a module. `tools/pcb_check.py` lists them; in practice:
+joints end up under a part. `tools/pcb_check.py` lists them; in practice:
 
+0. **All 35 wire vias first**: a bare wire (e.g. a resistor lead offcut)
+   through each 0.8 mm via hole, soldered on both faces and trimmed flush.
+   Several sit under parts (the XIAO, MPU, power plug, buzzer, C1, R3).
 1. Small parts in the edge strips, then C1 (top) and Q1, R3 (bottom).
 2. J1, the power plug (bottom): its pins are soldered on top, under where
    the XIAO goes.
@@ -112,7 +117,9 @@ Measure before etching (the heights in `tools/pcb_check.py` are estimates):
 - Made at home: laser-exposed resist and etching, two layers, no plated holes.
   Through-hole parts only (their leads also join the two sides).
   Design rules (project settings): tracks ≥ 0.4 mm, clearance 0.4 mm,
-  copper ring ≥ 0.35 mm, vias as soldered wire (0.8 mm drill, 2 mm pad).
+  copper ring ≥ 0.35 mm, vias as soldered wire (0.8 mm drill, 1.6 mm pad).
+  A wire via may sit under a part (soldered and trimmed before the part is
+  fitted), never under the MOSFET's metal tab.
 - Net classes (default widths): **Pyro** (CELL+, ARM, IGN+, IGN-) 1.0 mm,
   **Power** (BAT_SW, +3V3, GND) 0.6 mm, **Default** 0.4 mm. A 1.0 mm track
   drops about 0.1 V over the board at the 2.7 A firing current.

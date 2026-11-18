@@ -160,10 +160,10 @@ def check_copper(model):
             rad = mm(t.GetWidth(pcbnew.F_Cu)) / 2
             for face in (pcbnew.F_Cu, pcbnew.B_Cu):
                 for o in model.covering(None, x, y, rad, face):
-                    if o in RAISED:
+                    if o in METAL_TAB:
+                        errors.append('via %s at (%.1f, %.1f) is under the metal tab of %s' % (net, x, y, o))
+                    else:   # solder the wire and trim it flush before fitting the part
                         model.order.setdefault(o, set()).add('via %s (%.1f, %.1f)' % (net, x, y))
-                    else:
-                        errors.append('via %s at (%.1f, %.1f) is under %s: it cannot be soldered' % (net, x, y, o))
             for hx, hy in holes:
                 if math.hypot(x - hx, y - hy) < SCREW_HEAD_R + rad:
                     errors.append('via %s at (%.1f, %.1f) is under an M3 screw head' % (net, x, y))

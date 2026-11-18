@@ -59,7 +59,7 @@
           "drill": 0.0
         },
         {
-          "diameter": 2.0,
+          "diameter": 1.6,
           "drill": 0.8
         }
       ]
@@ -81,7 +81,7 @@
         "name": "Default",
         "priority": 2147483647,
         "track_width": 0.4,
-        "via_diameter": 2.0,
+        "via_diameter": 1.6,
         "via_drill": 0.8,
         "wire_width": 6
       },
@@ -90,7 +90,7 @@
         "name": "Power",
         "priority": 1,
         "track_width": 0.6,
-        "via_diameter": 2.0,
+        "via_diameter": 1.6,
         "via_drill": 0.8,
         "wire_width": 6
       },
@@ -99,7 +99,7 @@
         "name": "Pyro",
         "priority": 0,
         "track_width": 1.0,
-        "via_diameter": 2.0,
+        "via_diameter": 1.6,
         "via_drill": 0.8,
         "wire_width": 6
       }
