@@ -3,7 +3,7 @@
 	(generator "pcbnew")
 	(generator_version "10.0")
 	(layer "F.Cu")
-	(descr "Seeed XIAO ESP32-S3 with Wio-SX1262 (kit; the Wio board stacked on top), on low 2.54 mm headers (not sockets). 21 x 17.8 mm, USB-C at the -y end (must reach the board edge). Pads 15/16: wire pads for the BAT+/BAT- pads on the XIAO underside.")
+	(descr "Seeed XIAO ESP32-S3 with Wio-SX1262 (kit; the Wio board stacked on top), on low 2.54 mm headers (not sockets); the 5V, D8, D9, D10 header pins are pulled (no pad). 21 x 17.8 mm, USB-C at the -y end (must reach the board edge). Pads 15/16: wire pads for the BAT+/BAT- pads on the XIAO underside.")
 	(tags "XIAO ESP32S3 SX1262 LoRa module")
 	(property "Reference" "REF**"
 		(at 0 -13.6 0)
@@ -137,6 +137,56 @@
 			)
 		)
 	)
+	(fp_text user "5V D10 D9 D8: pins pulled, no pad"
+		(at 4 12 0)
+		(layer "F.Fab")
+		(effects
+			(font
+				(size 0.5 0.5)
+				(thickness 0.075)
+			)
+		)
+	)
+	(fp_circle
+		(center 7.62 0)
+		(end 8.12 0)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(fill no)
+		(layer "F.Fab")
+	)
+	(fp_circle
+		(center 7.62 -7.62)
+		(end 8.12 -7.62)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(fill no)
+		(layer "F.Fab")
+	)
+	(fp_circle
+		(center 7.62 5.08)
+		(end 8.12 5.08)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(fill no)
+		(layer "F.Fab")
+	)
+	(fp_circle
+		(center 7.62 2.54)
+		(end 8.12 2.54)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(fill no)
+		(layer "F.Fab")
+	)
 	(pad "1" thru_hole rect
 		(at -7.62 -7.62)
 		(size 1.8 1.8)
@@ -193,27 +243,6 @@
 		(layers "*.Cu" "*.Mask")
 		(remove_unused_layers no)
 	)
-	(pad "9" thru_hole circle
-		(at 7.62 5.08)
-		(size 1.8 1.8)
-		(drill 1)
-		(layers "*.Cu" "*.Mask")
-		(remove_unused_layers no)
-	)
-	(pad "10" thru_hole circle
-		(at 7.62 2.54)
-		(size 1.8 1.8)
-		(drill 1)
-		(layers "*.Cu" "*.Mask")
-		(remove_unused_layers no)
-	)
-	(pad "11" thru_hole circle
-		(at 7.62 0)
-		(size 1.8 1.8)
-		(drill 1)
-		(layers "*.Cu" "*.Mask")
-		(remove_unused_layers no)
-	)
 	(pad "12" thru_hole circle
 		(at 7.62 -2.54)
 		(size 1.8 1.8)
@@ -223,13 +252,6 @@
 	)
 	(pad "13" thru_hole circle
 		(at 7.62 -5.08)
-		(size 1.8 1.8)
-		(drill 1)
-		(layers "*.Cu" "*.Mask")
-		(remove_unused_layers no)
-	)
-	(pad "14" thru_hole circle
-		(at 7.62 -7.62)
 		(size 1.8 1.8)
 		(drill 1)
 		(layers "*.Cu" "*.Mask")

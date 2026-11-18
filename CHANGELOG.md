@@ -18,17 +18,19 @@ version number (`tlm::kVersion`, docs/TELEMETRY.md).
 - Docs: L76K pins corrected from Seeed's schematic (wake-up at the D0 position,
   reset at D10, RX at D6; the D2 position is unused). Barometer is the 6-pin
   GY-BMP280 board (CSB to 3V3, SDO to GND).
-- Hardware: flight PCB placed, 29 x 90.1 mm (97.1 mm with two M3 ears at the
+- Hardware: flight PCB placed, 30 x 90.1 mm (97.1 mm with two M3 ears at the
   USB end), parts on both faces with the tall ones on the centre line for the
-  32 mm airframe. The XIAO's USB-C sits at the board edge in a notch between
+  32 mm airframe. Unused header pins (XIAO 5V/D8-D10, MPU AD0/INT/AUX) have
+  no pads; net classes 1.0 / 0.6 / 0.4 mm with 0.4 mm clearance. The XIAO's USB-C sits at the board edge in a notch between
   the ears. Battery and main switch share one 4-pin side-entry JST-XH (J1);
   ARM and igniter screw terminals are centred, one per face; the GPS module
   moves to a 3-wire lead (J5). The pyro resistor becomes a 1 ohm 2 W metal-oxide
   part (the 5 W cement one still works hand-wired). No status LED on the PCB.
   Not routed yet.
 - Tools: `tools/pcb_check.py` checks what KiCad's DRC cannot on a board without
-  plated holes (every joint can be soldered, with the assembly order) and that
-  every part fits the tube; `tools/pcb_export.py` runs it and exports
+  plated holes (every joint can be soldered, with the assembly order; tracks
+  meet pins only on faces where they are soldered; no copper under the MOSFET
+  tab or the screw heads) and that every part fits the tube; `tools/pcb_export.py` runs it and exports
   placement prints and 3D renders.
 - UI: zoom on every plot (drag, Shift+drag to pan, Ctrl+wheel, double-click to
   reset; linked time axes), hover readout, CSV export of each plot (range

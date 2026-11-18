@@ -3,7 +3,7 @@
 	(generator "pcbnew")
 	(generator_version "10.0")
 	(layer "F.Cu")
-	(descr "SparkFun IMU Breakout MPU-9250 (SEN-13762), board v10 (17.0 x 17.8 mm), pin positions from the SparkFun Eagle board file. Mounted component side up on 2.54 mm headers. Its two standoff holes are marked, not drilled.")
+	(descr "SparkFun IMU Breakout MPU-9250 (SEN-13762), board v10 (17.0 x 17.8 mm), pin positions from the SparkFun Eagle board file. Mounted component side up on 2.54 mm headers; AD0, INT, AUXCL, AUXDA pins pulled (no pad). Its two standoff holes are marked, not drilled.")
 	(tags "IMU MPU-9250 SparkFun breakout")
 	(property "Reference" "REF**"
 		(at 8.509 -1.4 0)
@@ -232,29 +232,8 @@
 		(layers "*.Cu" "*.Mask")
 		(remove_unused_layers no)
 	)
-	(pad "6" thru_hole circle
-		(at 4.5466 16.51)
-		(size 1.8 1.8)
-		(drill 1)
-		(layers "*.Cu" "*.Mask")
-		(remove_unused_layers no)
-	)
 	(pad "7" thru_hole circle
 		(at 7.0866 16.51)
-		(size 1.8 1.8)
-		(drill 1)
-		(layers "*.Cu" "*.Mask")
-		(remove_unused_layers no)
-	)
-	(pad "8" thru_hole circle
-		(at 9.6266 16.51)
-		(size 1.8 1.8)
-		(drill 1)
-		(layers "*.Cu" "*.Mask")
-		(remove_unused_layers no)
-	)
-	(pad "9" thru_hole circle
-		(at 9.6266 11.43)
 		(size 1.8 1.8)
 		(drill 1)
 		(layers "*.Cu" "*.Mask")
@@ -267,12 +246,45 @@
 		(layers "*.Cu" "*.Mask")
 		(remove_unused_layers no)
 	)
-	(pad "11" thru_hole circle
-		(at 9.6266 6.35)
-		(size 1.8 1.8)
-		(drill 1)
-		(layers "*.Cu" "*.Mask")
-		(remove_unused_layers no)
+	(fp_circle
+		(center 4.5466 16.51)
+		(end 5.0466 16.51)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(fill no)
+		(layer "F.Fab")
+	)
+	(fp_circle
+		(center 9.6266 16.51)
+		(end 10.1266 16.51)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(fill no)
+		(layer "F.Fab")
+	)
+	(fp_circle
+		(center 9.6266 11.43)
+		(end 10.1266 11.43)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(fill no)
+		(layer "F.Fab")
+	)
+	(fp_circle
+		(center 9.6266 6.35)
+		(end 10.1266 6.35)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(fill no)
+		(layer "F.Fab")
 	)
 	(fp_circle
 		(center 14.224 14.986)

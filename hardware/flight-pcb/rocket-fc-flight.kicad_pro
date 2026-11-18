@@ -80,27 +80,27 @@
         "clearance": 0.4,
         "name": "Default",
         "priority": 2147483647,
-        "track_width": 0.5,
+        "track_width": 0.4,
         "via_diameter": 2.0,
         "via_drill": 0.8,
         "wire_width": 6
       },
       {
-        "clearance": 0.5,
+        "clearance": 0.4,
         "name": "Power",
         "priority": 1,
-        "track_width": 0.8,
+        "track_width": 0.6,
         "via_diameter": 2.0,
         "via_drill": 0.8,
         "wire_width": 6
       },
       {
-        "clearance": 0.6,
+        "clearance": 0.4,
         "name": "Pyro",
         "priority": 0,
-        "track_width": 2.5,
-        "via_diameter": 2.4,
-        "via_drill": 1.0,
+        "track_width": 1.0,
+        "via_diameter": 2.0,
+        "via_drill": 0.8,
         "wire_width": 6
       }
     ],
