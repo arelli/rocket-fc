@@ -21,7 +21,8 @@ version number (`tlm::kVersion`, docs/TELEMETRY.md).
 - Hardware: flight PCB placed, 30 x 90.1 mm (97.1 mm with two M3 ears at the
   USB end), parts on both faces with the tall ones on the centre line for the
   32 mm airframe. Unused header pins (XIAO 5V/D8-D10, MPU AD0/INT/AUX) have
-  no pads; net classes 1.0 / 0.6 / 0.4 mm with 0.4 mm clearance. The XIAO's USB-C sits at the board edge in a notch between
+  no pads; net classes 1.0 / 0.6 / 0.4 mm with 0.4 mm clearance. Routed on
+  both faces with 35 wire vias (0.8 mm hole, 1.6 mm pad): DRC clean. The XIAO's USB-C sits at the board edge in a notch between
   the ears. Battery and main switch share one 4-pin side-entry JST-XH (J1);
   ARM and igniter screw terminals are centred, one per face; the GPS module
   moves to a 3-wire lead (J5). The pyro resistor becomes a 1 ohm 2 W metal-oxide
