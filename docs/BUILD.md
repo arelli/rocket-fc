@@ -34,6 +34,30 @@ is in [TESTING.md](TESTING.md).
 | 100 nF capacitors | 0–2 | Optional, on D0 / D1 |
 | Perfboard, ≥ 22 AWG wire for the pyro loop, ferrules for nichrome | | |
 
+#### On the PCB instead of perfboard
+
+The flight computer can be built on the home-made board in
+[hardware/flight-pcb](../hardware/flight-pcb): its README covers making it
+(laser, etch, drill: *Making the board*) and the soldering order (*Assembly
+order*), and `python tools/pcb_export.py laser` writes the laser files and a
+placement map. On top of the parts above (no perfboard, no LED):
+
+| Part / material | Qty | Notes |
+|---|---|---|
+| Double-sided FR4, 1.6 mm, 1 oz copper | 36 × 92 mm or larger | Plus a painted scrap to find the laser settings |
+| Matte black spray paint, isopropyl alcohol, fine abrasive pad | | Laser resist; clean the copper first |
+| Etchant (ferric chloride or sodium persulfate), acetone | | Acetone strips the paint after etching |
+| Drill bits 0.8, 1.0, 1.2, 1.3, 3.2 mm | 1 each | Which holes take which bit: the README's bit table |
+| Cardboard or MDF sheet, two 3 mm pins (drill bits or M3 screws) | | Registration jig for the second face |
+| Bare tinned wire (or resistor lead offcuts) | ≈ 30 cm | The 27 wire vias |
+| 2.54 mm male header strips, **low profile** (not sockets) | ≈ 30 pins | XIAO (2 × 7, 5V D8 D9 D10 pulled), MPU-9250 board, barometer (4) |
+| JST-XH 4-pin side-entry header S4B-XH-A, with a 4-pin housing and crimped leads | 1 | J1: cell (pins 1–2) and main switch (3–4) |
+| 2-pin screw terminals, 5.08 mm pitch | 2 | J3 arm link, J4 igniter (the ones in the list above) |
+| Active buzzer 12 mm, 7.6 mm pin spacing | 1 | The buzzer in the list above, in this size |
+| 100 nF ceramic discs, 2.5 mm pitch | 2 | Both fitted on the PCB, bent flat |
+| Kapton tape | | Over C1's trimmed joints, under the barometer |
+| M3 screws and nuts | 4 | Board to the sled |
+
 ### Ground station
 
 | Part | Qty | Notes |

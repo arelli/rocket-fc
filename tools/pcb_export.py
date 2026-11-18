@@ -5,7 +5,9 @@ Usage:
     python tools/pcb_export.py check      # ERC, DRC + schematic parity, tools/pcb_check.py; exit 1 on problems
     python tools/pcb_export.py docs       # docs/schematics/flight.svg, printable PDF in hardware/flight-pcb/out/
     python tools/pcb_export.py board      # 1:1 placement PDFs (top, bottom) and 3D renders in hardware/flight-pcb/out/
-    python tools/pcb_export.py laser      # laser copper images, registration jig, drill file in hardware/flight-pcb/out/laser/
+    python tools/pcb_export.py laser      # laser copper images, registration jig, drill file, placement map in
+                                          # hardware/flight-pcb/out/laser/
+                                          # (PNG line spacing: LASER_DPI, default 254 dpi = 0.1 mm)
 
 Needs KiCad 10 (kicad-cli). Found on PATH, in KICAD_CLI, or in the default install folder. tools/pcb_check.py
 runs with KiCad's own Python (next to kicad-cli, or KICAD_PYTHON). Until the board is routed, DRC's unrouted
@@ -140,17 +142,33 @@ def laser(cli):
               '--generate-map', '--map-format', 'pdf', '--generate-report',
               '--report-path', os.path.join(dst, NAME + '-drill-report.txt'), '-o', dst + os.sep, PCB,
               quiet=True) == 0
-    try:  # 1000 dpi PNGs for raster-only laser software (optional: needs PyMuPDF)
+    # PNGs for raster software (LaserGRBL "Passthrough": one engraved line per pixel row, so the DPI is the line
+    # spacing; 254 dpi = 0.1 mm). Pure black and white, no grey edge pixels to be re-interpreted. Needs PyMuPDF.
+    dpi = int(os.environ.get('LASER_DPI', '254'))
+    try:
         import pymupdf
         for name in ('top', 'bottom'):
             pix = pymupdf.open(os.path.join(dst, '%s-%s.svg' % (NAME, name)))[0].get_pixmap(
-                dpi=1000, colorspace=pymupdf.csGRAY)
-            pix.set_dpi(1000, 1000)
-            pix.save(os.path.join(dst, '%s-%s-1000dpi.png' % (NAME, name)))
-        pngs = ' and 1000 dpi PNGs'
+                dpi=dpi, colorspace=pymupdf.csGRAY)
+            bw = pymupdf.Pixmap(pymupdf.csGRAY, pix.width, pix.height,
+                                bytes(255 if v >= 128 else 0 for v in pix.samples), False)
+            bw.set_dpi(dpi, dpi)
+            bw.save(os.path.join(dst, '%s-%s-%ddpi.png' % (NAME, name, dpi)))
+        pngs = ' and %d dpi PNGs' % dpi
+        # placement map: parts, wire vias and both-face pins over the copper (tools/pcb_map.py)
+        with tempfile.TemporaryDirectory() as tmp:
+            parts = os.path.join(tmp, 'parts.json')
+            if subprocess.run([kicad_python(cli), os.path.join(ROOT, 'tools', 'pcb_map.py'), 'extract', PCB, parts],
+                              stdout=subprocess.DEVNULL).returncode == 0:
+                sys.path.insert(0, os.path.join(ROOT, 'tools'))
+                import pcb_map
+                pcb_map.draw(parts, dst, os.path.join(dst, NAME + '-placement-map.png'))
+                pngs += ', placement map'
+            else:
+                ok = False
     except ImportError:
-        pngs = ' (pip install pymupdf for 1000 dpi PNGs)'
-    print('laser: top, bottom (mirrored) and jig SVGs%s, drill file and report in hardware/flight-pcb/out/laser/'
+        pngs = ' (pip install pymupdf for the PNGs and the placement map)'
+    print('laser: top, bottom (mirrored) and jig SVGs%s; drill file and report in hardware/flight-pcb/out/laser/'
           % pngs)
     return ok
 

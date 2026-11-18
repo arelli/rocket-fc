@@ -63,27 +63,48 @@ centre line and only low parts (resistors lying flat) are near the edges.
 
 | File | Use |
 |---|---|
-| `…-top.svg`, `…-top-1000dpi.png` | Top copper, **negative**: black = laser fires (paint off, copper etched), white = copper stays. Every hole centre is a small black dot, so the etch leaves a pit that centres the drill; the M3 holes are small copper dots |
-| `…-bottom.svg`, `…-bottom-1000dpi.png` | Bottom copper, the same, **mirrored** (as seen from below) |
+| `…-top.svg`, `…-top-254dpi.png` | Top copper, **negative**: black = laser fires (paint off, copper etched), white = copper stays. Every hole centre is a small black dot, so the etch leaves a pit that centres the drill; the M3 holes are small copper dots |
+| `…-bottom.svg`, `…-bottom-254dpi.png` | Bottom copper, the same, **mirrored** (as seen from below) |
 | `…-jig.svg` | Registration jig: two 3 mm pin holes at the H1 and H4 positions |
 | `….drl`, `…-drl_map.pdf`, `…-drill-report.txt` | Drill file (mm), drill map and hole count per size |
+| `…-placement-map.png` | Where every part goes, both faces as lasered, with the 27 wire vias (red X) and the pins to solder on both faces (red ring, on the part's face): print it for assembly. Needs PyMuPDF (`pip install pymupdf`), like the PNGs |
 
 All three SVGs have the same size (the board outline's bounding box), so
-they line up when placed at the same position in the laser software (in
-LightBurn: one project, one layer each, align their centres; set the jig's
-outline to a layer that does not output). The PNGs are for raster-only
-software such as LaserGRBL.
+they line up when placed at the same position in the laser software:
+
+- **LaserGRBL:** load each file on its own and give all three the **same
+  Offset X / Y** (e.g. 0, 0), and never move the bed or the jig between
+  them. The PNGs come out 30.0 x 85.2 mm from their DPI (Autosize on), a
+  fraction of a pixel smaller than the SVGs: negligible.
+- **LightBurn:** one project, one layer each, align their centres; set the
+  jig's outline to a layer that does not output.
+
+The PNGs are for raster software such as LaserGRBL: pure black and white,
+one pixel per 0.1 mm (254 dpi). In LaserGRBL load them with **Passthrough**,
+which engraves the image row by row exactly as it is, one line per pixel row
+(the size comes from the DPI). Avoid **Vectorize**: it smooths the outlines
+and thins narrow tracks and pad rings. For another line spacing set
+`LASER_DPI` (e.g. `LASER_DPI=200 python tools/pcb_export.py laser`).
 
 1. **Blank:** double-sided FR4, 1.6 mm, at least 36 x 92 mm. Clean both
    faces (fine abrasive pad, then isopropyl alcohol) and spray thin coats of
-   matte black paint on both. Try the laser settings on a scrap painted the
-   same way first: the paint must come off cleanly down to bright copper (a
-   second pass usually clears residue).
-2. **Top:** laser `top` onto the blank.
+   matte black paint on both. **Find the laser settings on a scrap** painted
+   the same way first:
+   - a power ladder at a fixed speed (e.g. 50, 65, 80, 98 % at 1000 mm/min);
+     take the **lowest power that leaves bright copper**: more power burns
+     past the edges and thins tracks and pad rings;
+   - if thin dark stripes of paint stay between the lines, the spot is
+     narrower than the 0.1 mm line spacing: re-export with `LASER_DPI=318`
+     (0.08 mm);
+   - LaserGRBL laser mode: M3 (constant power) works, since every line ends
+     in the margin outside the board; M4 (dynamic) is better if GRBL's laser
+     mode is on (`$32=1`).
+2. **Top:** laser `top` onto the blank (about 25–30 minutes at 1000 mm/min).
 3. **Drill the four M3 holes** (3.2 mm) on their marks: they register the
    second face.
 4. **Jig:** fix a sheet of cardboard or MDF to the bed and, without moving
-   it afterwards, cut `jig` into it. Push two 3 mm pins into the holes (drill
+   it afterwards, cut `jig` into it (a vector job: enough power and passes
+   to cut through, at the same offset as the images). Push two 3 mm pins into the holes (drill
    bits shank-down, or M3 screws from below), standing no higher than the
    board.
 5. **Bottom:** flip the board **left to right** (about its long axis) onto
@@ -107,7 +128,9 @@ software such as LaserGRBL.
 ## Assembly order
 
 No plated holes: a part is soldered on the face opposite to it, and some
-joints end up under a part. `tools/pcb_check.py` lists them; in practice:
+joints end up under a part. `tools/pcb_check.py` lists them, and the
+placement map (`out/laser/…-placement-map.png`) shows where each part goes,
+the wire vias and the both-face pins; in practice:
 
 0. **All 27 wire vias first**: a bare wire (e.g. a resistor lead offcut)
    through each 0.8 mm via hole, soldered on both faces and trimmed flush.
@@ -172,13 +195,24 @@ Measure before etching (the heights in `tools/pcb_check.py` are estimates):
   (J4), GPS module (J5 lead).
 - Made at home: laser-exposed resist and etching, two layers, no plated holes.
   Through-hole parts only (their leads also join the two sides).
-  Design rules (project settings): tracks ≥ 0.4 mm, clearance 0.4 mm,
-  copper ring ≥ 0.35 mm, vias as soldered wire (0.8 mm drill, 1.6 mm pad).
+  Design rules (project settings): tracks ≥ 0.4 mm, clearance 0.3 mm,
+  copper ring ≥ 0.35 mm, vias as soldered wire (0.8 mm drill, 1.6 mm pad
+  at least).
+- **Fattened for the laser:** the first test etch lost thin tracks and pad
+  rings (the laser burns past the edge of each black area, so copper shrinks
+  and gaps widen). Every track, via and pad was then grown in place, routing
+  unchanged, into half the free room to each neighbour, keeping 0.3 mm gaps:
+  tracks +0.16–0.30 mm (0.4 → 0.56–0.70, 0.6 → 0.8–0.9, 1.0 → 1.2–1.3), via
+  pads 1.8–2.1 mm, part pads +0.2–0.5 mm where the pitch allows. The pads are
+  enlarged on the board itself, so they differ from the library footprints
+  (that DRC check is off): **Update Footprints from Library** would shrink
+  them back.
   A wire via may sit under a part (soldered and trimmed before the part is
   fitted), never under the MOSFET's metal tab.
-- Net classes (default widths): **Pyro** (CELL+, ARM, IGN+, IGN-) 1.0 mm,
-  **Power** (BAT_SW, +3V3, GND) 0.6 mm, **Default** 0.4 mm. A 1.0 mm track
-  drops about 0.1 V over the board at the 2.7 A firing current.
+- Net classes (default widths for new tracks): **Pyro** (CELL+, ARM, IGN+,
+  IGN-) 1.2 mm, **Power** (BAT_SW, +3V3, GND) 0.8 mm, **Default** 0.6 mm.
+  A 1.0 mm track drops about 0.1 V over the board at the 2.7 A firing
+  current (the pyro tracks are now 1.2–1.3 mm).
 
 ## Workflow
 

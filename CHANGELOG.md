@@ -31,9 +31,18 @@ version number (`tlm::kVersion`, docs/TELEMETRY.md).
   The 4-pin barometer mounts sensor side down (its pin order runs the other
   way to the footprint with the sensor up).
 - Hardware: laser files for a home-made board (`python tools/pcb_export.py
-  laser`): negative copper images (bottom mirrored) as SVG and 1000 dpi PNG,
+  laser`): negative copper images (bottom mirrored) as SVG and as pure
+  black-and-white 254 dpi PNG (0.1 mm per line, for LaserGRBL Passthrough),
   a registration jig using the M3 holes, drill file and report. Copper TOP /
   BOT labels show whether the bottom came out mirrored correctly.
+- Hardware: copper fattened after the first test etch (thin tracks and pad
+  rings were lost to laser over-burn): every track, via and pad grown in
+  place into the free room, routing unchanged; tracks 0.56 mm and wider,
+  clearance 0.3 mm.
+- Hardware: placement map for assembly (`tools/pcb_map.py`, written by the
+  laser step): parts on both faces over the lasered copper, wire vias and
+  both-face pins marked. The build guide lists the PCB materials and points
+  to the board's making and assembly steps; LaserGRBL settings documented.
 - Tools: `tools/pcb_check.py` checks what KiCad's DRC cannot on a board without
   plated holes (every joint can be soldered, with the assembly order; tracks
   meet pins only on faces where they are soldered; no copper under the MOSFET
