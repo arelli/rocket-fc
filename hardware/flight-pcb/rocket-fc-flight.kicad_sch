@@ -6659,7 +6659,7 @@
 		)
 		(uuid "ae65621e-5056-565f-93d1-714f662ae7ff")
 	)
-	(text "L76K GNSS module off the board, on a 3-wire lead soldered to J5\n(pin numbers: Seeed schematic V1.0, XIAO positions):\n  J5.1 3V3 -> its 3V3, J5.2 GND -> its GND,\n  J5.3 GPS_TX <- its TXD (D7 position), 9600 baud.\nAt the module: RXD (D6), WAKE_UP (D0), RESET (D10) to its 3V3.\nCeramic patch antenna on U.FL, facing the nose. About 41 mA."
+	(text "L76K GNSS module off the board, on a 3-wire lead soldered to J5\n(pins as printed on the V1.1 module, XIAO positions):\n  J5.1 3V3 -> its 3V3, J5.2 GND -> its GND,\n  J5.3 GPS_TX <- its TXD (D7 position), 9600 baud.\nAt the module: RX (D6), WUP (D0), RST (D2) to its 3V3.\nCeramic patch antenna on U.FL, facing the nose. About 41 mA."
 		(exclude_from_sim no)
 		(at 317.5 172.72 0)
 		(effects

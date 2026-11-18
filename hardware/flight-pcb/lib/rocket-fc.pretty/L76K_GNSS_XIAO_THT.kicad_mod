@@ -3,7 +3,7 @@
 	(generator "pcbnew")
 	(generator_version "10.0")
 	(layer "F.Cu")
-	(descr "Seeed L76K GNSS module for XIAO (109100021), 18 x 21 mm, XIAO header pattern on sockets. Seeed schematic V1.0: D0 pos WAKE_UP, D6 pos RXD, D7 pos TXD, D10 pos RESET_N, 3V3, GND; other positions not connected on the module.")
+	(descr "Seeed L76K GNSS module for XIAO (109100021), 18 x 21 mm, XIAO header pattern on sockets. Seeed schematic V1.0: V1.1 silkscreen: D0 pos WUP, D2 pos RST, D6 pos RX, D7 pos TX, 3V3, GND; other positions not connected on the module.")
 	(tags "GNSS GPS L76K XIAO")
 	(property "Reference" "REF**"
 		(at 0 -11.8 0)

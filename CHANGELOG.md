@@ -15,8 +15,8 @@ version number (`tlm::kVersion`, docs/TELEMETRY.md).
 - Hardware: footprints for every part of the flight PCB (XIAO kit, SparkFun
   MPU-9250 from SparkFun's board file, 4-pin GY-BMP280, L76K); through-hole
   resistors.
-- Docs: L76K pins corrected from Seeed's schematic (wake-up at the D0 position,
-  reset at D10, RX at D6; the D2 position is unused). Barometer is the 4-pin
+- Docs: L76K pins as printed on the V1.1 module (WUP at the D0 position,
+  RST at D2, RX at D6, TX at D7; Seeed's V1.0 schematic had reset at D10). Barometer is the 4-pin
   GY-BMP280 board ("GYBMEP", 10 x 13 mm). Battery capacitor 470 uF 10 V
   (8 mm): it rides through millisecond dips, not the 1 s pyro pulse.
 - Hardware: flight PCB placed, 30 x 78.2 mm (85.2 mm with two M3 ears at the
@@ -28,6 +28,8 @@ version number (`tlm::kVersion`, docs/TELEMETRY.md).
   ARM and igniter screw terminals are centred, one per face; the GPS module
   moves to a 3-wire lead (J5). The pyro resistor becomes a 1 ohm 2 W metal-oxide
   part (the 5 W cement one still works hand-wired). No status LED on the PCB.
+  The 4-pin barometer mounts sensor side down (its pin order runs the other
+  way to the footprint with the sensor up).
   Not routed yet.
 - Tools: `tools/pcb_check.py` checks what KiCad's DRC cannot on a board without
   plated holes (every joint can be soldered, with the assembly order; tracks

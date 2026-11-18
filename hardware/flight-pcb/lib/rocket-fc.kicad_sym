@@ -685,7 +685,7 @@
 				)
 			)
 		)
-		(property "Description" "Seeed L76K GNSS module for XIAO (109100021), XIAO header pattern, U.FL antenna. Seeed schematic V1.0: WAKE_UP (D0 pos) and RESET_N (D10 pos) pulled up on the module; D1-D5, D8, D9 and 5V unused."
+		(property "Description" "Seeed L76K GNSS module for XIAO (109100021), XIAO header pattern, U.FL antenna. V1.1 silkscreen: WUP (D0 pos), RST (D2 pos), RX (D6 pos), TX (D7 pos); D1, D3-D5, D8-D10 and 5V unused."
 			(at 0 0 0)
 			(hide yes)
 			(effects
@@ -753,10 +753,10 @@
 					)
 				)
 			)
-			(pin passive line
+			(pin input line
 				(at -15.24 2.54 0)
 				(length 2.54)
-				(name "D2"
+				(name "~{RESET}"
 					(effects
 						(font
 							(size 1.27 1.27)
@@ -897,10 +897,10 @@
 					)
 				)
 			)
-			(pin input line
+			(pin passive line
 				(at 15.24 0 180)
 				(length 2.54)
-				(name "~{RESET}"
+				(name "D10"
 					(effects
 						(font
 							(size 1.27 1.27)

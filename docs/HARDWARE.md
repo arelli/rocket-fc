@@ -37,9 +37,10 @@ All header pins are used.
 
 ## GPS (optional): Seeed L76K GNSS module for XIAO
 
-Not stacked on the XIAO: stacked, it would use D0, D6 and D10, which are the
-battery sense, the LED and the radio here. Its pins sit in the XIAO pattern;
-functions from Seeed's schematic (109100021, V1.0):
+Not stacked on the XIAO: stacked, its control pins would sit on D0, D2 and D6,
+which are the battery sense, the buzzer and the LED (hand-wired build) here.
+Its pins sit in the XIAO pattern; functions as printed on the module
+(109100021, V1.1):
 
 | L76K pin (its XIAO position) | Connect to | Why |
 |---|---|---|
@@ -47,16 +48,16 @@ functions from Seeed's schematic (109100021, V1.0):
 | GND | GND | |
 | TXD, GPS data out (D7) | **D7** | Read at 9600 baud (setting `gps_baud`) |
 | RXD, GPS data in (D6) | 3V3 | Not used (default NMEA output is enough); held at the idle level |
-| WAKE_UP (D0), RESET_N (D10) | 3V3 | Pulled up on the module; tied high as well, so a loose lead cannot reset or sleep it |
-| D1–D5, D8, D9, 5V positions | not connected | Not used on the module |
+| WUP (D0), RST (D2) | 3V3 | Pulled up on the module; tied high as well, so a loose lead cannot reset or sleep it |
+| D1, D3–D5, D8–D10, 5V positions | not connected | Not used on the module |
 
 On the PCB ([hardware/flight-pcb](../hardware/flight-pcb)) the module sits
 near the nose on a 3-wire lead soldered to J5 (3V3, GND, TX); tie its RX,
-WAKE_UP and RESET positions to its 3V3 at the module.
+WUP and RST pads to its 3V3 at the module.
 
-Earlier versions of this table named the D0 and D2 positions as the control
-pins. On the module the D2 position connects to nothing, so a lead from it to
-3V3 is harmless; reset is at the D10 position.
+Seeed's V1.0 schematic puts reset at the D10 position; the V1.1 module has
+RST at the D2 position (silkscreen) and D10 unconnected. Follow the
+silkscreen of the module in hand.
 
 - Settings (group "gps"): `gps_mode` = auto (default: used if present, a
   self-test warning if not), off (D7 unused), required (self-test FAULT 7 without

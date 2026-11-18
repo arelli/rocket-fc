@@ -19,7 +19,7 @@ is in [TESTING.md](TESTING.md).
 |---|---|---|
 | Seeed XIAO ESP32-S3 + Wio-SX1262 kit | 1 | Processor and LoRa radio, with the 868/915 MHz antenna |
 | MPU-9250 breakout (SparkFun SEN-13762 or similar, no regulator) | 1 | MPU-9255/6500 also work (no magnetometer on the 6500); the PCB footprint is the SparkFun board |
-| GY-BMP280 breakout, 4 pins ("GYBMEP", 10 × 13 mm) | 1 | VCC GND SCL SDA, on 3V3; the PCB takes this board. 6-pin BMP280/BME280 boards also work hand-wired |
+| GY-BMP280 breakout, 4 pins ("GYBMEP", 10 × 13 mm) | 1 | VIN GND SCL SDA, on 3V3; the PCB takes this board **sensor side down** (labels up, VIN in the square pad). 6-pin BMP280/BME280 boards also work hand-wired |
 | 18350 Li-ion cell (≈ 700 mAh) | 1 | Soldered tabs or a tight holder |
 | IRLB8748PBF logic-level MOSFET | 1 | Pyro driver |
 | Resistor 1 Ω, 2 W metal oxide (or 5 W cement) | 1 | Pyro current limit; the PCB takes the 2 W size (4.5 × 12 mm), see HARDWARE.md for its rating |
@@ -95,9 +95,9 @@ Assembly order (test as you go):
    terminal → 1 Ω 5 W → igniter terminal → MOSFET drain; source straight to
    cell −. Gate: D3 → 100 Ω → gate, 100k gate to GND. Continuity divider
    (2 × 100k) from the drain to D1. Thick wire for the whole loop.
-7. **GPS (optional):** L76K TX (its D7 position) → D7; its 3V3, RX (D6
-   position), wake-up (D0 position) and reset (D10 position) to 3V3; GND to
-   GND. Do not stack it on the XIAO.
+7. **GPS (optional):** L76K TX (its D7 position) → D7; its RX (D6
+   position), WUP (D0 position) and RST (D2 position on the V1.1 module) to
+   its 3V3; 3V3 to 3V3, GND to GND. Do not stack it on the XIAO.
 
 Mount the IMU with one axis along the rocket's long axis (any of ±X, ±Y,
 ±Z; the direction is set in software later). Give the barometer a vented,
