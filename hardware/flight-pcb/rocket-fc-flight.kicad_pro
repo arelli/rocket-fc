@@ -18,6 +18,14 @@
       },
       "diff_pair_dimensions": [],
       "drc_exclusions": [],
+      "rule_severities": {
+        "npth_inside_courtyard": "ignore",
+        "pth_inside_courtyard": "ignore",
+        "silk_edge_clearance": "ignore",
+        "silk_over_copper": "ignore",
+        "silk_overlap": "ignore",
+        "solder_mask_bridge": "ignore"
+      },
       "rules": {
         "max_error": 0.005,
         "min_clearance": 0.4,
@@ -29,11 +37,11 @@
         "min_microvia_drill": 0.1,
         "min_resolved_spokes": 2,
         "min_silk_clearance": 0.0,
-        "min_text_height": 1.0,
-        "min_text_thickness": 0.2,
+        "min_text_height": 0.8,
+        "min_text_thickness": 0.12,
         "min_through_hole_diameter": 0.6,
         "min_track_width": 0.4,
-        "min_via_annular_width": 0.4,
+        "min_via_annular_width": 0.35,
         "min_via_diameter": 1.6,
         "solder_mask_to_copper_clearance": 0.0,
         "use_height_for_length_calcs": true

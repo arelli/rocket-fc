@@ -50,6 +50,10 @@ functions from Seeed's schematic (109100021, V1.0):
 | WAKE_UP (D0), RESET_N (D10) | 3V3 | Pulled up on the module; tied high as well, so a loose lead cannot reset or sleep it |
 | D1–D5, D8, D9, 5V positions | not connected | Not used on the module |
 
+On the PCB ([hardware/flight-pcb](../hardware/flight-pcb)) the module sits
+near the nose on a 3-wire lead soldered to J5 (3V3, GND, TX); tie its RX,
+WAKE_UP and RESET positions to its 3V3 at the module.
+
 Earlier versions of this table named the D0 and D2 positions as the control
 pins. On the module the D2 position connects to nothing, so a lead from it to
 3V3 is harmless; reset is at the D10 position.

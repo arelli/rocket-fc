@@ -18,6 +18,14 @@ version number (`tlm::kVersion`, docs/TELEMETRY.md).
 - Docs: L76K pins corrected from Seeed's schematic (wake-up at the D0 position,
   reset at D10, RX at D6; the D2 position is unused). Barometer is the 6-pin
   GY-BMP280 board (CSB to 3V3, SDO to GND).
+- Hardware: flight PCB placed, 29 x 101.3 mm, parts on both faces with the tall
+  ones on the centre line for the 32 mm airframe; M3 holes at both ends. The
+  GPS module moves to a 3-wire lead (J5); battery and main switch use side-entry
+  JST-XH connectors; resistors lie flat. Not routed yet.
+- Tools: `tools/pcb_check.py` checks what KiCad's DRC cannot on a board without
+  plated holes (every joint can be soldered, with the assembly order) and that
+  every part fits the tube; `tools/pcb_export.py` runs it and exports
+  placement prints and 3D renders.
 - UI: zoom on every plot (drag, Shift+drag to pan, Ctrl+wheel, double-click to
   reset; linked time axes), hover readout, CSV export of each plot (range
   shown), of the events and of the GPS frames, plots in their own window.

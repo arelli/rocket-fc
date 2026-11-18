@@ -36,17 +36,6 @@
 			)
 		)
 	)
-	(property "Description" "Seeed XIAO ESP32-S3 with Wio-SX1262 (kit), on 2.54 mm headers. 21 x 17.8 mm, USB-C at the -y end (must reach the board edge). Pads 15/16: wire pads for the BAT+/BAT- pads on the XIAO underside."
-		(at 0 0 0)
-		(layer "F.Fab")
-		(hide yes)
-		(effects
-			(font
-				(size 1 1)
-				(thickness 0.15)
-			)
-		)
-	)
 	(attr through_hole)
 	(duplicate_pad_numbers_are_jumpers no)
 	(fp_rect

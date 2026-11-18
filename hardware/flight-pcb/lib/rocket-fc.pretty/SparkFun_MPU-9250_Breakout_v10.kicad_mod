@@ -3,7 +3,7 @@
 	(generator "pcbnew")
 	(generator_version "10.0")
 	(layer "F.Cu")
-	(descr "SparkFun IMU Breakout MPU-9250 (SEN-13762), board v10 (17.0 x 17.8 mm), pin positions from the SparkFun Eagle board file. Mounted component side up on 2.54 mm headers. Two 3.3 mm standoff holes (optional).")
+	(descr "SparkFun IMU Breakout MPU-9250 (SEN-13762), board v10 (17.0 x 17.8 mm), pin positions from the SparkFun Eagle board file. Mounted component side up on 2.54 mm headers. Its two standoff holes are marked, not drilled.")
 	(tags "IMU MPU-9250 SparkFun breakout")
 	(property "Reference" "REF**"
 		(at 8.509 -1.4 0)
@@ -26,17 +26,6 @@
 		)
 	)
 	(property "Datasheet" ""
-		(at 0 0 0)
-		(layer "F.Fab")
-		(hide yes)
-		(effects
-			(font
-				(size 1 1)
-				(thickness 0.15)
-			)
-		)
-	)
-	(property "Description" "SparkFun IMU Breakout MPU-9250 (SEN-13762), board v10 (17.0 x 17.8 mm), pin positions from the SparkFun Eagle board file. Mounted component side up on 2.54 mm headers. Two 3.3 mm standoff holes (optional)."
 		(at 0 0 0)
 		(layer "F.Fab")
 		(hide yes)
@@ -285,17 +274,35 @@
 		(layers "*.Cu" "*.Mask")
 		(remove_unused_layers no)
 	)
-	(pad "" np_thru_hole circle
-		(at 14.224 14.986)
-		(size 3.302 3.302)
-		(drill 3.302)
-		(layers "*.Cu" "*.Mask")
+	(fp_circle
+		(center 14.224 14.986)
+		(end 15.874 14.986)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(fill no)
+		(layer "F.Fab")
 	)
-	(pad "" np_thru_hole circle
-		(at 14.224 2.794)
-		(size 3.302 3.302)
-		(drill 3.302)
-		(layers "*.Cu" "*.Mask")
+	(fp_circle
+		(center 14.224 2.794)
+		(end 15.874 2.794)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(fill no)
+		(layer "F.Fab")
+	)
+	(fp_text user "standoff holes not drilled"
+		(at 14.2 8.9 0)
+		(layer "F.Fab")
+		(effects
+			(font
+				(size 0.5 0.5)
+				(thickness 0.075)
+			)
+		)
 	)
 	(embedded_fonts no)
 )
