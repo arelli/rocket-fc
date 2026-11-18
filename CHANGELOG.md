@@ -18,10 +18,14 @@ version number (`tlm::kVersion`, docs/TELEMETRY.md).
 - Docs: L76K pins corrected from Seeed's schematic (wake-up at the D0 position,
   reset at D10, RX at D6; the D2 position is unused). Barometer is the 6-pin
   GY-BMP280 board (CSB to 3V3, SDO to GND).
-- Hardware: flight PCB placed, 29 x 101.3 mm, parts on both faces with the tall
-  ones on the centre line for the 32 mm airframe; M3 holes at both ends. The
-  GPS module moves to a 3-wire lead (J5); battery and main switch use side-entry
-  JST-XH connectors; resistors lie flat. Not routed yet.
+- Hardware: flight PCB placed, 29 x 90.1 mm (97.1 mm with two M3 ears at the
+  USB end), parts on both faces with the tall ones on the centre line for the
+  32 mm airframe. The XIAO's USB-C sits at the board edge in a notch between
+  the ears. Battery and main switch share one 4-pin side-entry JST-XH (J1);
+  ARM and igniter screw terminals are centred, one per face; the GPS module
+  moves to a 3-wire lead (J5). The pyro resistor becomes a 1 ohm 2 W metal-oxide
+  part (the 5 W cement one still works hand-wired). No status LED on the PCB.
+  Not routed yet.
 - Tools: `tools/pcb_check.py` checks what KiCad's DRC cannot on a board without
   plated holes (every joint can be soldered, with the assembly order) and that
   every part fits the tube; `tools/pcb_export.py` runs it and exports

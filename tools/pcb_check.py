@@ -23,23 +23,22 @@ HALF_T = 0.8           # half the board thickness
 DEFAULT_HEIGHT = 2.7
 
 HEIGHT = {
-    'U1': 9.0,    # XIAO ESP32-S3 + Wio-SX1262 on 2.54 mm headers (estimate: measure the stack)
+    'U1': 10.0,   # XIAO ESP32-S3 with the Wio-SX1262 stacked on top, on low 2.54 mm headers (estimate: measure)
     'U2': 5.1,    # SparkFun MPU-9250 on headers
     'U3': 5.1,    # GY-BMP280 on headers
     'C1': 10.0,   # 10 mm electrolytic lying flat (checked as a cylinder, see CYLINDER)
     'Q1': 4.6,    # TO-220 lying flat
-    'R3': 9.5,    # 5 W cement resistor
+    'R3': 4.5,    # 1 ohm 2 W metal oxide lying flat
     'BZ1': 9.5,   # 12 mm active buzzer
-    'J1': 6.1, 'J2': 6.1,    # JST XH side entry
-    'J3': 10.0, 'J4': 10.0,  # 5 mm screw terminals (measure yours: 10.4 mm is the limit where they sit)
+    'J1': 6.1,    # JST XH 4-pin side entry
+    'J3': 10.0, 'J4': 10.0,  # 5 mm screw terminals, centred
     'J5': 3.0,    # GPS lead soldered to pads
-    'D1': 5.9,    # 5 mm LED lying flat
     'C2': 6.0, 'C3': 6.0,    # ceramic discs
-    'H1': 2.0, 'H2': 2.0,    # M3 screw heads
+    'H1': 2.0, 'H2': 2.0, 'H3': 2.0, 'H4': 2.0,  # M3 screw heads
 }
 RAISED = {'U1', 'U2', 'U3'}          # modules on headers: joints underneath can be soldered before fitting them
 CYLINDER = {'C1': 5.0}               # parts lying flat that are round: radius (mm), axis along the board
-BODY_TRIM = {'R3': 2.74}             # lead length at each end of a body drawn with its leads on the Fab layer
+BODY_TRIM = {'R3': 1.67}             # lead length at each end of a body drawn with its leads on the Fab layer
 
 
 def height(ref):

@@ -154,6 +154,11 @@ pins. On the module the D2 position connects to nothing, so a lead from it to
   the bridge.
 - Use thick wire (≥ 22 AWG) for the cell → link → resistor → igniter → Q1 →
   cell− loop; the 1 Ω resistor gets warm only during the 1 s pulse.
+- **Resistor rating:** a pulse puts about 8 W into the 1 Ω resistor for 1 s
+  (2 s at most). A 5 W cement resistor takes it easily. The PCB uses a 1 Ω
+  2 W metal-oxide resistor (4.5 × 12 mm), which takes it as a short-time
+  overload: check that the datasheet of yours allows at least 8 W for 2 s
+  (typically 2.5 × rated voltage for 5 s).
 
 ## Buzzer (on the pin)
 
@@ -170,6 +175,13 @@ pins. On the module the D2 position connects to nothing, so a lead from it to
 
 `D6 ── 100 Ω ── LED anode, LED cathode ── GND` (about 13 mA for a red LED).
 Use any visible 3 mm/5 mm LED.
+
+The PCB ([hardware/flight-pcb](../hardware/flight-pcb)) has no status LED
+(D6 is left unconnected). The buzzer still gives the countdown, self-test,
+fault codes, pad continuity (while the ground station is heard), the armed
+warnings and the landed altitude; battery low and the pad state with no
+ground station in range are then only in the telemetry and the WiFi page
+([INDICATORS.md](INDICATORS.md)).
 
 ## Sensors (I²C, 400 kHz)
 

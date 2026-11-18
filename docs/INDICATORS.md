@@ -5,6 +5,10 @@ Patterns: [lib/fc_core/src/fc/indicators.cpp](../lib/fc_core/src/fc/indicators.c
 
 ## Status LED (continuous state)
 
+The PCB (hardware/flight-pcb) has no status LED: there, battery low and the
+pad state with no ground station in range are shown only in the telemetry and
+the WiFi page. The buzzer codes below are unchanged.
+
 | Pattern | Meaning |
 |---|---|
 | Fast blink (10 Hz) | INIT: calibrating, keep still |

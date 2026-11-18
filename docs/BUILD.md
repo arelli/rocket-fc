@@ -22,12 +22,12 @@ is in [TESTING.md](TESTING.md).
 | GY-BMP280 breakout, 6 pins ("GYBMEP", 3.3 V) | 1 | BME280 also works; the 4-pin GY-BMP280-5V board too when hand-wired (on 3V3) |
 | 18350 Li-ion cell (≈ 700 mAh) | 1 | Soldered tabs or a tight holder |
 | IRLB8748PBF logic-level MOSFET | 1 | Pyro driver |
-| Resistor 1 Ω 5 W | 1 | Pyro current limit |
+| Resistor 1 Ω, 2 W metal oxide (or 5 W cement) | 1 | Pyro current limit; the PCB takes the 2 W size (4.5 × 12 mm), see HARDWARE.md for its rating |
 | Resistor 100 Ω | 2 | Gate, LED |
 | Resistor 100 kΩ | 5 | Gate pull-down, battery and continuity dividers |
 | Electrolytic capacitor 1000 µF 16 V | 1 | Across the battery |
 | Active buzzer, 3–5 V | 1 | Straight on the pin |
-| LED, 3 or 5 mm | 1 | Status |
+| LED, 3 or 5 mm | 0–1 | Status; not on the PCB |
 | Slide switch (≥ 0.5 A) | 1 | Main power |
 | 2-pin screw terminals | 2 | Arm link, igniter |
 | Seeed L76K GNSS module | 0–1 | **Optional** GPS for recovery |

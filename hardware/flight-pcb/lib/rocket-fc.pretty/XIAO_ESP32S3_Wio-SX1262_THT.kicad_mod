@@ -3,7 +3,7 @@
 	(generator "pcbnew")
 	(generator_version "10.0")
 	(layer "F.Cu")
-	(descr "Seeed XIAO ESP32-S3 with Wio-SX1262 (kit), on 2.54 mm headers. 21 x 17.8 mm, USB-C at the -y end (must reach the board edge). Pads 15/16: wire pads for the BAT+/BAT- pads on the XIAO underside.")
+	(descr "Seeed XIAO ESP32-S3 with Wio-SX1262 (kit; the Wio board stacked on top), on low 2.54 mm headers (not sockets). 21 x 17.8 mm, USB-C at the -y end (must reach the board edge). Pads 15/16: wire pads for the BAT+/BAT- pads on the XIAO underside.")
 	(tags "XIAO ESP32S3 SX1262 LoRa module")
 	(property "Reference" "REF**"
 		(at 0 -13.6 0)
@@ -16,7 +16,7 @@
 		)
 	)
 	(property "Value" "XIAO_ESP32S3_Wio-SX1262_THT"
-		(at 0 17.6 0)
+		(at 0 22.9 0)
 		(layer "F.Fab")
 		(effects
 			(font
@@ -60,7 +60,7 @@
 	)
 	(fp_rect
 		(start -9.4 -12.05)
-		(end 9.4 16.6)
+		(end 9.4 21.85)
 		(stroke
 			(width 0.05)
 			(type solid)
@@ -118,7 +118,7 @@
 		)
 	)
 	(fp_text user "BAT+"
-		(at 2.54 15.6 0)
+		(at 2.54 22 0)
 		(layer "F.SilkS")
 		(effects
 			(font
@@ -128,7 +128,7 @@
 		)
 	)
 	(fp_text user "BAT-"
-		(at -2.54 15.6 0)
+		(at -2.54 22 0)
 		(layer "F.SilkS")
 		(effects
 			(font
@@ -236,14 +236,14 @@
 		(remove_unused_layers no)
 	)
 	(pad "15" thru_hole circle
-		(at 2.54 13.97)
+		(at 2.54 20.32)
 		(size 2 2)
 		(drill 1)
 		(layers "*.Cu" "*.Mask")
 		(remove_unused_layers no)
 	)
 	(pad "16" thru_hole rect
-		(at -2.54 13.97)
+		(at -2.54 20.32)
 		(size 2 2)
 		(drill 1)
 		(layers "*.Cu" "*.Mask")
