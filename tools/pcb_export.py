@@ -5,6 +5,7 @@ Usage:
     python tools/pcb_export.py check      # ERC, DRC + schematic parity, tools/pcb_check.py; exit 1 on problems
     python tools/pcb_export.py docs       # docs/schematics/flight.svg, printable PDF in hardware/flight-pcb/out/
     python tools/pcb_export.py board      # 1:1 placement PDFs (top, bottom) and 3D renders in hardware/flight-pcb/out/
+    python tools/pcb_export.py laser      # laser copper images, registration jig, drill file in hardware/flight-pcb/out/laser/
 
 Needs KiCad 10 (kicad-cli). Found on PATH, in KICAD_CLI, or in the default install folder. tools/pcb_check.py
 runs with KiCad's own Python (next to kicad-cli, or KICAD_PYTHON). Until the board is routed, DRC's unrouted
@@ -112,6 +113,48 @@ def board(cli):
     return ok
 
 
+def laser(cli):
+    """Files for a home-made board, in out/laser/: copper images for a laser (paint/resist ablation), the
+    registration jig, the drill file and table. All SVGs share the board outline's bounding box, so they line up
+    when placed at the same position in the laser software."""
+    if not routed():
+        print('laser: board not routed yet')
+        return False
+    dst = os.path.join(OUT, 'laser')
+    os.makedirs(dst, exist_ok=True)
+    svg = ['pcb', 'export', 'svg', '--mode-single', '--black-and-white', '--page-size-mode', '2',
+           '--exclude-drawing-sheet']
+    files = {
+        # negative: black = laser fires (paint removed, copper etched), white = copper; small drill marks
+        # leave an etched pit at each hole centre that guides the drill
+        'top': ['--layers', 'F.Cu,Edge.Cuts', '--negative', '--drill-shape-opt', '1'],
+        'bottom': ['--layers', 'B.Cu,Edge.Cuts', '--negative', '--drill-shape-opt', '1', '--mirror'],
+        # registration: two 3 mm pin holes (H1 and H4 positions) cut into a sheet fixed to the laser bed
+        'jig': ['--layers', 'User.1,Edge.Cuts', '--drill-shape-opt', '0'],
+    }
+    ok = True
+    for name, extra in files.items():
+        out = os.path.join(dst, '%s-%s.svg' % (NAME, name))
+        ok &= run(cli, *svg, *extra, '-o', out, PCB, quiet=True) == 0
+    ok &= run(cli, 'pcb', 'export', 'drill', '--format', 'excellon', '--excellon-units', 'mm',
+              '--generate-map', '--map-format', 'pdf', '--generate-report',
+              '--report-path', os.path.join(dst, NAME + '-drill-report.txt'), '-o', dst + os.sep, PCB,
+              quiet=True) == 0
+    try:  # 1000 dpi PNGs for raster-only laser software (optional: needs PyMuPDF)
+        import pymupdf
+        for name in ('top', 'bottom'):
+            pix = pymupdf.open(os.path.join(dst, '%s-%s.svg' % (NAME, name)))[0].get_pixmap(
+                dpi=1000, colorspace=pymupdf.csGRAY)
+            pix.set_dpi(1000, 1000)
+            pix.save(os.path.join(dst, '%s-%s-1000dpi.png' % (NAME, name)))
+        pngs = ' and 1000 dpi PNGs'
+    except ImportError:
+        pngs = ' (pip install pymupdf for 1000 dpi PNGs)'
+    print('laser: top, bottom (mirrored) and jig SVGs%s, drill file and report in hardware/flight-pcb/out/laser/'
+          % pngs)
+    return ok
+
+
 def write_if_changed(path, text):
     old = open(path, encoding='utf8').read() if os.path.exists(path) else None
     if old != text:
@@ -140,9 +183,9 @@ def main():
     steps = sys.argv[1:] or ['check', 'docs', 'board']
     cli = kicad_cli()
     for step in steps:
-        if step not in ('check', 'docs', 'board'):
+        if step not in ('check', 'docs', 'board', 'laser'):
             sys.exit(__doc__)
-        if not {'check': check, 'docs': docs, 'board': board}[step](cli):
+        if not {'check': check, 'docs': docs, 'board': board, 'laser': laser}[step](cli):
             sys.exit(1)
 
 

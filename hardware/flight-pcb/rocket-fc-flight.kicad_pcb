@@ -7145,6 +7145,51 @@
 		(layer "Edge.Cuts")
 		(uuid "c18f2cc5-8402-45fb-84f4-8421daef583a")
 	)
+	(gr_circle
+		(center 103.75 46.5)
+		(end 105.25 46.5)
+		(stroke
+			(width 0.1)
+			(type default)
+		)
+		(fill no)
+		(layer "User.1")
+		(uuid "9053f4b0-6f4e-4e1e-bb15-e64b3a3e6c95")
+	)
+	(gr_circle
+		(center 126.25 124.42)
+		(end 127.75 124.42)
+		(stroke
+			(width 0.1)
+			(type default)
+		)
+		(fill no)
+		(layer "User.1")
+		(uuid "f6bbab48-70f0-4aba-a19c-9215403c9d50")
+	)
+	(gr_text "TOP"
+		(at 124.8 112.9 0)
+		(layer "F.Cu")
+		(uuid "0ab9c7a0-8147-4506-b714-3c490e79445e")
+		(effects
+			(font
+				(size 2 2)
+				(thickness 0.4)
+			)
+		)
+	)
+	(gr_text "BOT"
+		(at 104.9 112 0)
+		(layer "B.Cu")
+		(uuid "59a31c44-74f9-47f5-98ae-524323d930e6")
+		(effects
+			(font
+				(size 2 2)
+				(thickness 0.4)
+			)
+			(justify mirror)
+		)
+	)
 	(segment
 		(start 128.3 61.2)
 		(end 128.4 60.6)

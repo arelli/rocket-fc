@@ -18,8 +18,8 @@ The library tables use `${KIPRJMOD}`, so the project opens on any computer
 with no library setup.
 
 **Status:** schematic done (ERC clean), board routed: DRC 0 problems,
-schematic parity 0, `tools/pcb_check.py` ok. Laser exports and a test etch
-still to do.
+schematic parity 0, `tools/pcb_check.py` ok. Laser files ready (below); a
+test etch still to do.
 
 Routing uses both faces and **27 wire vias**: a hole with a short wire
 soldered on both sides wherever a track changes face (no plated holes).
@@ -56,6 +56,53 @@ centre line and only low parts (resistors lying flat) are near the edges.
 | GY-BMP280 4-pin (U3) | 10 x 13 mm, 2.54 mm header along a 10 mm edge. **Mounted sensor side down** (labels up, VIN in the square pad): with the sensor up, the real board's pin order (VIN GND SCL SDA) runs the other way to this footprint. The BMP280 then hangs about 1.5 mm above C1's joints |
 | C1 470 µF 10 V | KiCad CP_Radial_D8.0mm_P3.50mm, standing on the bottom (12.5 mm tall at most) |
 | Everything else | KiCad standard library: resistors lying flat (7.62 mm), 1 Ω 2 W (DIN0414, 15.24 mm), TO-220 lying flat, JST-XH 4-pin side entry, 5.08 mm screw terminals, 12 mm buzzer, solder-wire pads for the GPS lead. The two 100 nF discs sit at the board edge: **bend them flat** (3.5 mm high at most) |
+
+## Making the board (laser and etch)
+
+`python tools/pcb_export.py laser` writes to `out/laser/`:
+
+| File | Use |
+|---|---|
+| `…-top.svg`, `…-top-1000dpi.png` | Top copper, **negative**: black = laser fires (paint off, copper etched), white = copper stays. Every hole centre is a small black dot, so the etch leaves a pit that centres the drill; the M3 holes are small copper dots |
+| `…-bottom.svg`, `…-bottom-1000dpi.png` | Bottom copper, the same, **mirrored** (as seen from below) |
+| `…-jig.svg` | Registration jig: two 3 mm pin holes at the H1 and H4 positions |
+| `….drl`, `…-drl_map.pdf`, `…-drill-report.txt` | Drill file (mm), drill map and hole count per size |
+
+All three SVGs have the same size (the board outline's bounding box), so
+they line up when placed at the same position in the laser software (in
+LightBurn: one project, one layer each, align their centres; set the jig's
+outline to a layer that does not output). The PNGs are for raster-only
+software such as LaserGRBL.
+
+1. **Blank:** double-sided FR4, 1.6 mm, at least 36 x 92 mm. Clean both
+   faces (fine abrasive pad, then isopropyl alcohol) and spray thin coats of
+   matte black paint on both. Try the laser settings on a scrap painted the
+   same way first: the paint must come off cleanly down to bright copper (a
+   second pass usually clears residue).
+2. **Top:** laser `top` onto the blank.
+3. **Drill the four M3 holes** (3.2 mm) on their marks: they register the
+   second face.
+4. **Jig:** fix a sheet of cardboard or MDF to the bed and, without moving
+   it afterwards, cut `jig` into it. Push two 3 mm pins into the holes (drill
+   bits shank-down, or M3 screws from below), standing no higher than the
+   board.
+5. **Bottom:** flip the board **left to right** (about its long axis) onto
+   the pins: H2 and H3 now sit on them. Laser `bottom` at the same position
+   as the jig.
+6. **Etch** both faces (ferric chloride or sodium persulfate), strip the
+   paint with acetone. **TOP and BOT must read correctly** on their faces; if
+   BOT is mirror-writing, the bottom image was not mirrored. Check every
+   track for breaks and shorts with a meter before drilling.
+7. **Drill** from the etched pits, then cut and file to the outline (the
+   thin copper line on each face). Bits:
+
+| Bit | Holes |
+|---|---|
+| 0.8 mm | 27 wire vias, resistors, 100 nF, C1, GPS lead pads (J5) |
+| 1.0 mm | XIAO, MPU-9250 and barometer headers, BAT pads, buzzer, power plug J1 |
+| 1.2 mm | IRLB8748 (Q1) leads, 1 Ω 2 W (R3) |
+| 1.3 mm | Screw terminals J3, J4 |
+| 3.2 mm | M3 holes H1–H4 (step 3), Q1's tab hole |
 
 ## Assembly order
 
@@ -140,7 +187,8 @@ Measure before etching (the heights in `tools/pcb_check.py` are estimates):
 2. Run `python tools/pcb_export.py` from the repository root: the checks
    above, `docs/schematics/flight.svg`, and in `out/` a printable schematic,
    1:1 placement prints (top, and bottom seen from below) and 3D renders.
-   It exits with an error on any problem.
+   It exits with an error on any problem. `python tools/pcb_export.py laser`
+   makes the laser files (above).
 3. If the wiring changed, update `include/board_pins.h` and
    `docs/HARDWARE.md` in the same commit.
 

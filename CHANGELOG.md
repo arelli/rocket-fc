@@ -30,7 +30,10 @@ version number (`tlm::kVersion`, docs/TELEMETRY.md).
   part (the 5 W cement one still works hand-wired). No status LED on the PCB.
   The 4-pin barometer mounts sensor side down (its pin order runs the other
   way to the footprint with the sensor up).
-  Not routed yet.
+- Hardware: laser files for a home-made board (`python tools/pcb_export.py
+  laser`): negative copper images (bottom mirrored) as SVG and 1000 dpi PNG,
+  a registration jig using the M3 holes, drill file and report. Copper TOP /
+  BOT labels show whether the bottom came out mirrored correctly.
 - Tools: `tools/pcb_check.py` checks what KiCad's DRC cannot on a board without
   plated holes (every joint can be soldered, with the assembly order; tracks
   meet pins only on faces where they are soldered; no copper under the MOSFET
