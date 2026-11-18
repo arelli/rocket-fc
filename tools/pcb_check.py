@@ -30,10 +30,10 @@ HEIGHT = {
     'U1': 10.0,   # XIAO ESP32-S3 with the Wio-SX1262 stacked on top, on low 2.54 mm headers (estimate: measure)
     'U2': 5.1,    # SparkFun MPU-9250 on headers
     'U3': 5.1,    # GY-BMP280 on headers
-    'C1': 10.0,   # 10 mm electrolytic lying flat (checked as a cylinder, see CYLINDER)
+    'C1': 12.5,   # 470 uF 8 x 12 mm electrolytic standing (bottom), leads included
     'Q1': 4.6,    # TO-220 lying flat
     'R3': 4.5,    # 1 ohm 2 W metal oxide lying flat
-    'BZ1': 9.5,   # 12 mm active buzzer
+    'BZ1': 9.5,   # 12 mm active buzzer (top)
     'J1': 6.1,    # JST XH 4-pin side entry
     'J3': 10.0, 'J4': 10.0,  # 5 mm screw terminals, centred
     'J5': 3.0,    # GPS lead soldered to pads
@@ -41,7 +41,7 @@ HEIGHT = {
     'H1': 2.0, 'H2': 2.0, 'H3': 2.0, 'H4': 2.0,  # M3 screw heads
 }
 RAISED = {'U1', 'U2', 'U3'}      # modules on headers: joints underneath can be soldered before fitting them
-CYLINDER = {'C1': 5.0}           # parts lying flat that are round: radius (mm), axis along the board
+CYLINDER = {}                    # parts lying flat that are round: {ref: radius (mm)}, axis along the board
 NO_BODY = {'J5'}                 # wire pads: nothing sits on the board
 METAL_TAB = {'Q1': '2'}          # body is metal on the board face, connected to this pad: no other net under it
 SCREW_HEAD_R = 3.0               # keep copper this far from the centre of an M3 hole (screw head / nut)

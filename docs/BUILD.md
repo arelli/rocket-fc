@@ -19,13 +19,13 @@ is in [TESTING.md](TESTING.md).
 |---|---|---|
 | Seeed XIAO ESP32-S3 + Wio-SX1262 kit | 1 | Processor and LoRa radio, with the 868/915 MHz antenna |
 | MPU-9250 breakout (SparkFun SEN-13762 or similar, no regulator) | 1 | MPU-9255/6500 also work (no magnetometer on the 6500); the PCB footprint is the SparkFun board |
-| GY-BMP280 breakout, 6 pins ("GYBMEP", 3.3 V) | 1 | BME280 also works; the 4-pin GY-BMP280-5V board too when hand-wired (on 3V3) |
+| GY-BMP280 breakout, 4 pins ("GYBMEP", 10 × 13 mm) | 1 | VCC GND SCL SDA, on 3V3; the PCB takes this board. 6-pin BMP280/BME280 boards also work hand-wired |
 | 18350 Li-ion cell (≈ 700 mAh) | 1 | Soldered tabs or a tight holder |
 | IRLB8748PBF logic-level MOSFET | 1 | Pyro driver |
 | Resistor 1 Ω, 2 W metal oxide (or 5 W cement) | 1 | Pyro current limit; the PCB takes the 2 W size (4.5 × 12 mm), see HARDWARE.md for its rating |
 | Resistor 100 Ω | 2 | Gate, LED |
 | Resistor 100 kΩ | 5 | Gate pull-down, battery and continuity dividers |
-| Electrolytic capacitor 1000 µF 16 V | 1 | Across the battery |
+| Electrolytic capacitor 470 µF 10 V, 8 mm, 3.5 mm lead spacing, ≤ 12 mm tall | 1 | Across the battery (1000 µF 16 V also fine when hand-wired) |
 | Active buzzer, 3–5 V | 1 | Straight on the pin |
 | LED, 3 or 5 mm | 0–1 | Status; not on the PCB |
 | Slide switch (≥ 0.5 A) | 1 | Main power |
@@ -86,11 +86,10 @@ Assembly order (test as you go):
    solder thin wires to the pads, route them out, plug it back in.
    **BAT− is the pad nearest the USB connector.** Reversing the cell
    destroys the board.
-3. **Power:** cell → main switch → BAT+; 1000 µF across BAT+/GND (mind
+3. **Power:** cell → main switch → BAT+; 470 µF across BAT+/GND (mind
    polarity); battery divider (2 × 100k) to D0.
 4. **Sensors:** MPU-9250 and BMP280 on 3V3, SDA = D4, SCL = D5. BMP280 VCC on
-   **3V3, never 5V**. MPU-9250: CS to 3V3, FSYNC to GND. 6-pin BMP280 board:
-   CSB to 3V3, SDO to GND.
+   **3V3, never 5V**. MPU-9250: CS to 3V3, FSYNC to GND.
 5. **Buzzer** on D2, **LED** with 100 Ω on D6.
 6. **Pyro channel last:** from the cell + *before* the main switch → arm-link
    terminal → 1 Ω 5 W → igniter terminal → MOSFET drain; source straight to

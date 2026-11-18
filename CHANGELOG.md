@@ -13,16 +13,17 @@ version number (`tlm::kVersion`, docs/TELEMETRY.md).
   design rules for a home-etched two-layer board. The board itself is in
   progress. `tools/schematics.py` now draws the ground station only.
 - Hardware: footprints for every part of the flight PCB (XIAO kit, SparkFun
-  MPU-9250 from SparkFun's board file, 6-pin GY-BMP280, L76K, capacitor lying
-  flat); through-hole resistors.
+  MPU-9250 from SparkFun's board file, 4-pin GY-BMP280, L76K); through-hole
+  resistors.
 - Docs: L76K pins corrected from Seeed's schematic (wake-up at the D0 position,
-  reset at D10, RX at D6; the D2 position is unused). Barometer is the 6-pin
-  GY-BMP280 board (CSB to 3V3, SDO to GND).
-- Hardware: flight PCB placed, 30 x 90.1 mm (97.1 mm with two M3 ears at the
+  reset at D10, RX at D6; the D2 position is unused). Barometer is the 4-pin
+  GY-BMP280 board ("GYBMEP", 10 x 13 mm). Battery capacitor 470 uF 10 V
+  (8 mm): it rides through millisecond dips, not the 1 s pyro pulse.
+- Hardware: flight PCB placed, 30 x 78.2 mm (85.2 mm with two M3 ears at the
   USB end), parts on both faces with the tall ones on the centre line for the
   32 mm airframe. Unused header pins (XIAO 5V/D8-D10, MPU AD0/INT/AUX) have
   no pads; net classes 1.0 / 0.6 / 0.4 mm with 0.4 mm clearance. Routed on
-  both faces with 35 wire vias (0.8 mm hole, 1.6 mm pad): DRC clean. The XIAO's USB-C sits at the board edge in a notch between
+  both faces with 27 wire vias (0.8 mm hole, 1.6 mm pad): DRC clean. The XIAO's USB-C sits at the board edge in a notch between
   the ears. Battery and main switch share one 4-pin side-entry JST-XH (J1);
   ARM and igniter screw terminals are centred, one per face; the GPS module
   moves to a 3-wire lead (J5). The pyro resistor becomes a 1 ohm 2 W metal-oxide

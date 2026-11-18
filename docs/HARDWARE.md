@@ -76,8 +76,8 @@ pins. On the module the D2 position connects to nothing, so a lead from it to
                    main switch (slide)
  18350 + ──┬────────o/ o──────────┬──────────────┬───────────── XIAO BAT+ pad
            │                      │              │
-           │                   1000 µF        100k
-           │                   16 V (+)          ├──── D0 (+100 nF to GND, optional)
+           │                    470 µF        100k
+           │                   10 V (+)          ├──── D0 (+100 nF to GND, optional)
            │                      │           100k
            │                      │              │
  18350 − ──┼──────────────────────┴──────────────┴───────────── XIAO BAT− pad (GND)
@@ -92,8 +92,11 @@ pins. On the module the D2 position connects to nothing, so a lead from it to
   side, and plug it back in.
 - **Wire the cell with solder tabs or a tight, taped holder.** A spring holder
   can bounce open for a millisecond under boost and reset the processor.
-- **1000 µF capacitor** across BAT+/GND, close to the XIAO: rides through the
-  voltage dip during the pyro pulse and radio transmissions. Observe its polarity.
+- **470 µF capacitor** (10 V, 8 mm) across BAT+/GND, close to the XIAO: rides
+  through millisecond dips (radio transmit bursts, a contact flicker): about
+  1.5 ms at 100 mA per 0.3 V. It does not hold the voltage during the 1 s pyro
+  pulse: the cell and the 1 Ω resistor set that sag (PYRO_SAG reports it).
+  Observe its polarity. (Earlier builds used 1000 µF 16 V: also fine.)
 - **Battery sense divider** (2 × 100k): ratio 2.0, setting `batt_divider`.
   It draws about 20 µA. Calibrate with a multimeter against the `status`
   reading. During every pyro pulse the battery is sampled about every 0.5 ms;
@@ -188,12 +191,12 @@ ground station in range are then only in the telemetry and the WiFi page
 | Board | VCC | GND | SDA | SCL | Other |
 |---|---|---|---|---|---|
 | MPU-9250 (SparkFun breakout SEN-13762, no regulator) | 3V3 | GND | D4 | D5 | nCS and VDDIO → 3V3, FSYNC → GND; AD0, INT open (0x68 via SJ2) |
-| GY-BMP280, 6 pins ("GYBMEP", 3.3 V) | **3V3**, never 5V | GND | D4 | D5 | CSB → 3V3 (I²C mode), SDO → GND (address 0x76) |
+| GY-BMP280, 4 pins ("GYBMEP", 10 × 13 mm) | **3V3**, never 5V | GND | D4 | D5 | Nothing else: CSB and the address (0x76 or 0x77) are set on the board |
 
-- The 6-pin board has no regulator: 3V3 only. The 4-pin GY-BMP280-5V board
-  also works when hand-wired, with VCC on 3V3 (its 10k pull-ups go to VCC: at
-  5 V they would pull SDA/SCL above the ESP32-S3's 3.6 V limit). The PCB has
-  the 6-pin footprint.
+- Its pull-ups go to VCC: at 5 V they would pull SDA/SCL above the
+  ESP32-S3's 3.6 V limit, so VCC goes on 3V3. The firmware finds the
+  barometer at either address. 6-pin BMP280/BME280 boards also work
+  hand-wired (CSB to 3V3, SDO to GND), but the PCB takes the 4-pin board.
 - The PCB ties the MPU-9250 board's VDDIO pin to 3V3 too; that is harmless if
   the board already links it to VDD.
 - The firmware identifies the IMU chip from WHO_AM_I. Many "MPU-9250" boards

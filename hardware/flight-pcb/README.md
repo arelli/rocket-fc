@@ -8,9 +8,9 @@ pin numbers follow [include/board_pins.h](../../include/board_pins.h), and
 |---|---|
 | `rocket-fc-flight.kicad_pro` | Project, design rules and net classes |
 | `rocket-fc-flight.kicad_sch` | Schematic (one A3 sheet) |
-| `rocket-fc-flight.kicad_pcb` | Board: 30 x 90.1 mm (97.1 mm with the mounting ears), two layers |
-| `lib/rocket-fc.kicad_sym` | Symbols: XIAO ESP32-S3 + Wio-SX1262, SparkFun MPU-9250 breakout, 6-pin GY-BMP280, L76K |
-| `lib/rocket-fc.pretty/` | Footprints of those modules and of the 1000 uF capacitor lying flat |
+| `rocket-fc-flight.kicad_pcb` | Board: 30 x 78.2 mm (85.2 mm with the mounting ears), two layers |
+| `lib/rocket-fc.kicad_sym` | Symbols: XIAO ESP32-S3 + Wio-SX1262, SparkFun MPU-9250 breakout, 4-pin GY-BMP280, L76K |
+| `lib/rocket-fc.pretty/` | Footprints of those modules |
 | `lib/rocket-fc.3dshapes/` | Simplified 3D models of those (boxes and cylinders, for the renders and the tube check by eye) |
 | `out/` | Generated files (not committed) |
 
@@ -21,23 +21,23 @@ with no library setup.
 schematic parity 0, `tools/pcb_check.py` ok. Laser exports and a test etch
 still to do.
 
-Routing uses both faces and **35 wire vias**: a hole with a short wire
+Routing uses both faces and **27 wire vias**: a hole with a short wire
 soldered on both sides wherever a track changes face (no plated holes).
 
 ## Layout
 
 The board sits centred in the 32 mm airframe, so the tall parts are on the
 centre line and only low parts (resistors lying flat) are near the edges.
-`y` runs from the XIAO's USB face (0) to the far end (90.1 mm).
+`y` runs from the XIAO's USB face (0) to the far end (78.2 mm).
 
 | Zone (y, mm) | Top | Bottom |
 |---|---|---|
 | −7–0 | Two ears with M3 holes H1, H2; the notch between them is free for the USB-C plug | Power plug J1 enters through the same notch |
 | 0–34 | XIAO with the Wio-SX1262 on top, USB-C flush with the notch; continuity divider (R4, R5, C3) on the left edge, battery divider (R1, R2, C2) on the right; BAT+ / BAT− wire pads | J1: JST-XH 4-pin side entry (1–2 cell, 3–4 main switch); SparkFun MPU-9250 |
-| 34–60 | 1000 µF lying flat on the centre line (pins at the far end), gate resistors R6, R7 on the right edge | IRLB8748 (left) and 1 Ω 2 W resistor (right) lying flat, pins at the far end |
-| 60–73 | GY-BMP280, GPS lead pads J5 on the right edge | Buzzer |
-| 73–90 | Screw terminal J3 (ARM link), centred | Screw terminal J4 (igniter), centred, staggered behind J3 |
-| 83–90 | M3 holes H3, H4 in the corners | |
+| 25–56 | Buzzer centred (34–46), gate resistors R6, R7 and the GPS lead pads J5 on the right edge | IRLB8748 (left) and 1 Ω 2 W resistor (right) lying flat (32–53); 470 µF standing between them (45–54) |
+| 46–61 | 4-pin GY-BMP280, header at its far edge | |
+| 61–78 | Screw terminal J3 (ARM link), centred | Screw terminal J4 (igniter), centred, staggered behind J3 |
+| 71–78 | M3 holes H3, H4 in the corners | |
 
 - **USB:** the XIAO's USB-C face is at the board edge, in a 14 mm wide notch
   between the two ears, so the plug goes straight in with the board on its
@@ -53,7 +53,8 @@ centre line and only low parts (resistors lying flat) are near the edges.
 |---|---|
 | XIAO + Wio-SX1262 (U1) | XIAO pattern: 2 x 7, 2.54 mm pitch, rows 15.24 mm apart, 21 x 17.8 mm; **5V, D8, D9, D10 have no pad** (pull those pins out of the header strip: the radio uses them through its own connector); two wire pads for the BAT pads on the XIAO underside, past the MPU |
 | SparkFun MPU-9250 (U2) | SparkFun's Eagle board file, v10 (17.0 x 17.8 mm); mounted chip side up; **AD0, INT, AUXCL, AUXDA have no pad** (pull those pins); its standoff holes are not drilled (they would hit the XIAO pins) |
-| GY-BMP280 6-pin (U3) | 2.54 mm header; **outline provisional** (no drawing found) |
+| GY-BMP280 4-pin (U3) | 10 x 13 mm, 2.54 mm header along a 10 mm edge, VCC GND SCL SDA: **check the pin order on your board's silkscreen** |
+| C1 470 µF 10 V | KiCad CP_Radial_D8.0mm_P3.50mm, standing on the bottom (12.5 mm tall at most) |
 | Everything else | KiCad standard library: resistors lying flat (7.62 mm), 1 Ω 2 W (DIN0414, 15.24 mm), TO-220 lying flat, JST-XH 4-pin side entry, 5.08 mm screw terminals, 12 mm buzzer, solder-wire pads for the GPS lead. The two 100 nF discs sit at the board edge: **bend them flat** (3.5 mm high at most) |
 
 ## Assembly order
@@ -61,10 +62,10 @@ centre line and only low parts (resistors lying flat) are near the edges.
 No plated holes: a part is soldered on the face opposite to it, and some
 joints end up under a part. `tools/pcb_check.py` lists them; in practice:
 
-0. **All 35 wire vias first**: a bare wire (e.g. a resistor lead offcut)
+0. **All 27 wire vias first**: a bare wire (e.g. a resistor lead offcut)
    through each 0.8 mm via hole, soldered on both faces and trimmed flush.
    Several sit under parts (the XIAO, MPU, power plug, buzzer, C1, R3).
-1. Small parts in the edge strips, then C1 (top) and Q1, R3 (bottom).
+1. Small parts in the edge strips, then Q1, R3 and C1 (bottom).
 2. J1, the power plug (bottom): its pins are soldered on top, under where
    the XIAO goes.
 3. The XIAO's header strips (top, **low male headers, not sockets**: the
@@ -108,6 +109,7 @@ Measure before etching (the heights in `tools/pcb_check.py` are estimates):
 | XIAO + Wio-SX1262 stack on its headers | 10.0 mm | 11.9 mm |
 | Screw terminals J3, J4 | 10.0 mm | 13.8 mm |
 | Buzzer | 9.5 mm | 13.5 mm |
+| C1 470 µF standing (bottom) | 12.5 mm | 13.9 mm |
 
 ## Board constraints
 

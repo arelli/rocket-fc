@@ -496,7 +496,7 @@
 		)
 		(embedded_fonts no)
 	)
-	(symbol "GY-BMP280_6pin"
+	(symbol "GY-BMP280_4pin"
 		(pin_names
 			(offset 1.016)
 		)
@@ -504,14 +504,6 @@
 		(in_bom yes)
 		(on_board yes)
 		(property "Reference" "U"
-			(at 2.54 11.43 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "GY-BMP280_6pin"
 			(at 2.54 8.89 0)
 			(effects
 				(font
@@ -519,7 +511,15 @@
 				)
 			)
 		)
-		(property "Footprint" "rocket-fc:GY-BMP280_6pin_P2.54mm"
+		(property "Value" "GY-BMP280_4pin"
+			(at 2.54 6.35 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "rocket-fc:GY-BMP280_4pin_P2.54mm"
 			(at 0 0 0)
 			(hide yes)
 			(effects
@@ -537,7 +537,7 @@
 				)
 			)
 		)
-		(property "Description" "Purple 6-pin BMP280 / BME280 breakout (\"GYBMEP\"), 3.3 V: VCC GND SCL SDA CSB SDO. CSB high = I2C; SDO low = address 0x76."
+		(property "Description" "Purple 4-pin BMP280 breakout (\"GYBMEP\"), 10 x 13 mm: VCC GND SCL SDA. CSB and the I2C address (0x76 or 0x77) are set on the board. Supply from 3V3."
 			(at 0 0 0)
 			(hide yes)
 			(effects
@@ -555,9 +555,9 @@
 				)
 			)
 		)
-		(symbol "GY-BMP280_6pin_0_1"
+		(symbol "GY-BMP280_4pin_0_1"
 			(rectangle
-				(start -5.08 7.62)
+				(start -5.08 5.08)
 				(end 10.16 -7.62)
 				(stroke
 					(width 0.254)
@@ -568,27 +568,9 @@
 				)
 			)
 		)
-		(symbol "GY-BMP280_6pin_1_1"
+		(symbol "GY-BMP280_4pin_1_1"
 			(pin input line
-				(at -7.62 5.08 0)
-				(length 2.54)
-				(name "CSB"
-					(effects
-						(font
-							(size 1.27 1.27)
-						)
-					)
-				)
-				(number "5"
-					(effects
-						(font
-							(size 1.27 1.27)
-						)
-					)
-				)
-			)
-			(pin input line
-				(at -7.62 0 0)
+				(at -7.62 2.54 0)
 				(length 2.54)
 				(name "SCL"
 					(effects
@@ -606,7 +588,7 @@
 				)
 			)
 			(pin bidirectional line
-				(at -7.62 -2.54 0)
+				(at -7.62 0 0)
 				(length 2.54)
 				(name "SDA"
 					(effects
@@ -623,26 +605,8 @@
 					)
 				)
 			)
-			(pin input line
-				(at -7.62 -5.08 0)
-				(length 2.54)
-				(name "SDO"
-					(effects
-						(font
-							(size 1.27 1.27)
-						)
-					)
-				)
-				(number "6"
-					(effects
-						(font
-							(size 1.27 1.27)
-						)
-					)
-				)
-			)
 			(pin power_in line
-				(at 5.08 10.16 270)
+				(at 5.08 7.62 270)
 				(length 2.54)
 				(name "VCC"
 					(effects
