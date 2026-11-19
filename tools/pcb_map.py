@@ -4,8 +4,10 @@ faces (red ring, on the face of the part only). For building the board: which pa
 
 Two halves, because pcbnew and PyMuPDF live in different Pythons:
     <KiCad python> tools/pcb_map.py extract board.kicad_pcb parts.json     # needs pcbnew (and tools/pcb_check.py)
-    python tools/pcb_map.py draw parts.json out/laser map.png [name]      # needs PyMuPDF and the laser SVGs
-tools/pcb_export.py runs both in its laser step. name is the KiCad project name (default rocket-fc-flight).
+    python tools/pcb_map.py draw parts.json out/laser map.png [name [top.svg]]   # needs PyMuPDF and the laser SVGs
+tools/pcb_export.py runs both in its laser step. name is the KiCad project name (default rocket-fc-flight). A
+single-sided board has no top copper image: top.svg (its bottom copper, not mirrored) is drawn under the top
+face's parts instead, as if seen through the board.
 """
 import json
 import os
@@ -109,7 +111,7 @@ def copper_image(pymupdf, svg):
     return out, pix.width / dpi * 25.4, pix.height / dpi * 25.4
 
 
-def draw(parts_json, laser_dir, out_png, name='rocket-fc-flight'):
+def draw(parts_json, laser_dir, out_png, name='rocket-fc-flight', top_svg=None):
     import pymupdf
 
     d = json.load(open(parts_json))
@@ -129,8 +131,12 @@ def draw(parts_json, laser_dir, out_png, name='rocket-fc-flight'):
             page.draw_line(pymupdf.Point(c.x - a, c.y - a), pymupdf.Point(c.x + a, c.y + a), color=col, width=w * K)
             page.draw_line(pymupdf.Point(c.x - a, c.y + a), pymupdf.Point(c.x + a, c.y - a), color=col, width=w * K)
 
-    for panel, (side, svg, title) in enumerate((('F', 'top', 'TOP face (as lasered, parts on top)'),
-                                                ('B', 'bottom', 'BOTTOM face (mirrored as lasered, parts on bottom)'))):
+    top_title = ('TOP face: parts (bottom copper seen through the board)' if top_svg else
+                 'TOP face (as lasered, parts on top)')
+    bottom_title = ('BOTTOM face: the copper (mirrored as lasered, no parts)' if top_svg else
+                    'BOTTOM face (mirrored as lasered, parts on bottom)')
+    for panel, (side, svg, title) in enumerate((('F', 'top', top_title),
+                                                ('B', 'bottom', bottom_title))):
         ox, oy = GAP + panel * (BW + LEG_W + GAP), TOPM
 
         def P(x, y, mirror=(side == 'B')):
@@ -138,7 +144,8 @@ def draw(parts_json, laser_dir, out_png, name='rocket-fc-flight'):
                 x = X0 + X1 - x
             return pymupdf.Point((ox + x - X0) * K, (oy + y - Y0) * K)
 
-        pix, wmm, hmm = copper_image(pymupdf, os.path.join(laser_dir, '%s-%s.svg' % (name, svg)))
+        pix, wmm, hmm = copper_image(pymupdf, top_svg if top_svg and side == 'F' else
+                                     os.path.join(laser_dir, '%s-%s.svg' % (name, svg)))
         page.insert_image(pymupdf.Rect((ox + BW / 2 - wmm / 2) * K, (oy + BH / 2 - hmm / 2) * K,
                                        (ox + BW / 2 + wmm / 2) * K, (oy + BH / 2 + hmm / 2) * K), pixmap=pix)
         page.insert_text(pymupdf.Point(ox * K, (TOPM - 4) * K), title, fontsize=3.2 * K, fontname='helv')
@@ -196,7 +203,7 @@ def draw(parts_json, laser_dir, out_png, name='rocket-fc-flight'):
             rows = [('x', '%d wire vias (0.8 mm): do them ALL FIRST, before any part:' % len(d['vias'])),
                     ('', 'wire through, solder both faces, trim flush')]
         else:
-            rows = [('', 'No wire vias: every track is on the bottom face')]
+            rows = [('', 'No wire vias: every track is on the bottom face' if top_svg else 'No wire vias')]
         rows.append(('ring', '%d pins to solder on both faces: on this side as well' % n_both) if n_both else
                     ('', 'Every pin is soldered on the bottom face only'))
         for kind, text in rows:
@@ -214,7 +221,7 @@ def draw(parts_json, laser_dir, out_png, name='rocket-fc-flight'):
 if __name__ == '__main__':
     if len(sys.argv) == 4 and sys.argv[1] == 'extract':
         extract(sys.argv[2], sys.argv[3])
-    elif len(sys.argv) in (5, 6) and sys.argv[1] == 'draw':
+    elif len(sys.argv) in (5, 6, 7) and sys.argv[1] == 'draw':
         draw(*sys.argv[2:])
     else:
         sys.exit(__doc__)

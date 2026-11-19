@@ -2,9 +2,10 @@
 every piece of copper, so only a band around it is cleared (paint ablated, then etched) and the rest of the copper
 stays as unconnected islands. Much faster than a raster image, and the etch removes far less copper.
 
-    <KiCad python> tools/pcb_isolation.py board.kicad_pcb out_dir [name]
+    <KiCad python> tools/pcb_isolation.py board.kicad_pcb out_dir [name] [faces]
 
-Writes <name>-top-isolation.nc and <name>-bottom-isolation.nc (bottom mirrored, as seen from below). Coordinates are
+Writes <name>-top-isolation.nc and <name>-bottom-isolation.nc (bottom mirrored, as seen from below); faces
+"bottom" for a single-sided board (default "top,bottom"). Coordinates are
 mm from the lower-left corner of the board outline's bounding box: the same frame as the laser SVGs and the jig, so
 all of them go at the same offset. Per face:
   - outlines around all copper at spot/2, +step, ... until the cleared band is BAND wide (offsets of the merged
@@ -203,11 +204,13 @@ def gcode(paths, mirror, bb, path, name):
     return length
 
 
-def main(pcb, out_dir, name='rocket-fc-flight'):
+def main(pcb, out_dir, name='rocket-fc-flight', faces='top,bottom'):
     board = pcbnew.LoadBoard(pcb)
     bb = board_outline(board).BBox()                     # the outline itself (not its line width): the SVGs' page
     ok = True
     for face, layer, mirror in (('top', pcbnew.F_Cu, False), ('bottom', pcbnew.B_Cu, True)):
+        if face not in faces.split(','):
+            continue
         cu, paths, dots = paths_for(board, layer)
         lost, shorts = verify(board, layer, cu, paths)
         paths = order(paths + dots)

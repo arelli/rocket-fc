@@ -21,13 +21,14 @@ is the same circuit.
 The library tables use `${KIPRJMOD}`, so the project opens on any computer
 with no library setup.
 
-**Status:** schematic done (ERC clean), board routed with a GND pour on
-both faces: DRC 0 problems, schematic parity 0, `tools/pcb_check.py` ok.
+**Status:** schematic done (ERC clean), board routed on one face with a
+GND pour: DRC 0 problems, schematic parity 0, `tools/pcb_check.py` ok.
 Laser and order files ready (below). Not built yet.
 
-**No wire vias.** There was room to route every track on the bottom face,
-so the board is single-sided: every part sits on top and is soldered
-underneath, and the top copper is only a GND pour (optional, below).
+**Single-sided, no wire vias.** All the copper (tracks and a GND pour) is on
+the bottom face; every part sits on the bare top face and is soldered
+underneath. Use a single-sided blank: one laser job, no flipping, no
+registration jig.
 
 ## Layout
 
@@ -82,53 +83,43 @@ shrink them back.
 ## Making the board (laser and etch)
 
 Same method as the flight board ([hardware/flight-pcb](../flight-pcb/README.md#making-the-board-laser-and-etch)),
-with one face of tracks.
+for one face. The GND pour fills the copper between the tracks (0.7 mm from
+every other net), so the laser only clears a band round each track and pad.
 
 `python tools/pcb_export.py --board ground laser` writes to `out/laser/`:
 
 | File | Use |
 |---|---|
-| `…-bottom-isolation.nc` | **Vector isolation G-code** of the track face, mirrored (about 17 min) |
-| `…-top-isolation.nc` | The top GND pour: rings round the pins that are not GND (about 10 min) |
-| `…-bottom.svg`, `…-bottom-0.08mm.png` | Bottom copper as a raster image, **negative** (black = laser fires), mirrored |
-| `…-top.svg`, `…-top-0.08mm.png` | Top copper, the same |
-| `…-jig.svg` | Registration jig: two 3 mm pin holes at the H1 and H4 positions |
+| `…-bottom-isolation.nc` | **Vector isolation G-code** (method A, about 17 min): outlines round all copper, mirrored |
+| `…-bottom.svg`, `…-bottom-0.08mm.png` | The copper as a raster image (method B), **negative** (black = laser fires, white = copper stays), mirrored. Every hole centre is a small black dot (the etched pit centres the drill); the M3 holes are small copper dots |
 | `….drl`, `…-drl_map.pdf`, `…-drill-report.txt` | Drill file (mm), drill map and hole count per size |
-| `…-placement-map.png` | Where every part goes, both faces as lasered: print it for assembly |
+| `…-placement-map.png` | Where every part goes (top face, with the copper seen through the board) and the copper face as lasered: print it for assembly |
 
 The frame of every file is the board outline (100 x 80 mm); the G-code
-starts at its lower-left corner. Laser settings (`LASER_SPOT`, `LASER_BAND`,
-`LASER_FEED`, `LASER_S`, `LASER_LPMM`) and the two raster passes work as for
-the flight board.
+starts at its lower-left corner (X 0-100, Y 0-80), the PNG comes out
+100 x 80 mm from its DPI. Laser settings (`LASER_SPOT`, `LASER_BAND`,
+`LASER_FEED`, `LASER_S`, `LASER_LPMM`), the M4 power mode and the two raster
+passes (Passthrough horizontal, then Line To Line vertical at 12.5
+lines/mm) work exactly as for the flight board.
 
-**The top pour is optional.** All connections, GND included, are made on the
-bottom (tracks and the bottom pour: `tools/pcb_check.py` checks it). The
-top copper only has to stay clear of the pins that are not GND:
-
-- **Single-sided blank:** skip steps 3 and 4 below (drill the M3 holes with
-  the others). Nothing else changes.
-- **Double-sided blank:** laser `top` as well (method A takes about 10
-  minutes: rings only). The top pour is then floating copper; solder a few
-  GND leads on the top too if you want it grounded (R2, R5, R7 lie flat
-  with their GND lead exposed: pin 2). Or leave the top unpainted and let
-  the etch remove all of its copper.
+The files are **mirrored** because they show the copper face as seen from
+below, which is how it lies on the laser bed (copper up). **BOT** and the
+connector labels in the copper read correctly on the finished board.
 
 ### Steps
 
-1. **Blank:** FR4 1.6 mm, at least 106 x 86 mm. Clean, thin coats of matte
-   black paint on the face(s) you laser. Find the power on a scrap first
-   (flight README, step 1).
-2. **Bottom:** laser `bottom` (method A: the `.nc` file; method B: both
-   raster passes). The bottom files are mirrored: lay the blank with its
-   track face up.
-3. **Drill the four M3 holes** (3.2 mm) on their marks.
-4. **Top (double-sided blank only):** cut the `jig` into a sheet fixed to the
-   bed, push two 3 mm pins into its holes, flip the board **left to right**
-   onto the pins (H2 and H3 on them), laser `top`.
-5. **Etch**, strip the paint with acetone. **BOT** must read correctly on the
-   track face (and TOP on the other). Check every track for breaks and
-   shorts with a meter, also against the GND pour next to it.
-6. **Drill** from the etched pits, cut and file to the outline. Bits:
+1. **Blank:** single-sided FR4, 1.6 mm, at least 106 x 86 mm. Clean the
+   copper (fine abrasive pad, then isopropyl alcohol) and spray thin coats of
+   matte black paint. Find the power on a scrap first (flight README,
+   step 1).
+2. **Laser** the copper face, copper up (method A: the `.nc` file; method B:
+   both raster passes without moving anything in between).
+3. **Etch** (ferric chloride or sodium persulfate), strip the paint with
+   acetone. **BOT** must read correctly; if it is mirror-writing, the file
+   was flipped. Check every track for breaks and shorts with a meter, also
+   against the GND pour next to it.
+4. **Drill** from the etched pits, from the copper side, then cut and file
+   to the outline (the thin copper line). Bits:
 
 | Bit | Holes |
 |---|---|
@@ -138,7 +129,7 @@ top copper only has to stay clear of the pins that are not GND:
 | 1.1 mm | Q1 (IRLB8748) |
 | 1.2 mm | R3 (1 ohm 5 W): check its leads, some cement resistors need 1.3 mm |
 | 1.3 mm | Screw terminals J1, J2, J3 |
-| 3.2 mm | M3 holes H1-H4 (step 3) |
+| 3.2 mm | M3 holes H1-H4 |
 
 ## Assembly
 
@@ -180,7 +171,7 @@ unplated holes apart, job file), the unzipped Gerbers and the drill report
 as in the [flight README](../flight-pcb/README.md#ordering-from-a-pcb-maker),
 with **size 100 x 80 mm** (inside the cheapest 100 x 100 mm tier at JLCPCB
 and similar). A made board has plated holes and solder mask: solder each pin
-once, on the bottom; the top pour is then grounded by the plated GND holes.
+once, on the bottom. Its top copper has only the pads (no tracks).
 
 ## Checks
 
@@ -192,8 +183,7 @@ once, on the bottom; the top pour is then grounded by the plated GND holes.
 - **`tools/pcb_check.py`** (profile `rocket-fc-ground`): every joint can be
   soldered, tracks meet pins only where those are soldered, no copper under
   the M3 screw heads, and the connections hold with only the copper that is
-  soldered: the top pour reaches GND pins soldered only on the bottom, so it
-  is left out, and the tracks plus the bottom pour must connect every net.
+  soldered (the tracks plus the bottom pour connect every net).
   It also lists the tallest parts for the box depth.
 
 Heights (estimates, measure before choosing the box):
@@ -211,13 +201,13 @@ Heights (estimates, measure before choosing the box):
   4 mm in from the edges.
 - Off the board: 18650 holder (J2), power switch (J4), ARM switch (J3),
   igniter leads (J1), button (J6), MODE switch (J7). The XIAO plugs in.
-- Made at home: laser-exposed resist, etching, no plated holes. All tracks
-  on the bottom face; the top is a GND pour.
+- Made at home: laser-exposed resist, etching, no plated holes. All copper
+  on the bottom face (single-sided blank).
 - Design rules (project settings): clearance 0.4 mm between nets (0.3 mm
   minimum), tracks 0.6 mm minimum; net classes **Default** 0.8 mm,
   **Power** (BAT_SW, GND) 1.2 mm, **Pyro** (CELL+, ARM, IGN+, IGN-) 2.0 mm
   (1.5 mm at Q1's legs); vias as 0.8 mm holes with 2.0 mm pads (none used).
-- **GND pour** on both faces: zone clearance 0.7 mm, minimum width 0.6 mm,
+- **GND pour** on the bottom: zone clearance 0.7 mm, minimum width 0.6 mm,
   thermal reliefs 0.6 mm, pieces under 1 mm2 dropped, keep-outs round the
   M3 holes (3.2 mm radius). Copper labels on the bottom (BOT, connector
   polarity) for a board without silkscreen.

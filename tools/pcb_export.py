@@ -31,10 +31,12 @@ import zlib
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DOCS = os.path.join(ROOT, 'docs', 'schematics')
-# board: (folder in hardware/, KiCad project name, schematic SVG in docs/schematics/, its title)
+# board: (folder in hardware/, KiCad project name, schematic SVG in docs/schematics/, its title, copper faces)
 BOARDS = {
-    'flight': ('flight-pcb', 'rocket-fc-flight', 'flight.svg', 'rocket-fc flight computer schematic'),
-    'ground': ('ground-pcb', 'rocket-fc-ground', 'ground-pcb.svg', 'rocket-fc ground station PCB schematic'),
+    'flight': ('flight-pcb', 'rocket-fc-flight', 'flight.svg', 'rocket-fc flight computer schematic',
+               ('top', 'bottom')),
+    'ground': ('ground-pcb', 'rocket-fc-ground', 'ground-pcb.svg', 'rocket-fc ground station PCB schematic',
+               ('bottom',)),     # single-sided: copper on the bottom only, no registration jig
 }
 BOARD = PROJECT = NAME = SCH = PCB = OUT = None
 
@@ -138,9 +140,9 @@ def board(cli):
 
 
 def laser(cli):
-    """Files for a home-made board, in out/laser/: copper images for a laser (paint/resist ablation), the
-    registration jig, the drill file and table. All SVGs share the board outline's bounding box, so they line up
-    when placed at the same position in the laser software."""
+    """Files for a home-made board, in out/laser/: copper images for a laser (paint/resist ablation) of each copper
+    face, the registration jig (two-sided boards only), the drill file and table. All SVGs share the board outline's
+    bounding box, so they line up when placed at the same position in the laser software."""
     if not routed():
         print('laser: board not routed yet')
         return False
@@ -148,6 +150,7 @@ def laser(cli):
     os.makedirs(dst, exist_ok=True)
     svg = ['pcb', 'export', 'svg', '--mode-single', '--black-and-white', '--page-size-mode', '2',
            '--exclude-drawing-sheet']
+    faces = BOARDS[BOARD][4]
     files = {
         # negative: black = laser fires (paint removed, copper etched), white = copper; small drill marks
         # leave an etched pit at each hole centre that guides the drill
@@ -156,6 +159,11 @@ def laser(cli):
         # registration: two 3 mm pin holes (H1 and H4 positions) cut into a sheet fixed to the laser bed
         'jig': ['--layers', 'User.1,Edge.Cuts', '--drill-shape-opt', '0'],
     }
+    if len(faces) < 2:                                   # one face: no jig; drop files of an earlier two-face export
+        files = {k: v for k, v in files.items() if k in faces}
+        for old in glob.glob(os.path.join(dst, NAME + '-*')):
+            if any(os.path.basename(old).startswith('%s-%s' % (NAME, k)) for k in ('top', 'jig')):
+                os.remove(old)
     ok = True
     for name, extra in files.items():
         out = os.path.join(dst, '%s-%s.svg' % (NAME, name))
@@ -165,7 +173,8 @@ def laser(cli):
               '--report-path', os.path.join(dst, NAME + '-drill-report.txt'), '-o', dst + os.sep, PCB,
               quiet=True) == 0
     # vector isolation G-code (top, bottom mirrored): outlines around the copper instead of a full raster
-    iso = subprocess.run([kicad_python(cli), os.path.join(ROOT, 'tools', 'pcb_isolation.py'), PCB, dst, NAME],
+    iso = subprocess.run([kicad_python(cli), os.path.join(ROOT, 'tools', 'pcb_isolation.py'), PCB, dst, NAME,
+                          ','.join(faces)],
                          stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     for line in iso.stdout.splitlines():
         if line.startswith('isolation'):
@@ -182,7 +191,7 @@ def laser(cli):
         for old in glob.glob(os.path.join(dst, NAME + '-*dpi.png')) + glob.glob(os.path.join(dst, NAME + '-*mm.png')):
             os.remove(old)
         zoom = lpmm * 25.4 / 72
-        for name in ('top', 'bottom'):
+        for name in faces:
             pix = pymupdf.open(os.path.join(dst, '%s-%s.svg' % (NAME, name)))[0].get_pixmap(
                 matrix=pymupdf.Matrix(zoom, zoom), colorspace=pymupdf.csGRAY)
             bw = pymupdf.Pixmap(pymupdf.csGRAY, pix.width, pix.height,
@@ -194,18 +203,23 @@ def laser(cli):
         # placement map: parts, wire vias and both-face pins over the copper (tools/pcb_map.py)
         with tempfile.TemporaryDirectory() as tmp:
             parts = os.path.join(tmp, 'parts.json')
+            top_svg = None
+            if 'top' not in faces:                       # one face: the top panel shows the copper seen through
+                top_svg = os.path.join(tmp, 'see-through.svg')
+                run(cli, *svg, '--layers', 'B.Cu,Edge.Cuts', '--negative', '--drill-shape-opt', '1', '-o', top_svg,
+                    PCB, quiet=True)
             if subprocess.run([kicad_python(cli), os.path.join(ROOT, 'tools', 'pcb_map.py'), 'extract', PCB, parts],
                               stdout=subprocess.DEVNULL).returncode == 0:
                 sys.path.insert(0, os.path.join(ROOT, 'tools'))
                 import pcb_map
-                pcb_map.draw(parts, dst, os.path.join(dst, NAME + '-placement-map.png'), NAME)
+                pcb_map.draw(parts, dst, os.path.join(dst, NAME + '-placement-map.png'), NAME, top_svg)
                 pngs += ', placement map'
             else:
                 ok = False
     except ImportError:
         pngs = ' (pip install pymupdf for the PNGs and the placement map)'
-    print('laser: top, bottom (mirrored) and jig SVGs%s; isolation G-code, drill file and report in %s'
-          % (pngs, rel(dst)))
+    what = 'top, bottom (mirrored) and jig SVGs' if len(faces) == 2 else 'bottom SVG (mirrored, single-sided)'
+    print('laser: %s%s; isolation G-code, drill file and report in %s' % (what, pngs, rel(dst)))
     return ok
 
 
