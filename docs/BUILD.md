@@ -131,6 +131,12 @@ foam-covered bay.
 
 ![Ground station wiring](schematics/ground.svg)
 
+On a PCB instead: [hardware/ground-pcb](../hardware/ground-pcb) is a
+single-sided 100 x 80 mm board for the same circuit (XIAO on female headers,
+the cell, switches and button on connectors); its README covers making it
+and the assembly. `python tools/pcb_export.py --board ground laser` writes
+its laser files.
+
 1. Radio onto the XIAO, LoRa antenna on the Wio-SX1262, **WiFi antenna on
    the XIAO's own U.FL** (without it the WiFi range is about a metre).
 2. 18650 → SW1 → BAT+, 1000 µF, battery divider to D0.

@@ -62,6 +62,25 @@ version number (`tlm::kVersion`, docs/TELEMETRY.md).
   meet pins only on faces where they are soldered; no copper under the MOSFET
   tab or the screw heads) and that every part fits the tube; `tools/pcb_export.py` runs it and exports
   placement prints and 3D renders.
+- Hardware: KiCad 10 project for the ground station (`hardware/ground-pcb`):
+  100 x 80 mm, every track on the bottom face (no wire vias), GND pour on
+  both faces (the top one optional), M3 holes in the corners. The XIAO kit
+  plugs into two 1x7 female headers (its BAT pads on a JST-XH lead, J5); the
+  18650, ARM switch and igniter on 5.08 mm screw terminals, the power switch,
+  button and MODE switch on JST-XH connectors; LEDs, buzzer and launch
+  channel on the board. Pins unchanged (`pins::ground`). Wide copper for the
+  laser: 0.4 mm clearance, tracks 0.8 / 1.2 / 2.0 mm, big pads. ERC, DRC and
+  schematic parity clean; laser files, placement map and order files as for
+  the flight board.
+- Tools: `tools/pcb_export.py --board ground` runs the checks and exports for
+  the ground station board (the flight board stays the default; its
+  schematic SVG is `docs/schematics/ground-pcb.svg`). `tools/pcb_check.py`
+  picks a profile from the board file name (tube fit for the flight board,
+  tallest parts for the ground one) and now also checks that the
+  connections hold with only the copper that is soldered: a pour reaching
+  pins soldered only on the other face is left out and DRC must still find
+  every net connected. `tools/pcb_map.py` and `tools/pcb_isolation.py` take
+  the board name.
 - UI: zoom on every plot (drag, Shift+drag to pan, Ctrl+wheel, double-click to
   reset; linked time axes), hover readout, CSV export of each plot (range
   shown), of the events and of the GPS frames, plots in their own window.

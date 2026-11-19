@@ -1,17 +1,17 @@
-"""Placement map of the flight PCB: the laser copper images (top as lasered, bottom mirrored as lasered) with every
-part's outline and reference, the wire vias (red X) and the pins to solder on both faces (red ring, on the face of
-the part only). For building the board: which part goes where, and what to solder first.
+"""Placement map of a home-made PCB (flight or ground station): the laser copper images (top as lasered, bottom
+mirrored as lasered) with every part's outline and reference, the wire vias (red X) and the pins to solder on both
+faces (red ring, on the face of the part only). For building the board: which part goes where, and what to solder first.
 
 Two halves, because pcbnew and PyMuPDF live in different Pythons:
     <KiCad python> tools/pcb_map.py extract board.kicad_pcb parts.json     # needs pcbnew (and tools/pcb_check.py)
-    python tools/pcb_map.py draw parts.json out/laser map.png             # needs PyMuPDF and the laser SVGs
-tools/pcb_export.py runs both in its laser step.
+    python tools/pcb_map.py draw parts.json out/laser map.png [name]      # needs PyMuPDF and the laser SVGs
+tools/pcb_export.py runs both in its laser step. name is the KiCad project name (default rocket-fc-flight).
 """
 import json
 import os
 import sys
 
-NAMES = {
+NAMES = {'rocket-fc-flight': {
     'U1': 'XIAO ESP32-S3 + Wio-SX1262 (USB-C at the notch)',
     'U2': 'SparkFun MPU-9250 (labels face the board)',
     'U3': 'GY-BMP280, SENSOR DOWN, VIN in square pad',
@@ -25,7 +25,24 @@ NAMES = {
     'J1': 'JST-XH 4-pin: cell, main switch',
     'J3': 'Screw terminal: ARM link', 'J4': 'Screw terminal: igniter',
     'J5': 'GPS lead: 3V3, GND, TX',
-}
+}, 'rocket-fc-ground': {
+    'U1': 'XIAO + Wio-SX1262 on 2 x 7-pin female headers',
+    'BZ1': 'Buzzer 12 mm (+ square pad)',
+    'C1': '1000 uF 16 V, standing (+ square pad)',
+    'Q1': 'IRLB8748 standing, tab to the top edge',
+    'R1': '100k battery divider', 'R2': '100k battery divider',
+    'R3': '1 ohm 5 W launch resistor', 'R4': '100k launch divider', 'R5': '100k launch divider',
+    'R6': '100 ohm gate resistor', 'R7': '100k gate pull-down', 'R8': '100k ARM bypass',
+    'R9': '330 ohm ON LED', 'R10': '330 ohm LINK LED',
+    'LED1': 'green ON LED (flat side = square pad)', 'LED2': 'blue LINK LED (flat side = square pad)',
+    'J1': 'Screw terminal: igniter leads', 'J2': 'Screw terminal: 18650 (- left, + right)',
+    'J3': 'Screw terminal: ARM switch (5 A or more)',
+    'J4': 'JST-XH 2: power switch', 'J5': 'JST-XH 2: XIAO BAT pads (- left)',
+    'J6': 'JST-XH 2: push button', 'J7': 'JST-XH 2: MODE switch',
+}}
+# board edge named in the panel titles, and the mounting holes
+EDGE = {'rocket-fc-flight': 'USB end', 'rocket-fc-ground': 'USB edge'}
+HOLES = {'rocket-fc-flight': 'H1-H4: M3 holes to the sled', 'rocket-fc-ground': 'H1-H4: M3 holes to the box'}
 COL = {'U': (0.25, 0.75, 1.0), 'R': (1.0, 0.85, 0.2), 'C': (0.55, 1.0, 0.45), 'J': (1.0, 0.45, 0.85),
        'Q': (1.0, 0.35, 0.3), 'B': (0.75, 0.6, 1.0), 'H': (0.8, 0.8, 0.8)}
 RED, WHITE = (0.95, 0.08, 0.08), (1, 1, 1)
@@ -96,12 +113,15 @@ def draw(parts_json, laser_dir, out_png, name='rocket-fc-flight'):
     import pymupdf
 
     d = json.load(open(parts_json))
+    names = NAMES.get(name, {})
     X0, Y0, X1, Y1 = d['bbox']
     CY = (Y0 + Y1) / 2
     BW, BH = X1 - X0, Y1 - Y0
     both = {tuple(x) for x in d['both']}
+    per_side = max(sum(1 for p in d['parts'] if p['side'] == s and not p['ref'].startswith('H')) for s in 'FB')
+    legend_h = 3 + 4.2 * per_side + 11 + 3 * 4.6
     doc = pymupdf.open()
-    page = doc.new_page(width=(2 * (BW + LEG_W) + GAP * 3) * K, height=(BH + TOPM + 6) * K)
+    page = doc.new_page(width=(2 * (BW + LEG_W) + GAP * 3) * K, height=(max(BH, legend_h) + TOPM + 6) * K)
     page.draw_rect(page.rect, color=None, fill=(0.97, 0.97, 0.95))
 
     def cross(c, a, widths):
@@ -122,7 +142,7 @@ def draw(parts_json, laser_dir, out_png, name='rocket-fc-flight'):
         page.insert_image(pymupdf.Rect((ox + BW / 2 - wmm / 2) * K, (oy + BH / 2 - hmm / 2) * K,
                                        (ox + BW / 2 + wmm / 2) * K, (oy + BH / 2 + hmm / 2) * K), pixmap=pix)
         page.insert_text(pymupdf.Point(ox * K, (TOPM - 4) * K), title, fontsize=3.2 * K, fontname='helv')
-        page.insert_text(pymupdf.Point(ox * K, (TOPM - 0.8) * K), 'USB end', fontsize=2.4 * K, fontname='helv',
+        page.insert_text(pymupdf.Point(ox * K, (TOPM - 0.8) * K), EDGE.get(name, ''), fontsize=2.4 * K, fontname='helv',
                          color=(0.3, 0.3, 0.3))
         mine = sorted((p for p in d['parts'] if p['side'] == side),
                       key=lambda p: (p['ref'][0], len(p['ref']), p['ref']))
@@ -145,7 +165,7 @@ def draw(parts_json, laser_dir, out_png, name='rocket-fc-flight'):
             if ref.startswith('H'):
                 cx, cy = p['pos'][0], p['pos'][1] + (4.6 if p['pos'][1] < CY else -4.4)
             else:
-                legend.append((ref, NAMES.get(ref, ''), col))
+                legend.append((ref, names.get(ref, ''), col))
             tags.append((P(cx, cy), ref, col))
         n_both = 0                                          # pins soldered on both faces: ring, part's face only
         for p in mine:
@@ -169,12 +189,16 @@ def draw(parts_json, laser_dir, out_png, name='rocket-fc-flight'):
             page.insert_text(pymupdf.Point((lx + 3.2) * K, ly * K), ref, fontsize=2.5 * K, fontname='hebo')
             page.insert_text(pymupdf.Point((lx + 9.5) * K, ly * K), text, fontsize=2.3 * K, fontname='helv')
             ly += 4.2
-        page.insert_text(pymupdf.Point(lx * K, (ly + 2) * K), 'H1-H4: M3 holes to the sled', fontsize=2.3 * K,
+        page.insert_text(pymupdf.Point(lx * K, (ly + 2) * K), HOLES.get(name, ''), fontsize=2.3 * K,
                          fontname='helv', color=(0.3, 0.3, 0.3))
         ly += 9
-        rows = [('x', '%d wire vias (0.8 mm): do them ALL FIRST, before any part:' % len(d['vias'])),
-                ('', 'wire through, solder both faces, trim flush'),
-                ('ring', '%d pins to solder on both faces: on this side as well' % n_both)]
+        if d['vias']:
+            rows = [('x', '%d wire vias (0.8 mm): do them ALL FIRST, before any part:' % len(d['vias'])),
+                    ('', 'wire through, solder both faces, trim flush')]
+        else:
+            rows = [('', 'No wire vias: every track is on the bottom face')]
+        rows.append(('ring', '%d pins to solder on both faces: on this side as well' % n_both) if n_both else
+                    ('', 'Every pin is soldered on the bottom face only'))
         for kind, text in rows:
             c = pymupdf.Point((lx + 1.1) * K, (ly - 1.0) * K)
             if kind == 'ring':
@@ -190,7 +214,7 @@ def draw(parts_json, laser_dir, out_png, name='rocket-fc-flight'):
 if __name__ == '__main__':
     if len(sys.argv) == 4 and sys.argv[1] == 'extract':
         extract(sys.argv[2], sys.argv[3])
-    elif len(sys.argv) == 5 and sys.argv[1] == 'draw':
-        draw(sys.argv[2], sys.argv[3], sys.argv[4])
+    elif len(sys.argv) in (5, 6) and sys.argv[1] == 'draw':
+        draw(*sys.argv[2:])
     else:
         sys.exit(__doc__)

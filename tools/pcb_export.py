@@ -1,4 +1,5 @@
-"""Checks and exports for the flight-computer KiCad project (hardware/flight-pcb).
+"""Checks and exports for the KiCad projects: the flight computer (hardware/flight-pcb, the default) and the ground
+station (hardware/ground-pcb, with --board ground).
 
 Usage:
     python tools/pcb_export.py            # check, docs, board
@@ -10,6 +11,8 @@ Usage:
                                           # (PNG line spacing: LASER_LPMM lines/mm, default 12.5 = 0.08 mm)
     python tools/pcb_export.py fab        # Gerbers, drill files and a zip to order from a PCB maker in
                                           # hardware/flight-pcb/out/fab/
+    python tools/pcb_export.py --board ground [steps]   # the same for hardware/ground-pcb (its schematic SVG is
+                                                        # docs/schematics/ground-pcb.svg)
 
 Needs KiCad 10 (kicad-cli). Found on PATH, in KICAD_CLI, or in the default install folder. tools/pcb_check.py
 runs with KiCad's own Python (next to kicad-cli, or KICAD_PYTHON). Until the board is routed, DRC's unrouted
@@ -27,12 +30,27 @@ import tempfile
 import zlib
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-PROJECT = os.path.join(ROOT, 'hardware', 'flight-pcb')
-NAME = 'rocket-fc-flight'
-SCH = os.path.join(PROJECT, NAME + '.kicad_sch')
-PCB = os.path.join(PROJECT, NAME + '.kicad_pcb')
 DOCS = os.path.join(ROOT, 'docs', 'schematics')
-OUT = os.path.join(PROJECT, 'out')  # generated files, not committed
+# board: (folder in hardware/, KiCad project name, schematic SVG in docs/schematics/, its title)
+BOARDS = {
+    'flight': ('flight-pcb', 'rocket-fc-flight', 'flight.svg', 'rocket-fc flight computer schematic'),
+    'ground': ('ground-pcb', 'rocket-fc-ground', 'ground-pcb.svg', 'rocket-fc ground station PCB schematic'),
+}
+BOARD = PROJECT = NAME = SCH = PCB = OUT = None
+
+
+def select(board):
+    global BOARD, PROJECT, NAME, SCH, PCB, OUT
+    BOARD = board
+    PROJECT = os.path.join(ROOT, 'hardware', BOARDS[board][0])
+    NAME = BOARDS[board][1]
+    SCH = os.path.join(PROJECT, NAME + '.kicad_sch')
+    PCB = os.path.join(PROJECT, NAME + '.kicad_pcb')
+    OUT = os.path.join(PROJECT, 'out')  # generated files, not committed
+
+
+def rel(path):
+    return os.path.relpath(path, ROOT).replace(os.sep, '/') + ('/' if os.path.isdir(path) else '')
 
 
 def kicad_cli():
@@ -115,7 +133,7 @@ def board(cli):
         ok &= run(cli, 'pcb', 'render', *extra, '--quality', 'high', '--background', 'opaque', '-w', '1600',
                   '-h', '1600' if name != '3d' else '1100', '-o', os.path.join(OUT, '%s-%s.png' % (NAME, name)),
                   PCB, quiet=True) == 0
-    print('board: placement PDFs and renders in hardware/flight-pcb/out/')
+    print('board: placement PDFs and renders in %s' % rel(OUT))
     return ok
 
 
@@ -180,15 +198,14 @@ def laser(cli):
                               stdout=subprocess.DEVNULL).returncode == 0:
                 sys.path.insert(0, os.path.join(ROOT, 'tools'))
                 import pcb_map
-                pcb_map.draw(parts, dst, os.path.join(dst, NAME + '-placement-map.png'))
+                pcb_map.draw(parts, dst, os.path.join(dst, NAME + '-placement-map.png'), NAME)
                 pngs += ', placement map'
             else:
                 ok = False
     except ImportError:
         pngs = ' (pip install pymupdf for the PNGs and the placement map)'
-    print('laser: top, bottom (mirrored) and jig SVGs%s; isolation G-code, drill file and report in '
-          'hardware/flight-pcb/out/laser/'
-          % pngs)
+    print('laser: top, bottom (mirrored) and jig SVGs%s; isolation G-code, drill file and report in %s'
+          % (pngs, rel(dst)))
     return ok
 
 
@@ -255,17 +272,27 @@ def docs(cli):
         if run(cli, 'sch', 'export', 'svg', '-o', tmp, SCH):
             return False
         svg = open(os.path.join(tmp, NAME + '.svg'), encoding='utf8').read()
-        svg = re.sub(r'<title>.*?</title>', '<title>rocket-fc flight computer schematic</title>', svg, count=1)
-        changed = write_if_changed(os.path.join(DOCS, 'flight.svg'), svg)
+        svg = re.sub(r'<title>.*?</title>', '<title>%s</title>' % BOARDS[BOARD][3], svg, count=1)
+        changed = write_if_changed(os.path.join(DOCS, BOARDS[BOARD][2]), svg)
     if run(cli, 'sch', 'export', 'pdf', '-o', os.path.join(OUT, NAME + '-schematic.pdf'), SCH):
         return False
-    print('docs: docs/schematics/flight.svg', '(updated)' if changed else '(unchanged)')
-    print('      hardware/flight-pcb/out/%s-schematic.pdf' % NAME)
+    print('docs: docs/schematics/%s' % BOARDS[BOARD][2], '(updated)' if changed else '(unchanged)')
+    print('      %s%s-schematic.pdf' % (rel(OUT), NAME))
     return True
 
 
 def main():
-    steps = sys.argv[1:] or ['check', 'docs', 'board']
+    args = sys.argv[1:]
+    which = 'flight'
+    for flag in ('--board', '-b'):
+        if flag in args:
+            i = args.index(flag)
+            if i + 1 >= len(args) or args[i + 1] not in BOARDS:
+                sys.exit(__doc__)
+            which = args[i + 1]
+            del args[i:i + 2]
+    select(which)
+    steps = args or ['check', 'docs', 'board']
     cli = kicad_cli()
     for step in steps:
         if step not in ('check', 'docs', 'board', 'laser', 'fab'):

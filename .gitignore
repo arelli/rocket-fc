@@ -13,3 +13,4 @@ _autosave-*
 fp-info-cache
 *.kicad_prl
 hardware/flight-pcb/out/
+hardware/ground-pcb/out/

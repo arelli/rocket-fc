@@ -9,8 +9,8 @@ mm from the lower-left corner of the board outline's bounding box: the same fram
 all of them go at the same offset. Per face:
   - outlines around all copper at spot/2, +step, ... until the cleared band is BAND wide (offsets of the merged
     copper never enter copper, and where two outlines meet in a narrow gap the gap is already clear);
-  - keep-out areas (no copper under Q1's tab and the screw heads) cleared completely, except a 0.6 mm copper dot
-    at each unplated hole centre that marks where to drill;
+  - keep-out areas (no copper under the screw heads, nor under the flight board's Q1 tab) cleared completely,
+    except a 0.6 mm copper dot at each unplated hole centre that marks where to drill;
   - a small dot at every hole centre (an etched pit centres the drill), like the raster images;
   - the board outline, as a cutting line.
 Then a check: the copper the passes leave must contain the design's copper, and no two nets may end up joined.
@@ -179,15 +179,15 @@ def verify(board, layer, cu, paths):
     return lost_mm2, shorts
 
 
-def gcode(paths, mirror, bb, path):
+def gcode(paths, mirror, bb, path, name):
     x0, x1, y1 = bb.GetLeft() / MM, bb.GetRight() / MM, bb.GetBottom() / MM
 
     def xy(p):
         x, y = p[0] / MM, p[1] / MM
         return (x1 - x if mirror else x - x0), y1 - y
     length = 0.0
-    lines = ['; rocket-fc flight PCB, %s isolation (mm from the lower-left of the board outline box)'
-             % ('bottom, mirrored' if mirror else 'top'),
+    lines = ['; %s, %s isolation (mm from the lower-left of the board outline box)'
+             % (name, 'bottom, mirrored' if mirror else 'top'),
              '; spot %.3f mm, band %.2f mm, feed %g mm/min, power S%d' % (SPOT, BAND, FEED, POWER),
              'G21', 'G90', 'M4 S0']
     for p in paths:
@@ -211,7 +211,7 @@ def main(pcb, out_dir, name='rocket-fc-flight'):
         cu, paths, dots = paths_for(board, layer)
         lost, shorts = verify(board, layer, cu, paths)
         paths = order(paths + dots)
-        length = gcode(paths, mirror, bb, os.path.join(out_dir, '%s-%s-isolation.nc' % (name, face)))
+        length = gcode(paths, mirror, bb, os.path.join(out_dir, '%s-%s-isolation.nc' % (name, face)), name)
         print('isolation %s: %d outlines, %.1f m of cutting, about %.0f min at %g mm/min; copper lost %.2f mm2, '
               'nets joined: %s' % (face, len(paths), length / 1000, length / FEED * 1.15, FEED, lost,
                                    shorts or 'none'))

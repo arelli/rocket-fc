@@ -9,10 +9,13 @@ the same commit:
   `python tools/pcb_export.py` (electrical rules check, then
   `docs/schematics/flight.svg`).
 - Ground station: `tools/schematics.py`
-  (`python tools/schematics.py docs/schematics`).
+  (`python tools/schematics.py docs/schematics`) for the hand-wired build;
+  the KiCad project in [hardware/ground-pcb](../hardware/ground-pcb) for the
+  PCB (`python tools/pcb_export.py --board ground`, which writes
+  `docs/schematics/ground-pcb.svg`). Same circuit: change both.
 
 Schematics: [flight computer](schematics/flight.svg),
-[ground station](schematics/ground.svg). Step-by-step assembly and
+[ground station](schematics/ground.svg) ([PCB version](schematics/ground-pcb.svg)). Step-by-step assembly and
 first-time setup: [BUILD.md](BUILD.md).
 
 ## Pin map (XIAO ESP32-S3)
@@ -225,7 +228,10 @@ Settings: [docs/TELEMETRY.md](TELEMETRY.md).
 
 The ground station is the second XIAO ESP32-S3 + Wio-SX1262 kit, in its own
 box, powered by an 18650 cell. It is also the launch controller. Schematic:
-[schematics/ground.svg](schematics/ground.svg). Pins: `pins::ground` in
+[schematics/ground.svg](schematics/ground.svg). It can be hand-wired or built
+on the single-sided board in [hardware/ground-pcb](../hardware/ground-pcb)
+(XIAO on female headers; cell, switches and button on connectors; there both
+launch leads go into the 2-way terminal J1). Pins: `pins::ground` in
 [include/board_pins.h](../include/board_pins.h).
 
 | XIAO pin | GPIO | Function | Part |

@@ -126,7 +126,8 @@ tools/          ground_station.html (the UI), ground_station.py (USB recorder),
                 schematics.py (ground station drawing), build scripts
 hardware/       flight-pcb: KiCad 10 project of the flight computer
                 (schematic = wiring master; routed board, laser files
-                for a home-made build)
+                for a home-made build); ground-pcb: the ground station
+                on a single-sided board
 docs/           documentation and schematics
 ```
 
