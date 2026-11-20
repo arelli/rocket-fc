@@ -86,7 +86,8 @@ def extract(pcb, out):
             shapes.append(['line', [(mm(x), mm(y)) for x, y in pts]])
         cb = f.GetBoundingBox(False)
         data['parts'].append({
-            'ref': f.GetReference(), 'side': 'B' if f.IsFlipped() else 'F', 'shapes': shapes,
+            'ref': f.GetReference(), 'value': f.GetValue(), 'fp': f.GetFPIDAsString(),
+            'side': 'B' if f.IsFlipped() else 'F', 'shapes': shapes,
             'pads': [[p.GetNumber(), mm(p.GetPosition().x), mm(p.GetPosition().y)] for p in f.Pads()],
             'bbox': [mm(cb.GetX()), mm(cb.GetY()), mm(cb.GetRight()), mm(cb.GetBottom())],
             'pos': [mm(f.GetPosition().x), mm(f.GetPosition().y)]})

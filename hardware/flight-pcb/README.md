@@ -58,6 +58,15 @@ centre line and only low parts (resistors lying flat) are near the edges.
 | C1 470 µF 10 V | KiCad CP_Radial_D8.0mm_P3.50mm, standing on the bottom (12.5 mm tall at most) |
 | Everything else | KiCad standard library: resistors lying flat (7.62 mm), 1 Ω 2 W (DIN0414, 15.24 mm), TO-220 lying flat, JST-XH 4-pin side entry, 5.08 mm screw terminals, 12 mm buzzer, solder-wire pads for the GPS lead. The two 100 nF discs sit at the board edge: **bend them flat** (3.5 mm high at most) |
 
+## Parts
+
+![Parts sheet](parts.png)
+
+Every part tagged on the 3D render, with its value, what it is and, for the
+resistors, the colour code (4-band 5 %, 5-band 1 %; the render shows
+the 4-band one). Parts on both faces: the bottom panel is seen from below. `python tools/pcb_export.py board`
+redraws it (`tools/pcb_parts.py`, needs Pillow).
+
 ## Making the board (laser and etch)
 
 Both faces carry a **GND pour**: the copper between the tracks is kept and

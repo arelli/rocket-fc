@@ -85,6 +85,10 @@ version number (`tlm::kVersion`, docs/TELEMETRY.md).
   the board name; a single-sided board gets only its copper face (no top
   files, no jig), and its placement map shows the parts over the copper
   seen through the board.
+- Hardware: parts sheet for both boards (`hardware/*-pcb/parts.png`, shown in
+  their READMEs): the 3D renders with every part tagged, and a legend with
+  values, what each part is and the resistor colour codes. Drawn by
+  `tools/pcb_parts.py` in the board step of `tools/pcb_export.py`.
 - UI: zoom on every plot (drag, Shift+drag to pan, Ctrl+wheel, double-click to
   reset; linked time axes), hover readout, CSV export of each plot (range
   shown), of the events and of the GPS frames, plots in their own window.

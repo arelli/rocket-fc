@@ -6,6 +6,8 @@ Usage:
     python tools/pcb_export.py check      # ERC, DRC + schematic parity, tools/pcb_check.py; exit 1 on problems
     python tools/pcb_export.py docs       # docs/schematics/flight.svg, printable PDF in hardware/flight-pcb/out/
     python tools/pcb_export.py board      # 1:1 placement PDFs (top, bottom) and 3D renders in hardware/flight-pcb/out/
+                                          # and the parts sheet (tagged renders, legend, resistor colour codes),
+                                          # copied to hardware/flight-pcb/parts.png for the README
     python tools/pcb_export.py laser      # laser copper images, isolation G-code, registration jig, drill file,
                                           # placement map in hardware/flight-pcb/out/laser/
                                           # (PNG line spacing: LASER_LPMM lines/mm, default 12.5 = 0.08 mm)
@@ -135,7 +137,24 @@ def board(cli):
         ok &= run(cli, 'pcb', 'render', *extra, '--quality', 'high', '--background', 'opaque', '-w', '1600',
                   '-h', '1600' if name != '3d' else '1100', '-o', os.path.join(OUT, '%s-%s.png' % (NAME, name)),
                   PCB, quiet=True) == 0
-    print('board: placement PDFs and renders in %s' % rel(OUT))
+    # parts sheet: the renders with every part tagged and a legend (resistor colour codes), also next to the README
+    sheet = ''
+    try:
+        import PIL  # noqa: F401
+        with tempfile.TemporaryDirectory() as tmp:
+            parts = os.path.join(tmp, 'parts.json')
+            if ok and subprocess.run([kicad_python(cli), os.path.join(ROOT, 'tools', 'pcb_map.py'), 'extract', PCB,
+                                      parts], stdout=subprocess.DEVNULL).returncode == 0:
+                sys.path.insert(0, os.path.join(ROOT, 'tools'))
+                import pcb_parts
+                png = os.path.join(OUT, NAME + '-parts.png')
+                pcb_parts.draw(parts, os.path.join(OUT, NAME + '-top.png'), os.path.join(OUT, NAME + '-bottom.png'),
+                               png, NAME)
+                shutil.copyfile(png, os.path.join(os.path.dirname(PCB), 'parts.png'))
+                sheet = ', parts sheet (also %s)' % rel(os.path.join(os.path.dirname(PCB), 'parts.png'))
+    except ImportError:
+        sheet = ' (pip install pillow for the parts sheet)'
+    print('board: placement PDFs and renders%s in %s' % (sheet, rel(OUT)))
     return ok
 
 

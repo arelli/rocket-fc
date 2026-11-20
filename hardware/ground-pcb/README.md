@@ -80,6 +80,15 @@ JST 2.0 x 2.8 mm, LEDs 2.0 x 2.6 mm), so they differ from the library
 footprints (that DRC check is off): **Update Footprints from Library** would
 shrink them back.
 
+## Parts
+
+![Parts sheet](parts.png)
+
+Every part tagged on the 3D render, with its value, what it is and, for the
+resistors, the colour code (4-band 5 %, 5-band 1 %; the render shows
+the 4-band one). Every part sits on the top face. `python tools/pcb_export.py --board ground board`
+redraws it (`tools/pcb_parts.py`, needs Pillow).
+
 ## Making the board (laser and etch)
 
 Same method as the flight board ([hardware/flight-pcb](../flight-pcb/README.md#making-the-board-laser-and-etch)),
