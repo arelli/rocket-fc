@@ -84,9 +84,10 @@ shrink them back.
 
 ![Parts sheet](parts.png)
 
-Every part tagged on the 3D render, with its value, what it is and, for the
-resistors, the colour code (4-band 5 %, 5-band 1 %; the render shows
-the 4-band one). Every part sits on the top face. `python tools/pcb_export.py --board ground board`
+Every part tagged on the 3D render, what goes into each screw terminal
+(yellow tags), each part's value and what it is, and for the resistors the
+colour code (4-band 5 %, 5-band 1 %; the render shows the 4-band one). Every
+part sits on the top face. `python tools/pcb_export.py --board ground board`
 redraws it (`tools/pcb_parts.py`, needs Pillow).
 
 ## Making the board (laser and etch)

@@ -62,10 +62,11 @@ centre line and only low parts (resistors lying flat) are near the edges.
 
 ![Parts sheet](parts.png)
 
-Every part tagged on the 3D render, with its value, what it is and, for the
-resistors, the colour code (4-band 5 %, 5-band 1 %; the render shows
-the 4-band one). Parts on both faces: the bottom panel is seen from below. `python tools/pcb_export.py board`
-redraws it (`tools/pcb_parts.py`, needs Pillow).
+Every part tagged on the 3D render, what goes into each screw terminal
+(yellow tags), each part's value and what it is, and for the resistors the
+colour code (4-band 5 %, 5-band 1 %; the render shows the 4-band one). Parts
+on both faces: the bottom panel is seen from below. `python
+tools/pcb_export.py board` redraws it (`tools/pcb_parts.py`, needs Pillow).
 
 ## Making the board (laser and etch)
 

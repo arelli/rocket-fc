@@ -88,7 +88,7 @@ def extract(pcb, out):
         data['parts'].append({
             'ref': f.GetReference(), 'value': f.GetValue(), 'fp': f.GetFPIDAsString(),
             'side': 'B' if f.IsFlipped() else 'F', 'shapes': shapes,
-            'pads': [[p.GetNumber(), mm(p.GetPosition().x), mm(p.GetPosition().y)] for p in f.Pads()],
+            'pads': [[p.GetNumber(), mm(p.GetPosition().x), mm(p.GetPosition().y), p.GetNetname()] for p in f.Pads()],
             'bbox': [mm(cb.GetX()), mm(cb.GetY()), mm(cb.GetRight()), mm(cb.GetBottom())],
             'pos': [mm(f.GetPosition().x), mm(f.GetPosition().y)]})
     data['vias'] = [[mm(t.GetPosition().x), mm(t.GetPosition().y), t.GetNetname()]
@@ -177,7 +177,7 @@ def draw(parts_json, laser_dir, out_png, name='rocket-fc-flight', top_svg=None):
             tags.append((P(cx, cy), ref, col))
         n_both = 0                                          # pins soldered on both faces: ring, part's face only
         for p in mine:
-            for num, x, y in p['pads']:
+            for num, x, y, *_ in p['pads']:
                 if (p['ref'], num) in both:
                     n_both += 1
                     for col, w in ((WHITE, 0.75), (RED, 0.4)):

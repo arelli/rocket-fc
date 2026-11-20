@@ -22,6 +22,15 @@ RGB = {'black': (20, 20, 20), 'brown': (120, 62, 20), 'red': (215, 30, 30), 'ora
        'yellow': (250, 220, 30), 'green': (30, 160, 60), 'blue': (30, 80, 220), 'violet': (140, 60, 200),
        'grey': (140, 140, 140), 'white': (245, 245, 245), 'gold': (205, 165, 50), 'silver': (190, 190, 200)}
 ORDER = ['U', 'Q', 'R', 'C', 'LED', 'BZ', 'J']           # legend order by reference prefix
+# what goes into each screw terminal: (tag on the render, sign per pin or None, legend line)
+WIRES = {'rocket-fc-flight': {
+    'J3': ('ARM LINK', None, 'ARM link (key switch or jumper): one wire in each screw'),
+    'J4': ('IGNITER', None, 'Igniter: one lead in each screw, either way round'),
+}, 'rocket-fc-ground': {
+    'J1': ('IGNITER', None, 'Igniter cable: one lead in each screw, either way round'),
+    'J2': ('18650', {'GND': '−', '/CELL+': '+'}, '18650 cell: − into the GND screw, + into the other (as marked)'),
+    'J3': ('ARM SWITCH', None, 'ARM switch (5 A or more): one wire in each screw'),
+}}
 
 
 def ohms(value):
@@ -114,6 +123,10 @@ def draw(parts_json, top_png, bottom_png, out_png, name='rocket-fc-flight'):
     for side in sides:
         im = Image.open(top_png if side == 'F' else bottom_png).convert('RGB')
         ox, oy, k = find_board(im, BW, BH)
+        pad = 140                                        # room round the render for tags outside the board
+        big = Image.new('RGB', (im.width + 2 * pad, im.height + 2 * pad), im.getpixel((2, 2)))
+        big.paste(im, (pad, pad))
+        im, ox, oy = big, ox + pad, oy + pad
         # board mm -> render pixels; the bottom render is seen from below (left and right swapped)
         if side == 'F':
             P = lambda x, y, ox=ox, oy=oy, k=k: (ox + (x - X0) * k, oy + (y - Y0) * k)
@@ -128,7 +141,7 @@ def draw(parts_json, top_png, bottom_png, out_png, name='rocket-fc-flight'):
             if r is None or not m or watts(p['value']) >= 5 or len(p['pads']) != 2:
                 continue
             L, D = float(m.group(1)), float(m.group(2))
-            (_, ax, ay), (_, bx, by) = p['pads']
+            (_, ax, ay, *_), (_, bx, by, *_) = p['pads']
             ux, uy = (bx - ax), (by - ay)
             n = math.hypot(ux, uy)
             ux, uy = ux / n, uy / n
@@ -146,6 +159,7 @@ def draw(parts_json, top_png, bottom_png, out_png, name='rocket-fc-flight'):
             a, b = P(x0, y0), P(x1, y1)
             boxes.append((min(a[0], b[0]), min(a[1], b[1]), max(a[0], b[0]), max(a[1], b[1])))
         placed = []
+        wires = WIRES.get(name, {})
 
         def hit(t):
             s = 0
@@ -157,6 +171,29 @@ def draw(parts_json, top_png, bottom_png, out_png, name='rocket-fc-flight'):
             if t[0] < 0 or t[1] < 0 or t[2] > im.width or t[3] > im.height:
                 s += 1e9
             return s
+        # screw terminals first: what to connect, on the outer side of the block (where the wires go in)
+        for p, (bx0, by0, bx1, by1) in zip(mine, boxes):
+            if p['ref'] not in wires:
+                continue
+            label, signs, _ = wires[p['ref']]
+            pins = sorted((P(x, y) + (net,) for _, x, y, net in p['pads']), key=lambda q: q[0])
+            if signs:
+                label = '%s  %s  %s' % (signs.get(pins[0][2], ''), label, signs.get(pins[-1][2], ''))
+            w, h = dr.textlength(label, font=f_tag) + 20, 42
+            cx, cy = (bx0 + bx1) / 2, (by0 + by1) / 2
+            gx, gy = (cx - (ox + BW * k / 2)) / BW, (cy - (oy + BH * k / 2)) / BH
+            if abs(gy) >= abs(gx):
+                x, y = cx - w / 2, (by1 + 8 if gy > 0 else by0 - 8 - h)
+                step = (0, (h + 6) * (1 if gy > 0 else -1))
+            else:
+                x, y = (bx1 + 8 if gx > 0 else bx0 - 8 - w), cy - h / 2
+                step = ((w + 6) * (1 if gx > 0 else -1), 0)
+            # side by side terminals: move a tag that would touch its neighbour's one row further out
+            while any(min(x + w, t[2]) - max(x, t[0]) > -6 and min(y + h, t[3]) - max(y, t[1]) > -6 for t in placed):
+                x, y = x + step[0], y + step[1]
+            placed.append((x, y, x + w, y + h))
+            dr.rounded_rectangle((x, y, x + w, y + h), 8, fill=(255, 225, 90), outline=(0, 0, 0), width=3)
+            dr.text((x + 10, y + 4), label, font=f_tag, fill=(0, 0, 0))
         for p, (bx0, by0, bx1, by1) in sorted(zip(mine, boxes), key=lambda q: (q[1][2] - q[1][0]) * (q[1][3] - q[1][1])):
             text = p['ref'] + (' ' + nice(p['ref'], p['value']) if p['ref'].startswith('R') else '')
             w, h = dr.textlength(text, font=f_tag) + 16, 40
@@ -230,6 +267,14 @@ def draw(parts_json, top_png, bottom_png, out_png, name='rocket-fc-flight'):
                 swatches(cb4, y, bands(r, 4))
                 swatches(cb5, y, bands(r, 5))
         y += RH
+    wires = WIRES.get(name, {})
+    if wires:
+        y += 20
+        dr.text((lx, y), 'Screw terminals (yellow tags):', font=f_tag, fill=(0, 0, 0))
+        y += 48
+        for ref, (_, _, line) in sorted(wires.items()):
+            dr.text((lx, y), '%s  %s' % (ref, line), font=f_small, fill=(0, 0, 0))
+            y += 36
     if any_r:
         y += 20
         dr.text((lx, y), 'Colour codes (read from the band nearest an end):', font=f_tag, fill=(0, 0, 0))
