@@ -69,7 +69,8 @@ version number (`tlm::kVersion`, docs/TELEMETRY.md).
   18650, ARM switch and igniter on 5.08 mm screw terminals, the power switch,
   button and MODE switch on JST-XH connectors; LEDs, buzzer and launch
   channel on the board. Pins unchanged (`pins::ground`). Wide copper for the
-  laser: 0.4 mm clearance, tracks 0.8 / 1.2 / 2.0 mm, big pads. ERC, DRC and
+  laser: 0.4 mm clearance, tracks 0.8 / 1.2 / 2.0 mm, big pads, copper
+  labels 2.5-3 mm with a 0.5-0.6 mm stroke. ERC, DRC and
   schematic parity clean; laser files as for the flight board for its one
   face (isolation G-code, raster SVG/PNG, drill file, placement map) and
   order files.

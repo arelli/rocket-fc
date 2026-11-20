@@ -90,17 +90,32 @@ every other net), so the laser only clears a band round each track and pad.
 
 | File | Use |
 |---|---|
-| `…-bottom-isolation.nc` | **Vector isolation G-code** (method A, about 17 min): outlines round all copper, mirrored |
+| `…-bottom-isolation.nc` | **Vector isolation G-code** (method A, about 19 min): outlines round all copper, mirrored |
 | `…-bottom.svg`, `…-bottom-0.08mm.png` | The copper as a raster image (method B), **negative** (black = laser fires, white = copper stays), mirrored. Every hole centre is a small black dot (the etched pit centres the drill); the M3 holes are small copper dots |
 | `….drl`, `…-drl_map.pdf`, `…-drill-report.txt` | Drill file (mm), drill map and hole count per size |
 | `…-placement-map.png` | Where every part goes (top face, with the copper seen through the board) and the copper face as lasered: print it for assembly |
 
-The frame of every file is the board outline (100 x 80 mm); the G-code
-starts at its lower-left corner (X 0-100, Y 0-80), the PNG comes out
-100 x 80 mm from its DPI. Laser settings (`LASER_SPOT`, `LASER_BAND`,
-`LASER_FEED`, `LASER_S`, `LASER_LPMM`), the M4 power mode and the two raster
-passes (Passthrough horizontal, then Line To Line vertical at 12.5
-lines/mm) work exactly as for the flight board.
+The frame of every file is the board outline (100 x 80 mm). The copper
+labels are 2.5-3 mm high with a 0.5-0.6 mm stroke, so they survive the
+laser and the etch.
+
+### Method A: vector isolation (recommended, about 19 minutes)
+
+Open the `.nc` file in LaserGRBL (*File → Open*) and run it: it starts at
+the board's lower-left corner (X 0-100, Y 0-80), M4 power with `$32=1`.
+Settings (`LASER_SPOT`, `LASER_BAND`, `LASER_FEED`, `LASER_S`) as for the
+[flight board](../flight-pcb/README.md#method-a-vector-isolation-recommended-about-15-minutes-a-face).
+
+### Method B: raster image
+
+The PNG is 0.08 mm a pixel (12.5 lines/mm, 317.5 dpi: Autosize gives
+100 x 80 mm). Two passes **without moving anything** in between:
+
+1. **Horizontal:** the PNG with **Passthrough**.
+2. **Vertical:** the same PNG with **Line To Line Tracing**, *Direction:
+   Vertical*, *Quality* 12.5 lines/mm, same size and offset.
+
+Avoid Vectorize. Details: [flight board](../flight-pcb/README.md#method-b-raster-image-about-70-minutes-a-face).
 
 The files are **mirrored** because they show the copper face as seen from
 below, which is how it lies on the laser bed (copper up). **BOT** and the
@@ -131,7 +146,7 @@ connector labels in the copper read correctly on the finished board.
 | 1.3 mm | Screw terminals J1, J2, J3 |
 | 3.2 mm | M3 holes H1-H4 |
 
-## Assembly
+## Assembly order
 
 Every part goes on the top face and is soldered on the bottom; no joint is
 under another part, so the order only follows height (low parts first):
