@@ -29,7 +29,7 @@ is in [TESTING.md](TESTING.md).
 | Active buzzer, 3–5 V | 1 | Straight on the pin |
 | LED, 3 or 5 mm | 0–1 | Status; not on the PCB |
 | Slide switch (≥ 0.5 A) | 1 | Main power |
-| 2-pin screw terminals | 2 | Arm link, igniter |
+| 2-pin screw terminal | 1 | Igniter (the arm link is two soldered wires on the PCB; a second terminal when hand-wired) |
 | Seeed L76K GNSS module | 0–1 | **Optional** GPS for recovery |
 | 100 nF capacitors | 0–2 | Optional, on D0 / D1 |
 | Perfboard, ≥ 22 AWG wire for the pyro loop, ferrules for nichrome | | |
@@ -44,15 +44,15 @@ isolation G-code and raster images) and a placement map. On top of the parts abo
 
 | Part / material | Qty | Notes |
 |---|---|---|
-| Double-sided FR4, 1.6 mm, 1 oz copper | 36 × 92 mm or larger | Plus a painted scrap to find the laser settings |
+| Double-sided FR4, 1.6 mm, 1 oz copper | 36 × 85 mm or larger | Plus a painted scrap to find the laser settings |
 | Matte black spray paint, isopropyl alcohol, fine abrasive pad | | Laser resist; clean the copper first |
 | Etchant (ferric chloride or sodium persulfate), acetone | | Acetone strips the paint after etching |
 | Drill bits 0.8, 1.0, 1.2, 1.3, 3.2 mm | 1 each | Which holes take which bit: the README's bit table |
 | Cardboard or MDF sheet, two 3 mm pins (drill bits or M3 screws) | | Registration jig for the second face |
 | Bare tinned wire (or resistor lead offcuts) | ≈ 30 cm | The 27 wire vias |
 | 2.54 mm male header strips, **low profile** (not sockets) | ≈ 30 pins | XIAO (2 × 7, 5V D8 D9 D10 pulled), MPU-9250 board, barometer (4) |
-| JST-XH 4-pin side-entry header S4B-XH-A, with a 4-pin housing and crimped leads | 1 | J1: cell (pins 1–2) and main switch (3–4) |
-| 2-pin screw terminals, 5.08 mm pitch | 2 | J3 arm link, J4 igniter (the ones in the list above) |
+| 0.5 mm² (20 AWG) stranded wire, two colours | ≈ 50 cm | Soldered leads: J1 cell (pins 1 −, 2 +) and main switch (3–4), J3 arm link (one pad in each corner) |
+| 2-pin screw terminal, 5.08 mm pitch | 1 | J4 igniter (the one in the list above) |
 | Active buzzer 12 mm, 7.6 mm pin spacing | 1 | The buzzer in the list above, in this size |
 | 100 nF ceramic discs, 2.5 mm pitch | 2 | Both fitted on the PCB, bent flat |
 | Kapton tape | | Over C1's trimmed joints, under the barometer |

@@ -3208,7 +3208,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "Connector_JST:JST_XH_S4B-XH-A_1x04_P2.50mm_Horizontal"
+		(property "Footprint" "rocket-fc:SolderWire_1x04_P2.50mm_D0.95mm"
 			(at 175.26 45.72 0)
 			(hide yes)
 			(effects
@@ -3235,7 +3235,7 @@
 				)
 			)
 		)
-		(property "Note" "JST-XH 4-pin side entry: 1-2 18350 cell (-, +) in its own bay, 3-4 main switch (>= 0.5 A)"
+		(property "Note" "Wire pads, soldered: 1-2 18350 cell (-, +) in its own bay, 3-4 main switch (>= 0.5 A)"
 			(at 175.26 45.72 0)
 			(hide yes)
 			(effects
@@ -4306,7 +4306,7 @@
 			)
 		)
 	)
-	(text "J1 1-2: cell (-, +), 3-4: main switch, both off-board. Pyro loop: CELL+ before the switch.\nC1 470 uF: rides through ms dips (radio bursts, contact flicker). Mind the polarity.\nR1/R2: ratio 2.0 = setting batt_divider (about 20 uA).\nCharging: USB-C on the XIAO with the main switch on."
+	(text "J1 1-2: cell (-, +), 3-4: main switch, both off-board on soldered wires. Pyro loop: CELL+ before the switch.\nC1 470 uF: rides through ms dips (radio bursts, contact flicker). Mind the polarity.\nR1/R2: ratio 2.0 = setting batt_divider (about 20 uA).\nCharging: USB-C on the XIAO with the main switch on."
 		(exclude_from_sim no)
 		(at 152.4 88.9 0)
 		(effects
@@ -4368,7 +4368,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "TerminalBlock_Phoenix:TerminalBlock_Phoenix_MKDS-1,5-2-5.08_1x02_P5.08mm_Horizontal"
+		(property "Footprint" "rocket-fc:WirePads_1x02_P20.80mm_D1.3mm"
 			(at 38.1 144.78 0)
 			(hide yes)
 			(effects

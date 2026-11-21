@@ -48,15 +48,16 @@ PROFILES = {
             'Q1': 4.6,    # TO-220 lying flat
             'R3': 4.5,    # 1 ohm 2 W metal oxide lying flat
             'BZ1': 9.5,   # 12 mm active buzzer (top)
-            'J1': 6.1,    # JST XH 4-pin side entry
-            'J3': 10.0, 'J4': 10.0,  # 5 mm screw terminals, centred
+            'J1': 3.0,    # cell and main switch wires soldered to pads
+            'J3': 3.0,    # arm link wires soldered to pads (one at each corner)
+            'J4': 10.0,   # 5 mm screw terminal, centred
             'J5': 3.0,    # GPS lead soldered to pads
             'C2': 3.5, 'C3': 3.5,    # ceramic discs, bent flat (they sit at the board edge)
             'H1': 2.0, 'H2': 2.0, 'H3': 2.0, 'H4': 2.0,  # M3 screw heads
         },
         'raised': {'U1', 'U2', 'U3'},   # modules on headers: joints underneath can be soldered before fitting them
         'cylinder': {},                 # parts lying flat that are round: {ref: radius (mm)}, axis along the board
-        'no_body': {'J5'},              # wire pads: nothing sits on the board
+        'no_body': {'J1', 'J3', 'J5'},  # wire pads: nothing sits on the board
         'metal_tab': {'Q1': '2'},       # body is metal on the board face, connected to this pad: no other net under it
     },
     'rocket-fc-ground': {
@@ -160,7 +161,8 @@ class Model:
                 flat = [o for o in blockers if o not in P['raised']]
                 if not flat:
                     layers.add(face)
-                    if not layers - {face}:             # only that face: modules over it fix the order
+                    if not layers - {face} or r in P['no_body']:   # only that face, or a wire pad (its joint is
+                        # where its tracks are, often that face): modules over it fix the order
                         for o in blockers:
                             self.order.setdefault(o, set()).add(r)
                 if not layers:

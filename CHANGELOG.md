@@ -90,6 +90,16 @@ version number (`tlm::kVersion`, docs/TELEMETRY.md).
   each screw terminal, and a legend with
   values, what each part is and the resistor colour codes. Drawn by
   `tools/pcb_parts.py` in the board step of `tools/pcb_export.py`.
+- Hardware: flight PCB with soldered wires instead of plugs: the cell and
+  main switch (J1, the JST-XH 4-pin pad layout without the plug) and the arm
+  link (J3, two pads, one in each corner of the far end); the igniter keeps
+  its screw terminal (J4). The board is 6.6 mm shorter, 30 x 71.6 mm (78.6 mm
+  with the ears): J4 and the holes H3, H4 moved up into the room J3's
+  terminal left, R3 turned end for end so the ARM and IGN+ tracks reach
+  their new places, still 27 wire vias. DRC, parity and `pcb_check` clean;
+  laser and fab files regenerated. `tools/pcb_check.py`: a wire pad's joint
+  goes into the assembly order like a pin's; `tools/pcb_parts.py` can tag
+  each pad of a part on its own.
 - UI: zoom on every plot (drag, Shift+drag to pan, Ctrl+wheel, double-click to
   reset; linked time axes), hover readout, CSV export of each plot (range
   shown), of the events and of the GPS frames, plots in their own window.

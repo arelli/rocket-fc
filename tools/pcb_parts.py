@@ -22,9 +22,11 @@ RGB = {'black': (20, 20, 20), 'brown': (120, 62, 20), 'red': (215, 30, 30), 'ora
        'yellow': (250, 220, 30), 'green': (30, 160, 60), 'blue': (30, 80, 220), 'violet': (140, 60, 200),
        'grey': (140, 140, 140), 'white': (245, 245, 245), 'gold': (205, 165, 50), 'silver': (190, 190, 200)}
 ORDER = ['U', 'Q', 'R', 'C', 'LED', 'BZ', 'J']           # legend order by reference prefix
-# what goes into each screw terminal: (tag on the render, sign per pin or None, legend line)
+# what goes into each screw terminal or wire pad: (tag on the render, sign per pin or None, legend line);
+# tag None: a tag over each pad, its text from the pin's net
 WIRES = {'rocket-fc-flight': {
-    'J3': ('ARM LINK', None, 'ARM link (key switch or jumper): one wire in each screw'),
+    'J1': ('CELL / SWITCH', None, 'Cell and main switch, soldered wires: pad 1 cell −, 2 cell +, 3–4 main switch'),
+    'J3': (None, {'/CELL+': 'ARM LINK +', '/ARM': 'ARM LINK'}, 'ARM link (key switch or jumper): one wire soldered to each corner pad'),
     'J4': ('IGNITER', None, 'Igniter: one lead in each screw, either way round'),
 }, 'rocket-fc-ground': {
     'J1': ('IGNITER', None, 'Igniter cable: one lead in each screw, either way round'),
@@ -177,6 +179,15 @@ def draw(parts_json, top_png, bottom_png, out_png, name='rocket-fc-flight'):
                 continue
             label, signs, _ = wires[p['ref']]
             pins = sorted((P(x, y) + (net,) for _, x, y, net in p['pads']), key=lambda q: q[0])
+            if label is None:                            # separate pads: one tag over each, from its net
+                for px, py, net in pins:
+                    t = signs[net]
+                    w, h = dr.textlength(t, font=f_tag) + 20, 42
+                    x, y = px - w / 2, py - 34 - h
+                    placed.append((x, y, x + w, y + h))
+                    dr.rounded_rectangle((x, y, x + w, y + h), 8, fill=(255, 225, 90), outline=(0, 0, 0), width=3)
+                    dr.text((x + 10, y + 4), t, font=f_tag, fill=(0, 0, 0))
+                continue
             if signs:
                 label = '%s  %s  %s' % (signs.get(pins[0][2], ''), label, signs.get(pins[-1][2], ''))
             w, h = dr.textlength(label, font=f_tag) + 20, 42
@@ -270,7 +281,7 @@ def draw(parts_json, top_png, bottom_png, out_png, name='rocket-fc-flight'):
     wires = WIRES.get(name, {})
     if wires:
         y += 20
-        dr.text((lx, y), 'Screw terminals (yellow tags):', font=f_tag, fill=(0, 0, 0))
+        dr.text((lx, y), 'Connections (yellow tags):', font=f_tag, fill=(0, 0, 0))
         y += 48
         for ref, (_, _, line) in sorted(wires.items()):
             dr.text((lx, y), '%s  %s' % (ref, line), font=f_small, fill=(0, 0, 0))

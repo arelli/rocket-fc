@@ -8,9 +8,9 @@ pin numbers follow [include/board_pins.h](../../include/board_pins.h), and
 |---|---|
 | `rocket-fc-flight.kicad_pro` | Project, design rules and net classes |
 | `rocket-fc-flight.kicad_sch` | Schematic (one A3 sheet) |
-| `rocket-fc-flight.kicad_pcb` | Board: 30 x 78.2 mm (85.2 mm with the mounting ears), two layers |
+| `rocket-fc-flight.kicad_pcb` | Board: 30 x 71.6 mm (78.6 mm with the mounting ears), two layers |
 | `lib/rocket-fc.kicad_sym` | Symbols: XIAO ESP32-S3 + Wio-SX1262, SparkFun MPU-9250 breakout, 4-pin GY-BMP280, L76K |
-| `lib/rocket-fc.pretty/` | Footprints of those modules |
+| `lib/rocket-fc.pretty/` | Footprints of those modules, and the wire pads of J1 and J3 |
 | `lib/rocket-fc.3dshapes/` | Simplified 3D models of those (boxes and cylinders, for the renders and the tube check by eye) |
 | `out/` | Generated files (not committed) |
 
@@ -20,7 +20,9 @@ with no library setup.
 **Status:** schematic done (ERC clean), board routed with a GND pour on
 both faces: DRC 0 problems, schematic parity 0, `tools/pcb_check.py` ok.
 Laser files ready (below); test etches of the raster method done, the
-vector isolation method still to try.
+vector isolation method still to try. Since those etches: the cell, main
+switch and arm link are soldered wires (no JST plug, one screw terminal
+fewer) and the board is 6.6 mm shorter.
 
 Routing uses both faces and **27 wire vias**: a hole with a short wire
 soldered on both sides wherever a track changes face (no plated holes).
@@ -29,23 +31,28 @@ soldered on both sides wherever a track changes face (no plated holes).
 
 The board sits centred in the 32 mm airframe, so the tall parts are on the
 centre line and only low parts (resistors lying flat) are near the edges.
-`y` runs from the XIAO's USB face (0) to the far end (78.2 mm).
+`y` runs from the XIAO's USB face (0) to the far end (71.6 mm).
 
 | Zone (y, mm) | Top | Bottom |
 |---|---|---|
-| −7–0 | Two ears with M3 holes H1, H2; the notch between them is free for the USB-C plug | Power plug J1 enters through the same notch |
-| 0–34 | XIAO with the Wio-SX1262 on top, USB-C flush with the notch; continuity divider (R4, R5, C3) on the left edge, battery divider (R1, R2, C2) on the right; BAT+ / BAT− wire pads | J1: JST-XH 4-pin side entry (1–2 cell, 3–4 main switch); SparkFun MPU-9250 |
+| −7–0 | Two ears with M3 holes H1, H2; the notch between them is free for the USB-C plug | The cell and main switch wires (J1) leave through the same notch |
+| 0–34 | XIAO with the Wio-SX1262 on top, USB-C flush with the notch; continuity divider (R4, R5, C3) on the left edge, battery divider (R1, R2, C2) on the right; BAT+ / BAT− wire pads | J1: four wire pads at y 9.5 (1 cell −, 2 cell +, 3–4 main switch); SparkFun MPU-9250 |
 | 25–56 | Buzzer centred (34–46), gate resistors R6, R7 and the GPS lead pads J5 on the right edge | IRLB8748 (left) and 1 Ω 2 W resistor (right) lying flat (32–53); 470 µF standing between them (45–54) |
 | 46–61 | 4-pin GY-BMP280, sensor side down, header at its far edge | |
-| 61–78 | Screw terminal J3 (ARM link), centred | Screw terminal J4 (igniter), centred, staggered behind J3 |
-| 71–78 | M3 holes H3, H4 in the corners | |
+| 59–62 | ARM link wire pads J3, one in each corner: CELL+ left, ARM right (seen from the top) | |
+| 60–72 | | Screw terminal J4 (igniter), centred |
+| 64–72 | M3 holes H3, H4 in the corners | |
 
 - **USB:** the XIAO's USB-C face is at the board edge, in a 14 mm wide notch
   between the two ears, so the plug goes straight in with the board on its
   sled.
-- **Screw terminals:** one per face, both on the centre line (where the tube
-  is tallest), wires entering from the far end. J4 is 6.6 mm further along
-  than J3 so that neither covers the other's solder joints.
+- **One connector:** the igniter's screw terminal J4, on the centre line
+  (where the tube is tallest), wires entering from the far end. The cell,
+  main switch and arm link are **soldered wires** (lighter than plugs and
+  terminals, and they cannot shake loose): J1's four pads under the XIAO,
+  J3's two pads in the corners in front of J4. 0.5 mm² (20 AWG) stranded
+  wire for J1 and J3 (they carry the firing current); tie or glue each lead
+  to the board or sled next to its pad, so it does not flex at the joint.
 - **No status LED** (the buzzer stays): see docs/HARDWARE.md.
 - The L76K GNSS module is off the board, near the nose, on a 3-wire lead
   soldered to J5 (3V3, GND, TX); its symbol and footprint stay in the library.
@@ -56,14 +63,14 @@ centre line and only low parts (resistors lying flat) are near the edges.
 | SparkFun MPU-9250 (U2) | SparkFun's Eagle board file, v10 (17.0 x 17.8 mm); chip side away from the board (its labelled side faces the PCB); **AD0, INT, AUXCL, AUXDA have no pad** (pull those pins); its standoff holes are not drilled (they would hit the XIAO pins) |
 | GY-BMP280 4-pin (U3) | 10 x 13 mm, 2.54 mm header along a 10 mm edge. **Mounted sensor side down** (labels up, VIN in the square pad): with the sensor up, the real board's pin order (VIN GND SCL SDA) runs the other way to this footprint. The BMP280 then hangs about 1.5 mm above C1's joints |
 | C1 470 µF 10 V | KiCad CP_Radial_D8.0mm_P3.50mm, standing on the bottom (12.5 mm tall at most) |
-| Everything else | KiCad standard library: resistors lying flat (7.62 mm), 1 Ω 2 W (DIN0414, 15.24 mm), TO-220 lying flat, JST-XH 4-pin side entry, 5.08 mm screw terminals, 12 mm buzzer, solder-wire pads for the GPS lead. The two 100 nF discs sit at the board edge: **bend them flat** (3.5 mm high at most) |
+| Everything else | KiCad standard library: resistors lying flat (7.62 mm), 1 Ω 2 W (DIN0414, 15.24 mm), TO-220 lying flat, a 5.08 mm screw terminal (J4), 12 mm buzzer, solder-wire pads for the GPS lead. J1 and J3 are wire pads from `lib/rocket-fc.pretty/` (J1: the JST-XH 4-pin pad layout without the plug, 0.95 mm holes; J3: two separate 1.3 mm pads 20.8 mm apart). The two 100 nF discs sit at the board edge: **bend them flat** (3.5 mm high at most) |
 
 ## Parts
 
 ![Parts sheet](parts.png)
 
 Every part tagged on the 3D render, what goes into each screw terminal
-(yellow tags), each part's value and what it is, and for the resistors the
+and wire pad (yellow tags), each part's value and what it is, and for the resistors the
 colour code (4-band 5 %, 5-band 1 %; the render shows the 4-band one). Parts
 on both faces: the bottom panel is seen from below. `python
 tools/pcb_export.py board` redraws it (`tools/pcb_parts.py`, needs Pillow).
@@ -90,12 +97,12 @@ make every connection; the pour only adds to the GND ones.
 | `…-placement-map.png` | Where every part goes, both faces as lasered, with the 27 wire vias (red X) and the pins to solder on both faces (red ring, on the part's face): print it for assembly. Needs PyMuPDF (`pip install pymupdf`), like the PNGs |
 
 Every file uses the same frame, the board outline's bounding box (30.0 x
-85.17 mm), so they line up when placed at the same position:
+78.57 mm), so they line up when placed at the same position:
 
 - **LaserGRBL:** give every job the **same Offset X / Y** (e.g. 0, 0) and
   never move the bed or the jig between them. The G-code coordinates already
-  start at the lower-left corner of that box (X 0–30, Y 0–85.17), so run it
-  with the same origin as the jig. The PNGs come out 30.0 x 85.2 mm from
+  start at the lower-left corner of that box (X 0–30, Y 0–78.57), so run it
+  with the same origin as the jig. The PNGs come out 30.0 x 78.6 mm from
   their DPI (Autosize on): within half a line of the SVGs.
 - **LightBurn:** one project, one layer each, align their centres; set the
   jig's outline to a layer that does not output.
@@ -149,7 +156,7 @@ same value as the vertical pass's Quality.
 
 ### Steps
 
-1. **Blank:** double-sided FR4, 1.6 mm, at least 36 x 92 mm. Clean both
+1. **Blank:** double-sided FR4, 1.6 mm, at least 36 x 85 mm. Clean both
    faces (fine abrasive pad, then isopropyl alcohol) and spray thin coats of
    matte black paint on both. **Find the laser settings on a scrap** painted
    the same way first:
@@ -187,9 +194,9 @@ same value as the vertical pass's Quality.
 | Bit | Holes |
 |---|---|
 | 0.8 mm | 27 wire vias, resistors, 100 nF, C1, GPS lead pads (J5) |
-| 1.0 mm | XIAO, MPU-9250 and barometer headers, BAT pads, buzzer, power plug J1 |
+| 1.0 mm | XIAO, MPU-9250 and barometer headers, BAT pads, buzzer, J1 wire pads |
 | 1.2 mm | IRLB8748 (Q1) leads, 1 Ω 2 W (R3) |
-| 1.3 mm | Screw terminals J3, J4 |
+| 1.3 mm | ARM link wire pads J3, screw terminal J4 |
 | 3.2 mm | M3 holes H1–H4 (step 3) |
 | 3.5 mm | Q1's tab hole (a 3.2 mm hole also takes the M3 screw) |
 
@@ -202,13 +209,14 @@ the wire vias and the both-face pins; in practice:
 
 0. **All 27 wire vias first**: a bare wire (e.g. a resistor lead offcut)
    through each 0.8 mm via hole, soldered on both faces and trimmed flush.
-   Several sit under parts (the XIAO, MPU, power plug, buzzer, barometer,
-   J3, R3, R7).
+   Several sit under parts (the XIAO, MPU, buzzer, barometer, R3, R4,
+   R7).
 1. Small parts in the edge strips, then Q1, R3 and C1 (bottom). **Trim C1's
    joints flush** on the top and put Kapton tape over them: the barometer's
    sensor hangs over them.
-2. J1, the power plug (bottom): its pins are soldered on top, under where
-   the XIAO goes.
+2. The J1 wires (cell −, cell +, main switch, main switch): in from the
+   bottom, soldered on top and **trimmed flush**, under where the XIAO goes.
+   Strip about 3 mm, so no bare wire shows on the bottom.
 3. The XIAO's header strips (top, **low male headers, not sockets**: the
    stack must stay under 11.9 mm; 5V, D8, D9, D10 pulled), soldered on the
    bottom and **trimmed flush**: the MPU board sits over these joints.
@@ -221,7 +229,8 @@ the wire vias and the both-face pins; in practice:
    both faces free).
 6. The buzzer (top), soldered on the bottom; then the barometer (top),
    **sensor side down**, labels up, VIN in the square pad.
-7. Screw terminals, the GPS lead.
+7. The igniter terminal J4 (bottom), the arm link wires (J3, in from the
+   top, soldered on the bottom) and the GPS lead.
 
 Pins that `tools/pcb_check.py` lists under "solder on both faces" carry
 copper on both sides and need a joint on each.
@@ -247,7 +256,7 @@ Order settings (enter them on the maker's page):
 | Setting | Value |
 |---|---|
 | Layers | 2 |
-| Size | 30 x 85.2 mm (read from the outline) |
+| Size | 30 x 78.6 mm (read from the outline) |
 | Material, thickness | FR4, 1.6 mm |
 | Copper | 1 oz (35 µm) outside |
 | Surface finish | lead-free HASL (ENIG works too, at more cost) |
@@ -264,7 +273,7 @@ assembly:
   opposite its part, and the 27 wire vias are ordinary vias: **no wires**,
   skip step 0 of the assembly order.
 - The order of the parts above still holds where they stack (C1 before the
-  barometer, J1 and the XIAO header strips before the MPU, joints under a
+  barometer, the J1 wires and the XIAO header strips before the MPU, joints under a
   module trimmed flush, Kapton over C1's joints).
 - `tools/pcb_check.py` and the "solder on both faces" list are for the
   home-made board only.
@@ -276,7 +285,7 @@ reference labels and part of J4's outline touch the board edge). Silkscreen
 text is 1.0 mm (BAT+ / BAT− 0.8 mm, below JLCPCB's 1.0 mm minimum: may print
 blurred) and lines 0.12 mm (thickened or faint below the usual 0.15 mm).
 The USB notch's inner corners come out rounded by the router bit (about
-0.5–1 mm radius); the USB-C plug and J1's plug stay clear of them. The
+0.5–1 mm radius); the USB-C plug and J1's wires stay clear of them. The
 0.8 mm vias are too large to tent reliably: the mask may sink into the hole,
 which does no harm.
 
@@ -307,7 +316,7 @@ Measure before etching (the heights in `tools/pcb_check.py` are estimates):
 | Part | Assumed | Limit where it sits |
 |---|---|---|
 | XIAO + Wio-SX1262 stack on its headers | 10.0 mm | 11.9 mm |
-| Screw terminals J3, J4 | 10.0 mm | 13.8 mm |
+| Screw terminal J4 | 10.0 mm | 13.8 mm |
 | Buzzer | 9.5 mm | 13.5 mm |
 | C1 470 µF standing (bottom) | 12.5 mm | 13.9 mm |
 
@@ -315,8 +324,9 @@ Measure before etching (the heights in `tools/pcb_check.py` are estimates):
 
 - Airframe inner diameter 32 mm: board centred, 30 mm wide; four M3 holes
   for the sled (two ears at the USB end, two corners at the far end).
-- Off the board: 18350 cell and main switch (J1), arm link (J3), igniter
-  (J4), GPS module (J5 lead).
+- Off the board, on soldered wires: 18350 cell and main switch (J1), arm
+  link (J3), GPS module (J5). The igniter on the screw terminal J4 (changed
+  often in testing).
 - Made at home: laser-exposed resist and etching, two layers, no plated holes.
   Through-hole parts only (their leads also join the two sides).
   Design rules (project settings): tracks ≥ 0.4 mm, clearance 0.3 mm,

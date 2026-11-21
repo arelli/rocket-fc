@@ -24,8 +24,8 @@ NAMES = {'rocket-fc-flight': {
     'R1': '100k battery divider', 'R2': '100k battery divider',
     'R3': '1 ohm 2 W pyro resistor', 'R4': '100k continuity divider', 'R5': '100k continuity divider',
     'R6': '100 ohm gate resistor', 'R7': '100k gate pull-down',
-    'J1': 'JST-XH 4-pin: cell, main switch',
-    'J3': 'Screw terminal: ARM link', 'J4': 'Screw terminal: igniter',
+    'J1': 'Wire pads: 1 cell -, 2 cell +, 3-4 main switch',
+    'J3': 'Wire pads: ARM link (CELL+ left, ARM right)', 'J4': 'Screw terminal: igniter',
     'J5': 'GPS lead: 3V3, GND, TX',
 }, 'rocket-fc-ground': {
     'U1': 'XIAO + Wio-SX1262 on 2 x 7-pin female headers',
