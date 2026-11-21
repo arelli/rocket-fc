@@ -54,7 +54,8 @@ LEG_W, GAP, TOPM = 74.0, 8.0, 12.0         # legend width, gaps, top margin (mm)
 
 
 def extract(pcb, out):
-    """KiCad Python: board bbox, parts (Fab outlines, pads, body box), vias, pins soldered on both faces."""
+    """KiCad Python: board bbox and outline, parts (Fab outlines, pads, body box), vias, pins soldered on both
+    faces."""
     import pcbnew
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     import pcb_check
@@ -62,7 +63,8 @@ def extract(pcb, out):
     b = pcbnew.LoadBoard(pcb)
     mm = lambda v: v / 1e6
     bb = b.GetBoardEdgesBoundingBox()
-    data = {'bbox': [mm(bb.GetX()), mm(bb.GetY()), mm(bb.GetRight()), mm(bb.GetBottom())], 'parts': []}
+    data = {'bbox': [mm(bb.GetX()), mm(bb.GetY()), mm(bb.GetRight()), mm(bb.GetBottom())], 'parts': [],
+            'thickness': mm(b.GetDesignSettings().GetBoardThickness())}
     for f in b.GetFootprints():
         fab = pcbnew.B_Fab if f.IsFlipped() else pcbnew.F_Fab
         shapes = []
@@ -91,6 +93,9 @@ def extract(pcb, out):
             'pads': [[p.GetNumber(), mm(p.GetPosition().x), mm(p.GetPosition().y), p.GetNetname()] for p in f.Pads()],
             'bbox': [mm(cb.GetX()), mm(cb.GetY()), mm(cb.GetRight()), mm(cb.GetBottom())],
             'pos': [mm(f.GetPosition().x), mm(f.GetPosition().y)]})
+    data['edges'] = [[mm(g.GetStart().x), mm(g.GetStart().y), mm(g.GetEnd().x), mm(g.GetEnd().y)]
+                     for g in b.GetDrawings() if g.GetLayer() == pcbnew.Edge_Cuts and g.Type() == pcbnew.PCB_SHAPE_T
+                     and g.GetShape() == pcbnew.SHAPE_T_SEGMENT]                # outline lines (no arcs)
     data['vias'] = [[mm(t.GetPosition().x), mm(t.GetPosition().y), t.GetNetname()]
                     for t in b.GetTracks() if t.GetClass() == 'PCB_VIA']
     both = pcb_check.check_copper(pcb_check.Model(b))           # ['R1 pad 1', ...]

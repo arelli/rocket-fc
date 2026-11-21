@@ -100,6 +100,12 @@ version number (`tlm::kVersion`, docs/TELEMETRY.md).
   laser and fab files regenerated. `tools/pcb_check.py`: a wire pad's joint
   goes into the assembly order like a pin's; `tools/pcb_parts.py` can tag
   each pad of a part on its own.
+- Hardware: dimensions sheet for both boards (`hardware/*-pcb/dims.png`, in
+  their READMEs): both faces with the outline and mounting hole dimensions,
+  the wire vias ringed by net and two 3D views; `dims-parts.png` adds the
+  parts list. Drawn by `tools/pcb_dims.py` in the board step of
+  `tools/pcb_export.py`; the face renders now have a transparent background
+  (the parts sheet is on white).
 - UI: zoom on every plot (drag, Shift+drag to pan, Ctrl+wheel, double-click to
   reset; linked time axes), hover readout, CSV export of each plot (range
   shown), of the events and of the GPS frames, plots in their own window.

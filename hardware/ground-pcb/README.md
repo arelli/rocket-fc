@@ -90,6 +90,16 @@ colour code (4-band 5 %, 5-band 1 %; the render shows the 4-band one). Every
 part sits on the top face. `python tools/pcb_export.py --board ground board`
 redraws it (`tools/pcb_parts.py`, needs Pillow).
 
+## Dimensions
+
+![Dimensions sheet](dims.png)
+
+Both faces straight on with the outline (100 x 80 mm) and the M3 hole
+positions (92 x 72 mm apart, 4 mm from the edges), and 3D views of both
+faces. The same sheet with the parts list beside it:
+[dims-parts.png](dims-parts.png). `python tools/pcb_export.py --board ground
+board` redraws both (`tools/pcb_dims.py`, needs Pillow).
+
 ## Making the board (laser and etch)
 
 Same method as the flight board ([hardware/flight-pcb](../flight-pcb/README.md#making-the-board-laser-and-etch)),

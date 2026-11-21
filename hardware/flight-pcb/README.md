@@ -75,6 +75,18 @@ colour code (4-band 5 %, 5-band 1 %; the render shows the 4-band one). Parts
 on both faces: the bottom panel is seen from below. `python
 tools/pcb_export.py board` redraws it (`tools/pcb_parts.py`, needs Pillow).
 
+## Dimensions
+
+![Dimensions sheet](dims.png)
+
+Both faces straight on with the outline (30 x 71.6 mm, 78.6 mm with the ears;
+ears 8 mm wide and 7 mm deep beside the 14 mm USB notch) and the M3 hole
+positions (22.5 mm across, 71.3 mm along, 3.75 mm from the sides and the far
+end, 3.5 mm from the ear tips) for the sled; the 27 wire vias ringed by net;
+3D views of both faces. The same sheet with the parts list beside it:
+[dims-parts.png](dims-parts.png). `python tools/pcb_export.py board` redraws
+both (`tools/pcb_dims.py`, needs Pillow).
+
 ## Making the board (laser and etch)
 
 Both faces carry a **GND pour**: the copper between the tracks is kept and

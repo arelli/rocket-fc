@@ -7,7 +7,9 @@ Usage:
     python tools/pcb_export.py docs       # docs/schematics/flight.svg, printable PDF in hardware/flight-pcb/out/
     python tools/pcb_export.py board      # 1:1 placement PDFs (top, bottom) and 3D renders in hardware/flight-pcb/out/
                                           # and the parts sheet (tagged renders, legend, resistor colour codes),
-                                          # copied to hardware/flight-pcb/parts.png for the README
+                                          # copied to hardware/flight-pcb/parts.png for the README, and the
+                                          # dimensions sheet (outline, holes, wire vias, 3D views), without and
+                                          # with the parts list: dims.png, dims-parts.png
     python tools/pcb_export.py laser      # laser copper images, isolation G-code, registration jig, drill file,
                                           # placement map in hardware/flight-pcb/out/laser/
                                           # (PNG line spacing: LASER_LPMM lines/mm, default 12.5 = 0.08 mm)
@@ -132,11 +134,15 @@ def board(cli):
     ok &= run(cli, 'pcb', 'export', 'pdf', '--layers', 'B.Fab,B.Cu,Edge.Cuts', '--mode-single', '--black-and-white',
               '--sketch-pads-on-fab-layers', '--mirror', '-o', os.path.join(OUT, NAME + '-placement-bottom.pdf'),
               PCB) == 0
-    for name, extra in (('top', ['--side', 'top']), ('bottom', ['--side', 'bottom']),
-                        ('3d', ['--rotate', '-60,0,30', '--perspective'])):
-        ok &= run(cli, 'pcb', 'render', *extra, '--quality', 'high', '--background', 'opaque', '-w', '1600',
-                  '-h', '1600' if name != '3d' else '1100', '-o', os.path.join(OUT, '%s-%s.png' % (NAME, name)),
-                  PCB, quiet=True) == 0
+    # top and bottom straight on and the two 3D views of the dimensions sheet on a transparent background
+    clear = ['--background', 'transparent', '-w', '1600', '-h', '1600']
+    for name, extra in (('top', ['--side', 'top'] + clear), ('bottom', ['--side', 'bottom'] + clear),
+                        ('3d', ['--rotate', '-60,0,30', '--perspective', '--background', 'opaque', '-w', '1600',
+                                '-h', '1100']),
+                        ('3d-top', ['--rotate', '-55,0,215', '--perspective', '--zoom', '0.75'] + clear),
+                        ('3d-bottom', ['--side', 'bottom', '--rotate', '-55,0,35', '--perspective', '--zoom', '0.75'] + clear)):
+        ok &= run(cli, 'pcb', 'render', *extra, '--quality', 'high',
+                  '-o', os.path.join(OUT, '%s-%s.png' % (NAME, name)), PCB, quiet=True) == 0
     # parts sheet: the renders with every part tagged and a legend (resistor colour codes), also next to the README
     sheet = ''
     try:
@@ -151,9 +157,17 @@ def board(cli):
                 pcb_parts.draw(parts, os.path.join(OUT, NAME + '-top.png'), os.path.join(OUT, NAME + '-bottom.png'),
                                png, NAME)
                 shutil.copyfile(png, os.path.join(os.path.dirname(PCB), 'parts.png'))
-                sheet = ', parts sheet (also %s)' % rel(os.path.join(os.path.dirname(PCB), 'parts.png'))
+                # dimensions sheet (outline, holes, wire vias, 3D views), also with the parts list
+                import pcb_dims
+                renders = [os.path.join(OUT, '%s-%s.png' % (NAME, v)) for v in ('top', 'bottom', '3d-top', '3d-bottom')]
+                for tag, with_parts in (('dims', False), ('dims-parts', True)):
+                    png = os.path.join(OUT, '%s-%s.png' % (NAME, tag))
+                    pcb_dims.draw(parts, *renders, png, NAME, with_parts)
+                    shutil.copyfile(png, os.path.join(os.path.dirname(PCB), tag + '.png'))
+                sheet = ', parts and dimensions sheets (also parts.png, dims.png, dims-parts.png in %s)' % rel(
+                    os.path.dirname(PCB))
     except ImportError:
-        sheet = ' (pip install pillow for the parts sheet)'
+        sheet = ' (pip install pillow for the parts and dimensions sheets)'
     print('board: placement PDFs and renders%s in %s' % (sheet, rel(OUT)))
     return ok
 
