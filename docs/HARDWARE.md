@@ -1,11 +1,21 @@
 # Hardware
 
 All GPIO numbers live in [include/board_pins.h](../include/board_pins.h).
-If you change wiring, change that file, this document and the schematics
-(`tools/schematics.py`) in the same commit.
+If you change wiring, change that file, this document and the schematic in
+the same commit:
+
+- Flight computer: the KiCad project in [hardware/flight-pcb](../hardware/flight-pcb)
+  is the wiring master. After editing it in KiCad 10, run
+  `python tools/pcb_export.py` (electrical rules check, then
+  `docs/schematics/flight.svg`).
+- Ground station: `tools/schematics.py`
+  (`python tools/schematics.py docs/schematics`) for the hand-wired build;
+  the KiCad project in [hardware/ground-pcb](../hardware/ground-pcb) for the
+  PCB (`python tools/pcb_export.py --board ground`, which writes
+  `docs/schematics/ground-pcb.svg`). Same circuit: change both.
 
 Schematics: [flight computer](schematics/flight.svg),
-[ground station](schematics/ground.svg). Step-by-step assembly and
+[ground station](schematics/ground.svg) ([PCB version](schematics/ground-pcb.svg)). Step-by-step assembly and
 first-time setup: [BUILD.md](BUILD.md).
 
 ## Pin map (XIAO ESP32-S3)
@@ -30,17 +40,27 @@ All header pins are used.
 
 ## GPS (optional): Seeed L76K GNSS module for XIAO
 
-Not stacked on the XIAO: that board also connects to D0, D2 and D6, which are
-the battery sense, the buzzer and the LED here. Wire it with four leads:
+Not stacked on the XIAO: stacked, its control pins would sit on D0, D2 and D6,
+which are the battery sense, the buzzer and the LED (hand-wired build) here.
+Its pins sit in the XIAO pattern; functions as printed on the module
+(109100021, V1.1):
 
-| L76K pin | Connect to | Why |
+| L76K pin (its XIAO position) | Connect to | Why |
 |---|---|---|
-| 3V3 (VCC) | XIAO 3V3 | ~41 mA while tracking |
+| 3V3 | XIAO 3V3 | ~41 mA while tracking |
 | GND | GND | |
-| TX (GPS data out) | **D7** | Read at 9600 baud (setting `gps_baud`) |
-| RX (GPS data in) | 3V3 | Not used (default NMEA output is enough); held at the idle level |
-| the two control pins at its D0 and D2 positions | 3V3 | Seeed: both must be held high for normal operation |
-| its D6 position | not connected | |
+| TXD, GPS data out (D7) | **D7** | Read at 9600 baud (setting `gps_baud`) |
+| RXD, GPS data in (D6) | 3V3 | Not used (default NMEA output is enough); held at the idle level |
+| WUP (D0), RST (D2) | 3V3 | Pulled up on the module; tied high as well, so a loose lead cannot reset or sleep it |
+| D1, D3–D5, D8–D10, 5V positions | not connected | Not used on the module |
+
+On the PCB ([hardware/flight-pcb](../hardware/flight-pcb)) the module sits
+near the nose on a 3-wire lead soldered to J5 (3V3, GND, TX); tie its RX,
+WUP and RST pads to its 3V3 at the module.
+
+Seeed's V1.0 schematic puts reset at the D10 position; the V1.1 module has
+RST at the D2 position (silkscreen) and D10 unconnected. Follow the
+silkscreen of the module in hand.
 
 - Settings (group "gps"): `gps_mode` = auto (default: used if present, a
   self-test warning if not), off (D7 unused), required (self-test FAULT 7 without
@@ -60,8 +80,8 @@ the battery sense, the buzzer and the LED here. Wire it with four leads:
                    main switch (slide)
  18350 + ──┬────────o/ o──────────┬──────────────┬───────────── XIAO BAT+ pad
            │                      │              │
-           │                   1000 µF        100k
-           │                   16 V (+)          ├──── D0 (+100 nF to GND, optional)
+           │                    470 µF        100k
+           │                   10 V (+)          ├──── D0 (+100 nF to GND, optional)
            │                      │           100k
            │                      │              │
  18350 − ──┼──────────────────────┴──────────────┴───────────── XIAO BAT− pad (GND)
@@ -76,8 +96,11 @@ the battery sense, the buzzer and the LED here. Wire it with four leads:
   side, and plug it back in.
 - **Wire the cell with solder tabs or a tight, taped holder.** A spring holder
   can bounce open for a millisecond under boost and reset the processor.
-- **1000 µF capacitor** across BAT+/GND, close to the XIAO: rides through the
-  voltage dip during the pyro pulse and radio transmissions. Observe its polarity.
+- **470 µF capacitor** (10 V, 8 mm) across BAT+/GND, close to the XIAO: rides
+  through millisecond dips (radio transmit bursts, a contact flicker): about
+  1.5 ms at 100 mA per 0.3 V. It does not hold the voltage during the 1 s pyro
+  pulse: the cell and the 1 Ω resistor set that sag (PYRO_SAG reports it).
+  Observe its polarity. (Earlier builds used 1000 µF 16 V: also fine.)
 - **Battery sense divider** (2 × 100k): ratio 2.0, setting `batt_divider`.
   It draws about 20 µA. Calibrate with a multimeter against the `status`
   reading. During every pyro pulse the battery is sampled about every 0.5 ms;
@@ -138,6 +161,11 @@ the battery sense, the buzzer and the LED here. Wire it with four leads:
   the bridge.
 - Use thick wire (≥ 22 AWG) for the cell → link → resistor → igniter → Q1 →
   cell− loop; the 1 Ω resistor gets warm only during the 1 s pulse.
+- **Resistor rating:** a pulse puts about 8 W into the 1 Ω resistor for 1 s
+  (2 s at most). A 5 W cement resistor takes it easily. The PCB uses a 1 Ω
+  2 W metal-oxide resistor (4.5 × 12 mm), which takes it as a short-time
+  overload: check that the datasheet of yours allows at least 8 W for 2 s
+  (typically 2.5 × rated voltage for 5 s).
 
 ## Buzzer (on the pin)
 
@@ -155,16 +183,26 @@ the battery sense, the buzzer and the LED here. Wire it with four leads:
 `D6 ── 100 Ω ── LED anode, LED cathode ── GND` (about 13 mA for a red LED).
 Use any visible 3 mm/5 mm LED.
 
+The PCB ([hardware/flight-pcb](../hardware/flight-pcb)) has no status LED
+(D6 is left unconnected). The buzzer still gives the countdown, self-test,
+fault codes, pad continuity (while the ground station is heard), the armed
+warnings and the landed altitude; battery low and the pad state with no
+ground station in range are then only in the telemetry and the WiFi page
+([INDICATORS.md](INDICATORS.md)).
+
 ## Sensors (I²C, 400 kHz)
 
 | Board | VCC | GND | SDA | SCL | Other |
 |---|---|---|---|---|---|
-| MPU-9250 (SparkFun breakout, no regulator) | 3V3 | GND | D4 | D5 | CS → 3V3, FSYNC → GND; AD0, INT open (0x68 via SJ2) |
-| GY-BMP280-5V (4 pins) | **3V3**, never 5V | GND | D4 | D5 | Nothing else: regulator, level shifter, pull-ups and address are on the board |
+| MPU-9250 (SparkFun breakout SEN-13762, no regulator) | 3V3 | GND | D4 | D5 | nCS and VDDIO → 3V3, FSYNC → GND; AD0, INT open (0x68 via SJ2) |
+| GY-BMP280, 4 pins ("GYBMEP", 10 × 13 mm) | **3V3**, never 5V | GND | D4 | D5 | Nothing else: CSB and the address (0x76 or 0x77) are set on the board |
 
-- The GY-BMP280-5V board's 10k pull-ups go to its VCC pin. At VCC = 5 V they
-  would pull SDA/SCL to 5 V, above the ESP32-S3's 3.6 V limit; at 3V3 its
-  662K regulator simply passes ~3.2 V through to the sensor.
+- Its pull-ups go to VCC: at 5 V they would pull SDA/SCL above the
+  ESP32-S3's 3.6 V limit, so VCC goes on 3V3. The firmware finds the
+  barometer at either address. 6-pin BMP280/BME280 boards also work
+  hand-wired (CSB to 3V3, SDO to GND), but the PCB takes the 4-pin board.
+- The PCB ties the MPU-9250 board's VDDIO pin to 3V3 too; that is harmless if
+  the board already links it to VDD.
 - The firmware identifies the IMU chip from WHO_AM_I. Many "MPU-9250" boards
   carry an MPU-6500 (no magnetometer); the boot message and `status` say which
   you have. Everything works without the magnetometer.
@@ -190,7 +228,10 @@ Settings: [docs/TELEMETRY.md](TELEMETRY.md).
 
 The ground station is the second XIAO ESP32-S3 + Wio-SX1262 kit, in its own
 box, powered by an 18650 cell. It is also the launch controller. Schematic:
-[schematics/ground.svg](schematics/ground.svg). Pins: `pins::ground` in
+[schematics/ground.svg](schematics/ground.svg). It can be hand-wired or built
+on the single-sided board in [hardware/ground-pcb](../hardware/ground-pcb)
+(XIAO on female headers; cell, switches and button on connectors; there both
+launch leads go into the 2-way terminal J1). Pins: `pins::ground` in
 [include/board_pins.h](../include/board_pins.h).
 
 | XIAO pin | GPIO | Function | Part |

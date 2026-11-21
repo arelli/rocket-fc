@@ -18,21 +18,45 @@ is in [TESTING.md](TESTING.md).
 | Part | Qty | Notes |
 |---|---|---|
 | Seeed XIAO ESP32-S3 + Wio-SX1262 kit | 1 | Processor and LoRa radio, with the 868/915 MHz antenna |
-| MPU-9250 breakout (SparkFun or similar, no regulator) | 1 | MPU-9255/6500 also work (no magnetometer on the 6500) |
-| GY-BMP280-5V breakout (4 pins) | 1 | BME280 also works; powered from 3V3 |
+| MPU-9250 breakout (SparkFun SEN-13762 or similar, no regulator) | 1 | MPU-9255/6500 also work (no magnetometer on the 6500); the PCB footprint is the SparkFun board |
+| GY-BMP280 breakout, 4 pins ("GYBMEP", 10 × 13 mm) | 1 | VIN GND SCL SDA, on 3V3; the PCB takes this board **sensor side down** (labels up, VIN in the square pad). 6-pin BMP280/BME280 boards also work hand-wired |
 | 18350 Li-ion cell (≈ 700 mAh) | 1 | Soldered tabs or a tight holder |
 | IRLB8748PBF logic-level MOSFET | 1 | Pyro driver |
-| Resistor 1 Ω 5 W | 1 | Pyro current limit |
+| Resistor 1 Ω, 2 W metal oxide (or 5 W cement) | 1 | Pyro current limit; the PCB takes the 2 W size (4.5 × 12 mm), see HARDWARE.md for its rating |
 | Resistor 100 Ω | 2 | Gate, LED |
 | Resistor 100 kΩ | 5 | Gate pull-down, battery and continuity dividers |
-| Electrolytic capacitor 1000 µF 16 V | 1 | Across the battery |
+| Electrolytic capacitor 470 µF 10 V, 8 mm, 3.5 mm lead spacing, ≤ 12 mm tall | 1 | Across the battery (1000 µF 16 V also fine when hand-wired) |
 | Active buzzer, 3–5 V | 1 | Straight on the pin |
-| LED, 3 or 5 mm | 1 | Status |
+| LED, 3 or 5 mm | 0–1 | Status; not on the PCB |
 | Slide switch (≥ 0.5 A) | 1 | Main power |
 | 2-pin screw terminals | 2 | Arm link, igniter |
 | Seeed L76K GNSS module | 0–1 | **Optional** GPS for recovery |
 | 100 nF capacitors | 0–2 | Optional, on D0 / D1 |
 | Perfboard, ≥ 22 AWG wire for the pyro loop, ferrules for nichrome | | |
+
+#### On the PCB instead of perfboard
+
+The flight computer can be built on the home-made board in
+[hardware/flight-pcb](../hardware/flight-pcb): its README covers making it
+(laser, etch, drill: *Making the board*) and the soldering order (*Assembly
+order*), and `python tools/pcb_export.py laser` writes the laser files (vector
+isolation G-code and raster images) and a placement map. On top of the parts above (no perfboard, no LED):
+
+| Part / material | Qty | Notes |
+|---|---|---|
+| Double-sided FR4, 1.6 mm, 1 oz copper | 36 × 92 mm or larger | Plus a painted scrap to find the laser settings |
+| Matte black spray paint, isopropyl alcohol, fine abrasive pad | | Laser resist; clean the copper first |
+| Etchant (ferric chloride or sodium persulfate), acetone | | Acetone strips the paint after etching |
+| Drill bits 0.8, 1.0, 1.2, 1.3, 3.2 mm | 1 each | Which holes take which bit: the README's bit table |
+| Cardboard or MDF sheet, two 3 mm pins (drill bits or M3 screws) | | Registration jig for the second face |
+| Bare tinned wire (or resistor lead offcuts) | ≈ 30 cm | The 27 wire vias |
+| 2.54 mm male header strips, **low profile** (not sockets) | ≈ 30 pins | XIAO (2 × 7, 5V D8 D9 D10 pulled), MPU-9250 board, barometer (4) |
+| JST-XH 4-pin side-entry header S4B-XH-A, with a 4-pin housing and crimped leads | 1 | J1: cell (pins 1–2) and main switch (3–4) |
+| 2-pin screw terminals, 5.08 mm pitch | 2 | J3 arm link, J4 igniter (the ones in the list above) |
+| Active buzzer 12 mm, 7.6 mm pin spacing | 1 | The buzzer in the list above, in this size |
+| 100 nF ceramic discs, 2.5 mm pitch | 2 | Both fitted on the PCB, bent flat |
+| Kapton tape | | Over C1's trimmed joints, under the barometer |
+| M3 screws and nuts | 4 | Board to the sled |
 
 ### Ground station
 
@@ -67,8 +91,10 @@ for bench tests.
 
 ## 2. Wiring
 
-The drawings are generated from [tools/schematics.py](../tools/schematics.py)
-(`python tools/schematics.py docs/schematics`). Net labels with the same name
+The flight computer schematic is the KiCad project in
+[hardware/flight-pcb](../hardware/flight-pcb) (drawing exported with
+`python tools/pcb_export.py`); the ground station drawing is generated from
+[tools/schematics.py](../tools/schematics.py). Net labels with the same name
 are connected. Pin numbers are defined once in
 [include/board_pins.h](../include/board_pins.h).
 
@@ -84,7 +110,7 @@ Assembly order (test as you go):
    solder thin wires to the pads, route them out, plug it back in.
    **BAT− is the pad nearest the USB connector.** Reversing the cell
    destroys the board.
-3. **Power:** cell → main switch → BAT+; 1000 µF across BAT+/GND (mind
+3. **Power:** cell → main switch → BAT+; 470 µF across BAT+/GND (mind
    polarity); battery divider (2 × 100k) to D0.
 4. **Sensors:** MPU-9250 and BMP280 on 3V3, SDA = D4, SCL = D5. BMP280 VCC on
    **3V3, never 5V**. MPU-9250: CS to 3V3, FSYNC to GND.
@@ -93,8 +119,9 @@ Assembly order (test as you go):
    terminal → 1 Ω 5 W → igniter terminal → MOSFET drain; source straight to
    cell −. Gate: D3 → 100 Ω → gate, 100k gate to GND. Continuity divider
    (2 × 100k) from the drain to D1. Thick wire for the whole loop.
-7. **GPS (optional):** L76K TX → D7; its 3V3, RX and the two control pins at
-   its D0 / D2 positions to 3V3; GND to GND. Do not stack it on the XIAO.
+7. **GPS (optional):** L76K TX (its D7 position) → D7; its RX (D6
+   position), WUP (D0 position) and RST (D2 position on the V1.1 module) to
+   its 3V3; 3V3 to 3V3, GND to GND. Do not stack it on the XIAO.
 
 Mount the IMU with one axis along the rocket's long axis (any of ±X, ±Y,
 ±Z; the direction is set in software later). Give the barometer a vented,
@@ -103,6 +130,12 @@ foam-covered bay.
 ### Ground station
 
 ![Ground station wiring](schematics/ground.svg)
+
+On a PCB instead: [hardware/ground-pcb](../hardware/ground-pcb) is a
+single-sided 100 x 80 mm board for the same circuit (XIAO on female headers,
+the cell, switches and button on connectors); its README covers making it
+and the assembly. `python tools/pcb_export.py --board ground laser` writes
+its laser files.
 
 1. Radio onto the XIAO, LoRa antenna on the Wio-SX1262, **WiFi antenna on
    the XIAO's own U.FL** (without it the WiFi range is about a metre).

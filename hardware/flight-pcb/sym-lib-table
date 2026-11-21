@@ -1,0 +1,4 @@
+(sym_lib_table
+	(version 7)
+	(lib (name "rocket-fc")(type "KiCad")(uri "${KIPRJMOD}/lib/rocket-fc.kicad_sym")(options "")(descr "rocket-fc modules (XIAO kit, sensor breakouts, GPS)"))
+)

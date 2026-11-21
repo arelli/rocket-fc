@@ -50,7 +50,7 @@ that way: probe, report, and carry on.
 | **Add or change a setting** | One `X(...)` line in `FC_SETTINGS` (`lib/fc_core/src/fc/settings.h`); cross-checks in `validate()`; run the tests. The console and the UI pick it up by themselves. Flight-safety settings get the `S` flag. See [docs/SETTINGS.md](docs/SETTINGS.md). |
 | **Add an event** | Append to `EventCode` (never renumber), name in `types.cpp`, row in [docs/TELEMETRY.md](docs/TELEMETRY.md). |
 | **Change a telemetry frame** | Append fields, increment `tlm::kVersion`, update `docs/TELEMETRY.md`, the CSV format in `lib/fc_core/src/fc/csv.cpp`, `tools/ground_station.html` (`TLM_COLUMNS`) and `tools/ground_station.py` (`TLM_FIELDS`) in the same commit. |
-| **Change wiring** | `include/board_pins.h`, [docs/HARDWARE.md](docs/HARDWARE.md) and `tools/schematics.py` together; regenerate the drawings with `python tools/schematics.py docs/schematics`. |
+| **Change wiring** | `include/board_pins.h`, [docs/HARDWARE.md](docs/HARDWARE.md) and the schematic together. Flight computer: edit `hardware/flight-pcb` in KiCad 10, then `python tools/pcb_export.py` (ERC/DRC and `docs/schematics/flight.svg`). Ground station: `tools/schematics.py`, then `python tools/schematics.py docs/schematics`. |
 | **Change the UI** | Edit `tools/ground_station.html` (one file, no dependencies, no build step). It is embedded in the ground station firmware at build time: reflash the station to test it. |
 | **Add a sensor or log store** | See "Extending" in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). |
 

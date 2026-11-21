@@ -82,7 +82,8 @@ commands also work from the UI console (Flight computer panel, by radio);
    with the cell at its lowest expected voltage (~3.7 V) too. The PYRO_SAG
    event (UI: Battery panel, "Last pyro pulse") shows the battery before and
    its minimum during the pulse; below about 3.3 V the processor may reset.
-   If it resets, the supply wiring is too thin or the 1000 µF capacitor is missing.
+   If it resets, the supply wiring is too thin, the cell is weak, or the 470 µF
+   capacitor (C1) is missing.
 6. `sim live` with bare nichrome: burns at simulated apogee.
 
 ## 3b. Ejection charge ground test (remote, bench mode)
