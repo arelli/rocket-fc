@@ -117,7 +117,7 @@ laser` writes them to `out/laser/` and copies them there:
 | File | Use |
 |---|---|
 | `…-bottom-isolation.nc` | **Vector isolation G-code** (method A, about 17 min): outlines round all copper, mirrored |
-| `…-bottom.svg`, `…-bottom-0.08mm.png` | The copper as a raster image (method B), **negative** (black = laser fires, white = copper stays), mirrored. Only a 0.4 mm band round the copper is black: areas without copper (round the M3 holes and the labels) stay white, as unconnected copper islands. Every hole centre is a small black dot (the etched pit centres the drill) |
+| `…-bottom.svg`, `…-bottom-0.08mm.png` | The copper as a raster image (method B), **negative** (black = laser fires, white = copper stays), mirrored. Only a 0.4 mm band round the copper is black: areas without copper (round the M3 holes and the labels) stay white, as unconnected copper islands. Every hole centre is a small black dot (the etched pit centres the drill); the M3 holes get a 0.6 mm black ring round it |
 | `….drl`, `…-drl_map.pdf`, `…-drill-report.txt` | Drill file (mm), drill map and hole count per size |
 | `…-placement-map.png` | Where every part goes (top face, with the copper seen through the board) and the copper face as lasered: print it for assembly |
 

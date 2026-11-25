@@ -124,7 +124,8 @@ version number (`tlm::kVersion`, docs/TELEMETRY.md).
   both boards: areas without copper (the USB notch, the keep-outs under Q1's
   tab and the screw heads, the gaps round the labels) stay painted, as
   unconnected copper islands, in the copper images as in the isolation
-  G-code (which no longer clears the keep-outs). Flight board about 9 min a
+  G-code (which no longer clears the keep-outs); the M3 and Q1 tab hole
+  centres are marked with a 0.6 mm burned disc. Flight board about 9 min a
   face instead of 11-14, ground station 17 instead of 19.
 - UI: zoom on every plot (drag, Shift+drag to pan, Ctrl+wheel, double-click to
   reset; linked time axes), hover readout, CSV export of each plot (range

@@ -268,8 +268,10 @@ def laser(cli):
     print('laser: %s%s; isolation G-code, drill file and report in %s' % (what, pngs, rel(dst)))
     # the same files and a zip of them next to the README, kept in the repository
     keep = os.path.join(PROJECT, 'laser')
-    shutil.rmtree(keep, ignore_errors=True)
-    shutil.copytree(dst, keep)
+    os.makedirs(keep, exist_ok=True)
+    for old in os.listdir(keep):                         # empty it (the folder itself may be open elsewhere)
+        os.remove(os.path.join(keep, old))
+    shutil.copytree(dst, keep, dirs_exist_ok=True)
     import zipfile
     with zipfile.ZipFile(os.path.join(keep, NAME + '-laser.zip'), 'w', zipfile.ZIP_DEFLATED) as z:
         for n in sorted(os.listdir(dst)):

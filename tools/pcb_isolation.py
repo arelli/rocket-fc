@@ -13,7 +13,8 @@ all of them go at the same offset. Per face:
     copper never enter copper, and where two outlines meet in a narrow gap the gap is already clear);
   - nothing else: areas without copper further than BAND from any (the keep-outs under the screw heads and the
     flight board's Q1 tab, the gaps the GND pour leaves round the labels) stay painted, as isolated copper
-    islands, and so does everything outside the outline (the USB notch);
+    islands, and so does everything outside the outline (the USB notch); each unplated hole (M3, Q1's tab) gets
+    a 0.6 mm burned disc at its centre that shows where to drill;
   - a small dot at every hole centre (an etched pit centres the drill), like the raster images;
   - the board outline, as a cutting line.
 Then a check: the copper the passes leave must contain the design's copper, and no two nets may end up joined.
@@ -94,8 +95,10 @@ def paths_for(board, layer):
     dots = []                                            # drill-centre dots (burned into the pads on purpose, and
     for fp in board.GetFootprints():                     # into the copper islands left at the M3 holes)
         for p in fp.Pads():
-            if (p.GetAttribute() == pcbnew.PAD_ATTRIB_PTH and p.IsOnLayer(layer)) or                     p.GetAttribute() == pcbnew.PAD_ATTRIB_NPTH:
+            if p.GetAttribute() == pcbnew.PAD_ATTRIB_PTH and p.IsOnLayer(layer):
                 dots.append(circle(p.GetPosition(), 0.1))
+            elif p.GetAttribute() == pcbnew.PAD_ATTRIB_NPTH:     # M3 and tab holes: a 0.6 mm burned disc
+                dots += [circle(p.GetPosition(), 0.25), circle(p.GetPosition(), 0.1)]
     for t in board.GetTracks():
         if t.GetClass() == 'PCB_VIA':
             dots.append(circle(t.GetPosition(), 0.1))
@@ -204,6 +207,13 @@ def fill(pcb, out):
                      (bb.GetLeft(), bb.GetBottom())):
             area.Append(x, y)
         area.BooleanSubtract(inflated(copper(board, layer), BAND * MM))
+        marks = pcbnew.SHAPE_POLY_SET()                  # unplated holes (M3, Q1's tab): a 0.6 mm black dot that
+        for fp in board.GetFootprints():                 # shows where to drill
+            for p in fp.Pads():
+                if p.GetAttribute() == pcbnew.PAD_ATTRIB_NPTH:
+                    pcbnew.SHAPE_CIRCLE(p.GetPosition(), int(0.3 * MM)).TransformToPolygon(
+                        marks, ERR, pcbnew.ERROR_OUTSIDE)
+        area.BooleanSubtract(marks)
         area.Fracture()                                  # holes joined to their outlines: plain filled polygons
         for i in range(area.OutlineCount()):
             one = pcbnew.SHAPE_POLY_SET()

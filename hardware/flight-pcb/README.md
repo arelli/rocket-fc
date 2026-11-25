@@ -111,7 +111,7 @@ to `out/laser/` and copies them there:
 | File | Use |
 |---|---|
 | `…-top-isolation.nc`, `…-bottom-isolation.nc` | **Vector isolation G-code** (method A, below): outlines around all copper, the bottom mirrored |
-| `…-top.svg`, `…-top-0.08mm.png` | Top copper as a raster image (method B), **negative**: black = laser fires (paint off, copper etched), white = copper stays. Only a 0.4 mm band round the copper is black, as in method A: areas without copper (the USB notch, under Q1's tab, round the M3 holes and the labels) stay white and end up as unconnected copper islands. Every hole centre is a small black dot, so the etch leaves a pit that centres the drill |
+| `…-top.svg`, `…-top-0.08mm.png` | Top copper as a raster image (method B), **negative**: black = laser fires (paint off, copper etched), white = copper stays. Only a 0.4 mm band round the copper is black, as in method A: areas without copper (the USB notch, under Q1's tab, round the M3 holes and the labels) stay white and end up as unconnected copper islands. Every hole centre is a small black dot, so the etch leaves a pit that centres the drill; the M3 holes and Q1's tab hole get a 0.6 mm black ring round that dot, so they are easy to find |
 | `…-bottom.svg`, `…-bottom-0.08mm.png` | Bottom copper, the same, **mirrored** (as seen from below) |
 | `…-jig.svg` | Registration jig: two 3 mm pin holes at the H1 and H4 positions |
 | `….drl`, `…-drl_map.pdf`, `…-drill-report.txt` | Drill file (mm), drill map and hole count per size |
@@ -137,8 +137,8 @@ is already clear, and an outline never enters copper). Nothing else is
 burned: areas without copper (the keep-outs under Q1's tab and the screw
 heads, the gaps the pour leaves round the labels, the USB notch) stay painted
 and become unconnected copper islands, harmless since they touch no net;
-every hole centre, the M3 holes included, gets a burned dot (the etched pit
-centres the drill); the board outline is traced as a cutting line. It then checks its own result: the copper left must contain all of
+every hole centre gets a burned dot (the etched pit centres the drill), a
+0.6 mm one at the M3 holes and Q1's tab hole; the board outline is traced as a cutting line. It then checks its own result: the copper left must contain all of
 the design's copper, and no two nets may end up joined (a run that fails
 exits with an error).
 
