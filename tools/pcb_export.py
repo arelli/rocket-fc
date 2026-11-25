@@ -9,12 +9,13 @@ Usage:
                                           # and the parts sheet (tagged renders, legend, resistor colour codes),
                                           # copied to hardware/flight-pcb/parts.png for the README, and the
                                           # dimensions sheet (outline, holes, wire vias, 3D views), without and
-                                          # with the parts list: dims.png, dims-parts.png
+                                          # with the parts list: dims.png, dims-parts.jpg
     python tools/pcb_export.py laser      # laser copper images, isolation G-code, registration jig, drill file,
-                                          # placement map in hardware/flight-pcb/out/laser/
+                                          # placement map in hardware/flight-pcb/out/laser/, copied with a zip of
+                                          # them to hardware/flight-pcb/laser/ for the README
                                           # (PNG line spacing: LASER_LPMM lines/mm, default 12.5 = 0.08 mm)
     python tools/pcb_export.py fab        # Gerbers, drill files and a zip to order from a PCB maker in
-                                          # hardware/flight-pcb/out/fab/
+                                          # hardware/flight-pcb/out/fab/, the zip copied to hardware/flight-pcb/fab/
     python tools/pcb_export.py --board ground [steps]   # the same for hardware/ground-pcb (its schematic SVG is
                                                         # docs/schematics/ground-pcb.svg)
 
@@ -163,8 +164,13 @@ def board(cli):
                 for tag, with_parts in (('dims', False), ('dims-parts', True)):
                     png = os.path.join(OUT, '%s-%s.png' % (NAME, tag))
                     pcb_dims.draw(parts, *renders, png, NAME, with_parts)
-                    shutil.copyfile(png, os.path.join(os.path.dirname(PCB), tag + '.png'))
-                sheet = ', parts and dimensions sheets (also parts.png, dims.png, dims-parts.png in %s)' % rel(
+                    if with_parts:                       # the big sheet as JPEG next to the README (a third the size)
+                        from PIL import Image
+                        Image.open(png).convert('RGB').save(os.path.join(os.path.dirname(PCB), tag + '.jpg'),
+                                                            quality=90)
+                    else:
+                        shutil.copyfile(png, os.path.join(os.path.dirname(PCB), tag + '.png'))
+                sheet = ', parts and dimensions sheets (also parts.png, dims.png, dims-parts.jpg in %s)' % rel(
                     os.path.dirname(PCB))
     except ImportError:
         sheet = ' (pip install pillow for the parts and dimensions sheets)'
@@ -253,6 +259,15 @@ def laser(cli):
         pngs = ' (pip install pymupdf for the PNGs and the placement map)'
     what = 'top, bottom (mirrored) and jig SVGs' if len(faces) == 2 else 'bottom SVG (mirrored, single-sided)'
     print('laser: %s%s; isolation G-code, drill file and report in %s' % (what, pngs, rel(dst)))
+    # the same files and a zip of them next to the README, kept in the repository
+    keep = os.path.join(PROJECT, 'laser')
+    shutil.rmtree(keep, ignore_errors=True)
+    shutil.copytree(dst, keep)
+    import zipfile
+    with zipfile.ZipFile(os.path.join(keep, NAME + '-laser.zip'), 'w', zipfile.ZIP_DEFLATED) as z:
+        for n in sorted(os.listdir(dst)):
+            z.write(os.path.join(dst, n), n)
+    print('laser: copied with %s-laser.zip to %s' % (NAME, rel(keep)))
     return ok
 
 
@@ -301,6 +316,10 @@ def fab(cli):
         for n in names:
             z.write(os.path.join(files, n), n)
     print('fab: %s (%s)' % (os.path.relpath(archive, ROOT), ', '.join(names)))
+    keep = os.path.join(PROJECT, 'fab')                  # the zip next to the README, kept in the repository
+    os.makedirs(keep, exist_ok=True)
+    shutil.copyfile(archive, os.path.join(keep, os.path.basename(archive)))
+    print('fab: copied to %s' % rel(keep))
     return True
 
 

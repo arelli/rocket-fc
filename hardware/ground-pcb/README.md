@@ -97,8 +97,11 @@ redraws it (`tools/pcb_parts.py`, needs Pillow).
 Both faces straight on with the outline (100 x 80 mm) and the M3 hole
 positions (92 x 72 mm apart, 4 mm from the edges), and 3D views of both
 faces. The same sheet with the parts list beside it:
-[dims-parts.png](dims-parts.png). `python tools/pcb_export.py --board ground
-board` redraws both (`tools/pcb_dims.py`, needs Pillow).
+[dims-parts.jpg](dims-parts.jpg):
+
+![Dimensions and parts sheet](dims-parts.jpg)
+
+`python tools/pcb_export.py --board ground board` redraws both (`tools/pcb_dims.py`, needs Pillow).
 
 ## Making the board (laser and etch)
 
@@ -106,7 +109,10 @@ Same method as the flight board ([hardware/flight-pcb](../flight-pcb/README.md#m
 for one face. The GND pour fills the copper between the tracks (0.7 mm from
 every other net), so the laser only clears a band round each track and pad.
 
-`python tools/pcb_export.py --board ground laser` writes to `out/laser/`:
+**Ready to use:** [laser/](laser/) holds every file below for the current
+board, and [rocket-fc-ground-laser.zip](laser/rocket-fc-ground-laser.zip)
+all of them in one download. `python tools/pcb_export.py --board ground
+laser` writes them to `out/laser/` and copies them there:
 
 | File | Use |
 |---|---|
@@ -198,6 +204,7 @@ First power-up: no igniter in J1, ARM switch off, MODE in BENCH; then follow
 
 ## Ordering from a PCB maker
 
+**Ready to upload:** [fab/rocket-fc-ground-fab.zip](fab/rocket-fc-ground-fab.zip).
 `python tools/pcb_export.py --board ground fab` writes `out/fab/` with the
 same files as the flight board: `rocket-fc-ground-fab.zip` to upload
 (Gerbers with Protel extensions, Excellon drill files in mm with plated and

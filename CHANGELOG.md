@@ -106,6 +106,20 @@ version number (`tlm::kVersion`, docs/TELEMETRY.md).
   parts list. Drawn by `tools/pcb_dims.py` in the board step of
   `tools/pcb_export.py`; the face renders now have a transparent background
   (the parts sheet is on white).
+- Hardware: flight PCB 3.6 mm shorter, 30 x 68 mm (75 mm with the ears):
+  J4 moved up next to the barometer (its pins just past the barometer's
+  joints, its wire entry overhanging the far end by 1.7 mm), H3 and H4
+  with it (67.75 mm from H1, H2), the arm link pads J3 beside the
+  barometer; the far end re-routed on both faces, the GND link now on the
+  top face, still 27 wire vias, tracks and clearances unchanged. TOP label
+  beside the buzzer. `tools/pcb_check.py`: a part may overhang the outline
+  by a set amount (`overhang`, J4's wire entry).
+- Hardware: the laser files (isolation G-code, copper images, jig, drill
+  file, placement map, and a zip of them) and the PCB maker zip of both
+  boards are kept in the repository (`hardware/*-pcb/laser/`, `fab/`),
+  linked from the READMEs; `tools/pcb_export.py` copies them there. The
+  dimensions sheet with the parts list is a JPEG (`dims-parts.jpg`), shown
+  in the READMEs.
 - UI: zoom on every plot (drag, Shift+drag to pan, Ctrl+wheel, double-click to
   reset; linked time axes), hover readout, CSV export of each plot (range
   shown), of the events and of the GPS frames, plots in their own window.

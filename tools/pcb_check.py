@@ -59,6 +59,7 @@ PROFILES = {
         'cylinder': {},                 # parts lying flat that are round: {ref: radius (mm)}, axis along the board
         'no_body': {'J1', 'J3', 'J5'},  # wire pads: nothing sits on the board
         'metal_tab': {'Q1': '2'},       # body is metal on the board face, connected to this pad: no other net under it
+        'overhang': {'J4': 2.0},        # may stick out past the outline (mm): the terminal's wire entry, at the far end
     },
     'rocket-fc-ground': {
         'tube_r': None,      # in a box: no tube check, the tallest parts are listed instead
@@ -344,7 +345,8 @@ def main(path):
     else:
         list_heights(model)
     for r, b in model.body.items():
-        if b and (b[0] < x0 - 0.01 or b[2] > x1 + 0.01 or b[1] < y0 - 0.01 or b[3] > y1 + 0.01):
+        g = P.get('overhang', {}).get(r, 0.0) + 0.01
+        if b and (b[0] < x0 - g or b[2] > x1 + g or b[1] < y0 - g or b[3] > y1 + g):
             model.errors.append('%s sticks out of the board outline' % r)
     both = check_copper(model)
     check_pours(model, path)

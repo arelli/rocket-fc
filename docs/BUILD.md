@@ -39,12 +39,14 @@ is in [TESTING.md](TESTING.md).
 The flight computer can be built on the home-made board in
 [hardware/flight-pcb](../hardware/flight-pcb): its README covers making it
 (laser, etch, drill: *Making the board*) and the soldering order (*Assembly
-order*), and `python tools/pcb_export.py laser` writes the laser files (vector
-isolation G-code and raster images) and a placement map. On top of the parts above (no perfboard, no LED):
+order*). The laser files (vector isolation G-code, raster images, drill file)
+and a placement map are ready in [hardware/flight-pcb/laser](../hardware/flight-pcb/laser)
+(`python tools/pcb_export.py laser` remakes them), the order files in
+[hardware/flight-pcb/fab](../hardware/flight-pcb/fab). On top of the parts above (no perfboard, no LED):
 
 | Part / material | Qty | Notes |
 |---|---|---|
-| Double-sided FR4, 1.6 mm, 1 oz copper | 36 × 85 mm or larger | Plus a painted scrap to find the laser settings |
+| Double-sided FR4, 1.6 mm, 1 oz copper | 36 × 82 mm or larger | Plus a painted scrap to find the laser settings |
 | Matte black spray paint, isopropyl alcohol, fine abrasive pad | | Laser resist; clean the copper first |
 | Etchant (ferric chloride or sodium persulfate), acetone | | Acetone strips the paint after etching |
 | Drill bits 0.8, 1.0, 1.2, 1.3, 3.2 mm | 1 each | Which holes take which bit: the README's bit table |
@@ -134,8 +136,9 @@ foam-covered bay.
 On a PCB instead: [hardware/ground-pcb](../hardware/ground-pcb) is a
 single-sided 100 x 80 mm board for the same circuit (XIAO on female headers,
 the cell, switches and button on connectors); its README covers making it
-and the assembly. `python tools/pcb_export.py --board ground laser` writes
-its laser files.
+and the assembly. Its laser files are ready in
+[hardware/ground-pcb/laser](../hardware/ground-pcb/laser), the order files in
+[hardware/ground-pcb/fab](../hardware/ground-pcb/fab).
 
 1. Radio onto the XIAO, LoRa antenna on the Wio-SX1262, **WiFi antenna on
    the XIAO's own U.FL** (without it the WiFi range is about a metre).

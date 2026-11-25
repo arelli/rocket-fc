@@ -8,7 +8,7 @@ pin numbers follow [include/board_pins.h](../../include/board_pins.h), and
 |---|---|
 | `rocket-fc-flight.kicad_pro` | Project, design rules and net classes |
 | `rocket-fc-flight.kicad_sch` | Schematic (one A3 sheet) |
-| `rocket-fc-flight.kicad_pcb` | Board: 30 x 71.6 mm (78.6 mm with the mounting ears), two layers |
+| `rocket-fc-flight.kicad_pcb` | Board: 30 x 68 mm (75 mm with the mounting ears), two layers |
 | `lib/rocket-fc.kicad_sym` | Symbols: XIAO ESP32-S3 + Wio-SX1262, SparkFun MPU-9250 breakout, 4-pin GY-BMP280, L76K |
 | `lib/rocket-fc.pretty/` | Footprints of those modules, and the wire pads of J1 and J3 |
 | `lib/rocket-fc.3dshapes/` | Simplified 3D models of those (boxes and cylinders, for the renders and the tube check by eye) |
@@ -31,7 +31,7 @@ soldered on both sides wherever a track changes face (no plated holes).
 
 The board sits centred in the 32 mm airframe, so the tall parts are on the
 centre line and only low parts (resistors lying flat) are near the edges.
-`y` runs from the XIAO's USB face (0) to the far end (71.6 mm).
+`y` runs from the XIAO's USB face (0) to the far end (68 mm).
 
 | Zone (y, mm) | Top | Bottom |
 |---|---|---|
@@ -39,9 +39,9 @@ centre line and only low parts (resistors lying flat) are near the edges.
 | 0–34 | XIAO with the Wio-SX1262 on top, USB-C flush with the notch; continuity divider (R4, R5, C3) on the left edge, battery divider (R1, R2, C2) on the right; BAT+ / BAT− wire pads | J1: four wire pads at y 9.5 (1 cell −, 2 cell +, 3–4 main switch); SparkFun MPU-9250 |
 | 25–56 | Buzzer centred (34–46), gate resistors R6, R7 and the GPS lead pads J5 on the right edge | IRLB8748 (left) and 1 Ω 2 W resistor (right) lying flat (32–53); 470 µF standing between them (45–54) |
 | 46–61 | 4-pin GY-BMP280, sensor side down, header at its far edge | |
-| 59–62 | ARM link wire pads J3, one in each corner: CELL+ left, ARM right (seen from the top) | |
-| 60–72 | | Screw terminal J4 (igniter), centred |
-| 64–72 | M3 holes H3, H4 in the corners | |
+| 56–59 | ARM link wire pads J3, one at each edge beside the barometer: CELL+ left, ARM right (seen from the top) | |
+| 60–70 | | Screw terminal J4 (igniter), centred, pins at y 65 just past the barometer's joints; its wire entry overhangs the far end by 1.7 mm |
+| 61–68 | M3 holes H3, H4 in the corners | |
 
 - **USB:** the XIAO's USB-C face is at the board edge, in a 14 mm wide notch
   between the two ears, so the plug goes straight in with the board on its
@@ -50,7 +50,7 @@ centre line and only low parts (resistors lying flat) are near the edges.
   (where the tube is tallest), wires entering from the far end. The cell,
   main switch and arm link are **soldered wires** (lighter than plugs and
   terminals, and they cannot shake loose): J1's four pads under the XIAO,
-  J3's two pads in the corners in front of J4. 0.5 mm² (20 AWG) stranded
+  J3's two pads at the edges beside the barometer. 0.5 mm² (20 AWG) stranded
   wire for J1 and J3 (they carry the firing current); tie or glue each lead
   to the board or sled next to its pad, so it does not flex at the joint.
 - **No status LED** (the buzzer stays): see docs/HARDWARE.md.
@@ -79,12 +79,16 @@ tools/pcb_export.py board` redraws it (`tools/pcb_parts.py`, needs Pillow).
 
 ![Dimensions sheet](dims.png)
 
-Both faces straight on with the outline (30 x 71.6 mm, 78.6 mm with the ears;
+Both faces straight on with the outline (30 x 68 mm, 75 mm with the ears;
 ears 8 mm wide and 7 mm deep beside the 14 mm USB notch) and the M3 hole
-positions (22.5 mm across, 71.3 mm along, 3.75 mm from the sides and the far
+positions (22.5 mm across, 67.75 mm along, 3.75 mm from the sides and the far
 end, 3.5 mm from the ear tips) for the sled; the 27 wire vias ringed by net;
 3D views of both faces. The same sheet with the parts list beside it:
-[dims-parts.png](dims-parts.png). `python tools/pcb_export.py board` redraws
+[dims-parts.jpg](dims-parts.jpg):
+
+![Dimensions and parts sheet](dims-parts.jpg)
+
+`python tools/pcb_export.py board` redraws
 both (`tools/pcb_dims.py`, needs Pillow).
 
 ## Making the board (laser and etch)
@@ -97,7 +101,10 @@ floating copper (harmless). No copper under Q1's metal tab or the M3 screw
 heads (keep-out areas; `tools/pcb_check.py` checks it). The tracks still
 make every connection; the pour only adds to the GND ones.
 
-`python tools/pcb_export.py laser` writes to `out/laser/`:
+**Ready to use:** [laser/](laser/) holds every file below for the current
+board, and [rocket-fc-flight-laser.zip](laser/rocket-fc-flight-laser.zip)
+all of them in one download. `python tools/pcb_export.py laser` writes them
+to `out/laser/` and copies them there:
 
 | File | Use |
 |---|---|
@@ -109,12 +116,12 @@ make every connection; the pour only adds to the GND ones.
 | `…-placement-map.png` | Where every part goes, both faces as lasered, with the 27 wire vias (red X) and the pins to solder on both faces (red ring, on the part's face): print it for assembly. Needs PyMuPDF (`pip install pymupdf`), like the PNGs |
 
 Every file uses the same frame, the board outline's bounding box (30.0 x
-78.57 mm), so they line up when placed at the same position:
+75.0 mm), so they line up when placed at the same position:
 
 - **LaserGRBL:** give every job the **same Offset X / Y** (e.g. 0, 0) and
   never move the bed or the jig between them. The G-code coordinates already
-  start at the lower-left corner of that box (X 0–30, Y 0–78.57), so run it
-  with the same origin as the jig. The PNGs come out 30.0 x 78.6 mm from
+  start at the lower-left corner of that box (X 0–30, Y 0–75), so run it
+  with the same origin as the jig. The PNGs come out 30.0 x 75.0 mm from
   their DPI (Autosize on): within half a line of the SVGs.
 - **LightBurn:** one project, one layer each, align their centres; set the
   jig's outline to a layer that does not output.
@@ -168,7 +175,7 @@ same value as the vertical pass's Quality.
 
 ### Steps
 
-1. **Blank:** double-sided FR4, 1.6 mm, at least 36 x 85 mm. Clean both
+1. **Blank:** double-sided FR4, 1.6 mm, at least 36 x 82 mm. Clean both
    faces (fine abrasive pad, then isopropyl alcohol) and spray thin coats of
    matte black paint on both. **Find the laser settings on a scrap** painted
    the same way first:
@@ -216,12 +223,12 @@ same value as the vertical pass's Quality.
 
 No plated holes: a part is soldered on the face opposite to it, and some
 joints end up under a part. `tools/pcb_check.py` lists them, and the
-placement map (`out/laser/…-placement-map.png`) shows where each part goes,
+placement map ([laser/rocket-fc-flight-placement-map.png](laser/rocket-fc-flight-placement-map.png)) shows where each part goes,
 the wire vias and the both-face pins; in practice:
 
 0. **All 27 wire vias first**: a bare wire (e.g. a resistor lead offcut)
    through each 0.8 mm via hole, soldered on both faces and trimmed flush.
-   Several sit under parts (the XIAO, MPU, buzzer, barometer, R3, R4,
+   Several sit under parts (the XIAO, MPU, buzzer, barometer, J4, R3, R4,
    R7).
 1. Small parts in the edge strips, then Q1, R3 and C1 (bottom). **Trim C1's
    joints flush** on the top and put Kapton tape over them: the barometer's
@@ -241,7 +248,8 @@ the wire vias and the both-face pins; in practice:
    both faces free).
 6. The buzzer (top), soldered on the bottom; then the barometer (top),
    **sensor side down**, labels up, VIN in the square pad.
-7. The igniter terminal J4 (bottom), the arm link wires (J3, in from the
+7. The igniter terminal J4 (bottom; its two wire vias, IGN+ and GND, are
+   under it: soldered and trimmed in step 0), the arm link wires (J3, in from the
    top, soldered on the bottom) and the GPS lead.
 
 Pins that `tools/pcb_check.py` lists under "solder on both faces" carry
@@ -250,7 +258,8 @@ copper on both sides and need a joint on each.
 ## Ordering from a PCB maker
 
 The same board can be ordered from a PCB maker instead of etched at home.
-`python tools/pcb_export.py fab` writes `out/fab/`:
+**Ready to upload:** [fab/rocket-fc-flight-fab.zip](fab/rocket-fc-flight-fab.zip).
+`python tools/pcb_export.py fab` writes `out/fab/` and copies the zip there:
 
 | File | Use |
 |---|---|
@@ -268,7 +277,7 @@ Order settings (enter them on the maker's page):
 | Setting | Value |
 |---|---|
 | Layers | 2 |
-| Size | 30 x 78.6 mm (read from the outline) |
+| Size | 30 x 75 mm (read from the outline) |
 | Material, thickness | FR4, 1.6 mm |
 | Copper | 1 oz (35 µm) outside |
 | Surface finish | lead-free HASL (ENIG works too, at more cost) |
