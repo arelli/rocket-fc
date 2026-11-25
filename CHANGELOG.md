@@ -120,6 +120,12 @@ version number (`tlm::kVersion`, docs/TELEMETRY.md).
   linked from the READMEs; `tools/pcb_export.py` copies them there. The
   dimensions sheet with the parts list is a JPEG (`dims-parts.jpg`), shown
   in the READMEs.
+- Hardware: the laser files burn only a 0.4 mm band round the copper on
+  both boards: areas without copper (the USB notch, the keep-outs under Q1's
+  tab and the screw heads, the gaps round the labels) stay painted, as
+  unconnected copper islands, in the copper images as in the isolation
+  G-code (which no longer clears the keep-outs). Flight board about 9 min a
+  face instead of 11-14, ground station 17 instead of 19.
 - UI: zoom on every plot (drag, Shift+drag to pan, Ctrl+wheel, double-click to
   reset; linked time axes), hover readout, CSV export of each plot (range
   shown), of the events and of the GPS frames, plots in their own window.

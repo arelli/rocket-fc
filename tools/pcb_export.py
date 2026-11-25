@@ -204,9 +204,16 @@ def laser(cli):
             if any(os.path.basename(old).startswith('%s-%s' % (NAME, k)) for k in ('top', 'jig')):
                 os.remove(old)
     ok = True
+    # copper images from a copy of the board filled with copper (no net) wherever there is none further than the
+    # isolation band from it (keep-outs, the USB notch, outside the outline): only that band is burned
+    tmp = tempfile.mkdtemp()
+    filled = os.path.join(tmp, NAME + '.kicad_pcb')
+    ok &= subprocess.run([kicad_python(cli), os.path.join(ROOT, 'tools', 'pcb_isolation.py'), '--fill', PCB, filled],
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0
     for name, extra in files.items():
         out = os.path.join(dst, '%s-%s.svg' % (NAME, name))
-        ok &= run(cli, *svg, *extra, '-o', out, PCB, quiet=True) == 0
+        ok &= run(cli, *svg, *extra, '-o', out, PCB if name == 'jig' else filled, quiet=True) == 0
+    shutil.rmtree(tmp, ignore_errors=True)
     ok &= run(cli, 'pcb', 'export', 'drill', '--format', 'excellon', '--excellon-units', 'mm',
               '--generate-map', '--map-format', 'pdf', '--generate-report',
               '--report-path', os.path.join(dst, NAME + '-drill-report.txt'), '-o', dst + os.sep, PCB,

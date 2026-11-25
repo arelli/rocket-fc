@@ -97,8 +97,10 @@ Both faces carry a **GND pour**: the copper between the tracks is kept and
 tied to GND (0.7 mm from every other net, thermal spokes on GND pads), so
 the laser only has to clear a band around each track and pad, and the etch
 removes far less copper. Pieces of the pour that reach no GND pad stay as
-floating copper (harmless). No copper under Q1's metal tab or the M3 screw
-heads (keep-out areas; `tools/pcb_check.py` checks it). The tracks still
+floating copper (harmless). No pour under Q1's metal tab or the M3 screw
+heads (keep-out areas; `tools/pcb_check.py` checks it); the laser files leave
+the paint there, so a home-made board has unconnected copper islands under
+them, touching no net. The tracks still
 make every connection; the pour only adds to the GND ones.
 
 **Ready to use:** [laser/](laser/) holds every file below for the current
@@ -109,7 +111,7 @@ to `out/laser/` and copies them there:
 | File | Use |
 |---|---|
 | `…-top-isolation.nc`, `…-bottom-isolation.nc` | **Vector isolation G-code** (method A, below): outlines around all copper, the bottom mirrored |
-| `…-top.svg`, `…-top-0.08mm.png` | Top copper as a raster image (method B), **negative**: black = laser fires (paint off, copper etched), white = copper stays. Every hole centre is a small black dot, so the etch leaves a pit that centres the drill; the M3 holes are small copper dots |
+| `…-top.svg`, `…-top-0.08mm.png` | Top copper as a raster image (method B), **negative**: black = laser fires (paint off, copper etched), white = copper stays. Only a 0.4 mm band round the copper is black, as in method A: areas without copper (the USB notch, under Q1's tab, round the M3 holes and the labels) stay white and end up as unconnected copper islands. Every hole centre is a small black dot, so the etch leaves a pit that centres the drill |
 | `…-bottom.svg`, `…-bottom-0.08mm.png` | Bottom copper, the same, **mirrored** (as seen from below) |
 | `…-jig.svg` | Registration jig: two 3 mm pin holes at the H1 and H4 positions |
 | `….drl`, `…-drl_map.pdf`, `…-drill-report.txt` | Drill file (mm), drill map and hole count per size |
@@ -126,16 +128,17 @@ Every file uses the same frame, the board outline's bounding box (30.0 x
 - **LightBurn:** one project, one layer each, align their centres; set the
   jig's outline to a layer that does not output.
 
-### Method A: vector isolation (recommended, about 15 minutes a face)
+### Method A: vector isolation (recommended, about 10 minutes a face)
 
 `tools/pcb_isolation.py` turns KiCad's copper into outlines for the laser:
 rings around all copper, starting half a spot from its edge, 20 % overlap,
 until a 0.4 mm band is clear (where two rings meet in a narrow gap the gap
-is already clear, and an outline never enters copper). The keep-out areas
-are cleared completely except for a small copper dot at each M3 hole centre
-(the drill mark); every plated hole gets a burned dot at its centre (the
-etched pit centres the drill); the board outline is traced as a cutting
-line. It then checks its own result: the copper left must contain all of
+is already clear, and an outline never enters copper). Nothing else is
+burned: areas without copper (the keep-outs under Q1's tab and the screw
+heads, the gaps the pour leaves round the labels, the USB notch) stay painted
+and become unconnected copper islands, harmless since they touch no net;
+every hole centre, the M3 holes included, gets a burned dot (the etched pit
+centres the drill); the board outline is traced as a cutting line. It then checks its own result: the copper left must contain all of
 the design's copper, and no two nets may end up joined (a run that fails
 exits with an error).
 

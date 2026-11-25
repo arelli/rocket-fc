@@ -3,6 +3,7 @@ every piece of copper, so only a band around it is cleared (paint ablated, then 
 stays as unconnected islands. Much faster than a raster image, and the etch removes far less copper.
 
     <KiCad python> tools/pcb_isolation.py board.kicad_pcb out_dir [name] [faces]
+    <KiCad python> tools/pcb_isolation.py --fill board.kicad_pcb out.kicad_pcb    # for the raster images
 
 Writes <name>-top-isolation.nc and <name>-bottom-isolation.nc (bottom mirrored, as seen from below); faces
 "bottom" for a single-sided board (default "top,bottom"). Coordinates are
@@ -10,11 +11,15 @@ mm from the lower-left corner of the board outline's bounding box: the same fram
 all of them go at the same offset. Per face:
   - outlines around all copper at spot/2, +step, ... until the cleared band is BAND wide (offsets of the merged
     copper never enter copper, and where two outlines meet in a narrow gap the gap is already clear);
-  - keep-out areas (no copper under the screw heads, nor under the flight board's Q1 tab) cleared completely,
-    except a 0.6 mm copper dot at each unplated hole centre that marks where to drill;
+  - nothing else: areas without copper further than BAND from any (the keep-outs under the screw heads and the
+    flight board's Q1 tab, the gaps the GND pour leaves round the labels) stay painted, as isolated copper
+    islands, and so does everything outside the outline (the USB notch);
   - a small dot at every hole centre (an etched pit centres the drill), like the raster images;
   - the board outline, as a cutting line.
 Then a check: the copper the passes leave must contain the design's copper, and no two nets may end up joined.
+
+--fill writes a copy of the board with every such area added as copper (no net) on both faces: its negative SVG,
+the raster image, then burns only the same BAND round the copper.
 
 Settings (environment): LASER_SPOT (mm, default 0.1), LASER_BAND (mm, 0.4), LASER_FEED (mm/min, 1000),
 LASER_S (power, 980 of GRBL's default $30=1000). Power M4 (dynamic: needs GRBL laser mode $32=1; it lowers the power
@@ -85,30 +90,11 @@ def paths_for(board, layer):
     n = max(1, int(math.ceil((BAND - SPOT) / STEP)) + 1)
     for i in range(n):                                   # isolation outlines, innermost first
         paths += chains(inflated(cu, (SPOT / 2 + i * STEP) * MM))
-    ko = keepouts(board, layer)                          # clear keep-out areas completely (pocket, inward)
-    if ko.OutlineCount():
-        region = ko.CloneDropTriangulation()
-        region.BooleanSubtract(inflated(cu, SPOT / 2 * MM))
-        marks = pcbnew.SHAPE_POLY_SET()                  # keep a 0.6 mm copper dot at unplated hole centres: it
-        for fp in board.GetFootprints():                 # marks where to drill the M3 holes (as in the images)
-            for p in fp.Pads():
-                if p.GetAttribute() == pcbnew.PAD_ATTRIB_NPTH:
-                    pcbnew.SHAPE_CIRCLE(p.GetPosition(), int((0.3 + SPOT / 2) * MM)).TransformToPolygon(
-                        marks, ERR, pcbnew.ERROR_OUTSIDE)
-        region.BooleanSubtract(marks)
-        region.Simplify()
-        d = SPOT / 2
-        while True:
-            ring = inflated(region, -d * MM)
-            if not ring.OutlineCount():
-                break
-            paths += chains(ring)
-            d += STEP
     paths += chains(board_outline(board))               # cutting line
-    dots = []                                            # drill-centre dots (burned into the pads on purpose)
-    for fp in board.GetFootprints():
+    dots = []                                            # drill-centre dots (burned into the pads on purpose, and
+    for fp in board.GetFootprints():                     # into the copper islands left at the M3 holes)
         for p in fp.Pads():
-            if p.GetAttribute() == pcbnew.PAD_ATTRIB_PTH and p.IsOnLayer(layer):
+            if (p.GetAttribute() == pcbnew.PAD_ATTRIB_PTH and p.IsOnLayer(layer)) or                     p.GetAttribute() == pcbnew.PAD_ATTRIB_NPTH:
                 dots.append(circle(p.GetPosition(), 0.1))
     for t in board.GetTracks():
         if t.GetClass() == 'PCB_VIA':
@@ -204,6 +190,36 @@ def gcode(paths, mirror, bb, path, name):
     return length
 
 
+def fill(pcb, out):
+    """A copy of the board with copper (no net) on both faces wherever the design has none further than BAND from
+    its copper, the area outside the outline included: in a negative plot only the band round the copper is black."""
+    board = pcbnew.LoadBoard(pcb)
+    bb = board.GetBoardEdgesBoundingBox()
+    bb.Inflate(int(2 * MM))
+    shapes = []
+    for layer in (pcbnew.F_Cu, pcbnew.B_Cu):
+        area = pcbnew.SHAPE_POLY_SET()
+        area.NewOutline()
+        for x, y in ((bb.GetLeft(), bb.GetTop()), (bb.GetRight(), bb.GetTop()), (bb.GetRight(), bb.GetBottom()),
+                     (bb.GetLeft(), bb.GetBottom())):
+            area.Append(x, y)
+        area.BooleanSubtract(inflated(copper(board, layer), BAND * MM))
+        area.Fracture()                                  # holes joined to their outlines: plain filled polygons
+        for i in range(area.OutlineCount()):
+            one = pcbnew.SHAPE_POLY_SET()
+            one.AddOutline(area.Outline(i))
+            s = pcbnew.PCB_SHAPE(board, pcbnew.SHAPE_T_POLY)
+            s.SetPolyShape(one)
+            s.SetFilled(True)
+            s.SetWidth(0)
+            s.SetLayer(layer)
+            shapes.append(s)
+    for s in shapes:
+        board.Add(s)
+    board.Save(out)
+    return 0
+
+
 def main(pcb, out_dir, name='rocket-fc-flight', faces='top,bottom'):
     board = pcbnew.LoadBoard(pcb)
     bb = board_outline(board).BBox()                     # the outline itself (not its line width): the SVGs' page
@@ -225,4 +241,6 @@ def main(pcb, out_dir, name='rocket-fc-flight', faces='top,bottom'):
 if __name__ == '__main__':
     if len(sys.argv) < 3:
         sys.exit(__doc__)
+    if sys.argv[1] == '--fill':
+        sys.exit(fill(*sys.argv[2:4]))
     sys.exit(main(*sys.argv[1:]))

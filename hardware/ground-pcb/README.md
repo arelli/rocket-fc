@@ -116,8 +116,8 @@ laser` writes them to `out/laser/` and copies them there:
 
 | File | Use |
 |---|---|
-| `…-bottom-isolation.nc` | **Vector isolation G-code** (method A, about 19 min): outlines round all copper, mirrored |
-| `…-bottom.svg`, `…-bottom-0.08mm.png` | The copper as a raster image (method B), **negative** (black = laser fires, white = copper stays), mirrored. Every hole centre is a small black dot (the etched pit centres the drill); the M3 holes are small copper dots |
+| `…-bottom-isolation.nc` | **Vector isolation G-code** (method A, about 17 min): outlines round all copper, mirrored |
+| `…-bottom.svg`, `…-bottom-0.08mm.png` | The copper as a raster image (method B), **negative** (black = laser fires, white = copper stays), mirrored. Only a 0.4 mm band round the copper is black: areas without copper (round the M3 holes and the labels) stay white, as unconnected copper islands. Every hole centre is a small black dot (the etched pit centres the drill) |
 | `….drl`, `…-drl_map.pdf`, `…-drill-report.txt` | Drill file (mm), drill map and hole count per size |
 | `…-placement-map.png` | Where every part goes (top face, with the copper seen through the board) and the copper face as lasered: print it for assembly |
 
@@ -125,12 +125,12 @@ The frame of every file is the board outline (100 x 80 mm). The copper
 labels are 2.5-3 mm high with a 0.5-0.6 mm stroke, so they survive the
 laser and the etch.
 
-### Method A: vector isolation (recommended, about 19 minutes)
+### Method A: vector isolation (recommended, about 17 minutes)
 
 Open the `.nc` file in LaserGRBL (*File → Open*) and run it: it starts at
 the board's lower-left corner (X 0-100, Y 0-80), M4 power with `$32=1`.
 Settings (`LASER_SPOT`, `LASER_BAND`, `LASER_FEED`, `LASER_S`) as for the
-[flight board](../flight-pcb/README.md#method-a-vector-isolation-recommended-about-15-minutes-a-face).
+[flight board](../flight-pcb/README.md#method-a-vector-isolation-recommended-about-10-minutes-a-face).
 
 ### Method B: raster image
 
