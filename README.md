@@ -59,6 +59,20 @@ controller for the motor igniter.
 Full parts list, assembly and first-time setup:
 **[docs/BUILD.md](docs/BUILD.md)**.
 
+### PCBs
+
+KiCad 10 boards for a home-made build (laser and etch), each part tagged on
+the 3D render with what goes into each screw terminal and the resistor colour
+codes.
+
+**Flight computer** ([hardware/flight-pcb](hardware/flight-pcb/README.md)):
+
+[![Flight computer PCB parts](hardware/flight-pcb/parts.png)](hardware/flight-pcb/parts.png)
+
+**Ground station** ([hardware/ground-pcb](hardware/ground-pcb/README.md)):
+
+[![Ground station PCB parts](hardware/ground-pcb/parts.png)](hardware/ground-pcb/parts.png)
+
 ## Quick start
 
 1. Build the two kits ([docs/BUILD.md](docs/BUILD.md)).
@@ -122,7 +136,7 @@ src/ground/     ground station firmware and its WiFi server
 test/           unit tests (pio test -e native)
 tools/          ground_station.html (the UI), ground_station.py (USB recorder),
                 pcb_export.py (KiCad checks and exports; with
-                pcb_check.py, pcb_map.py, pcb_isolation.py),
+                pcb_check.py, pcb_map.py, pcb_isolation.py, pcb_parts.py),
                 schematics.py (ground station drawing), build scripts
 hardware/       flight-pcb: KiCad 10 project of the flight computer
                 (schematic = wiring master; routed board, laser files

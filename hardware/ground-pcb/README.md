@@ -90,18 +90,34 @@ colour code (4-band 5 %, 5-band 1 %; the render shows the 4-band one). Every
 part sits on the top face. `python tools/pcb_export.py --board ground board`
 redraws it (`tools/pcb_parts.py`, needs Pillow).
 
+## Dimensions
+
+![Dimensions sheet](dims.png)
+
+Both faces straight on with the outline (100 x 80 mm) and the M3 hole
+positions (92 x 72 mm apart, 4 mm from the edges), and 3D views of both
+faces. The same sheet with the parts list beside it:
+[dims-parts.jpg](dims-parts.jpg):
+
+![Dimensions and parts sheet](dims-parts.jpg)
+
+`python tools/pcb_export.py --board ground board` redraws both (`tools/pcb_dims.py`, needs Pillow).
+
 ## Making the board (laser and etch)
 
 Same method as the flight board ([hardware/flight-pcb](../flight-pcb/README.md#making-the-board-laser-and-etch)),
 for one face. The GND pour fills the copper between the tracks (0.7 mm from
 every other net), so the laser only clears a band round each track and pad.
 
-`python tools/pcb_export.py --board ground laser` writes to `out/laser/`:
+**Ready to use:** [laser/](laser/) holds every file below for the current
+board, and [rocket-fc-ground-laser.zip](laser/rocket-fc-ground-laser.zip)
+all of them in one download. `python tools/pcb_export.py --board ground
+laser` writes them to `out/laser/` and copies them there:
 
 | File | Use |
 |---|---|
-| `…-bottom-isolation.nc` | **Vector isolation G-code** (method A, about 19 min): outlines round all copper, mirrored |
-| `…-bottom.svg`, `…-bottom-0.08mm.png` | The copper as a raster image (method B), **negative** (black = laser fires, white = copper stays), mirrored. Every hole centre is a small black dot (the etched pit centres the drill); the M3 holes are small copper dots |
+| `…-bottom-isolation.nc` | **Vector isolation G-code** (method A, about 17 min): outlines round all copper, mirrored |
+| `…-bottom.svg`, `…-bottom-0.08mm.png` | The copper as a raster image (method B), **negative** (black = laser fires, white = copper stays), mirrored. Only a 0.4 mm band round the copper is black: areas without copper (round the M3 holes and the labels) stay white, as unconnected copper islands. Every hole centre is a small black dot (the etched pit centres the drill); the M3 holes get a 0.6 mm black ring round it |
 | `….drl`, `…-drl_map.pdf`, `…-drill-report.txt` | Drill file (mm), drill map and hole count per size |
 | `…-placement-map.png` | Where every part goes (top face, with the copper seen through the board) and the copper face as lasered: print it for assembly |
 
@@ -109,12 +125,12 @@ The frame of every file is the board outline (100 x 80 mm). The copper
 labels are 2.5-3 mm high with a 0.5-0.6 mm stroke, so they survive the
 laser and the etch.
 
-### Method A: vector isolation (recommended, about 19 minutes)
+### Method A: vector isolation (recommended, about 17 minutes)
 
 Open the `.nc` file in LaserGRBL (*File → Open*) and run it: it starts at
 the board's lower-left corner (X 0-100, Y 0-80), M4 power with `$32=1`.
 Settings (`LASER_SPOT`, `LASER_BAND`, `LASER_FEED`, `LASER_S`) as for the
-[flight board](../flight-pcb/README.md#method-a-vector-isolation-recommended-about-15-minutes-a-face).
+[flight board](../flight-pcb/README.md#method-a-vector-isolation-recommended-about-10-minutes-a-face).
 
 ### Method B: raster image
 
@@ -188,6 +204,7 @@ First power-up: no igniter in J1, ARM switch off, MODE in BENCH; then follow
 
 ## Ordering from a PCB maker
 
+**Ready to upload:** [fab/rocket-fc-ground-fab.zip](fab/rocket-fc-ground-fab.zip).
 `python tools/pcb_export.py --board ground fab` writes `out/fab/` with the
 same files as the flight board: `rocket-fc-ground-fab.zip` to upload
 (Gerbers with Protel extensions, Excellon drill files in mm with plated and

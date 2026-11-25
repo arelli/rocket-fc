@@ -134,8 +134,9 @@ silkscreen of the module in hand.
 
 ```
  18350 + ── ARM link ── 1 Ω 5 W ── igniter (1 cm 32 AWG nichrome) ──┬── Q1 drain (IRLB8748)
-            (screw terminal +                                       │
-             removable wire)                                       100k
+            (two soldered wires                                     │
+             to a key switch or                                    100k
+             removable jumper)                                      │
                                                                     ├── D1 (+100 nF to GND, optional)
                                                                    100k
                                                                     │

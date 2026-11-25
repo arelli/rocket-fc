@@ -90,6 +90,43 @@ version number (`tlm::kVersion`, docs/TELEMETRY.md).
   each screw terminal, and a legend with
   values, what each part is and the resistor colour codes. Drawn by
   `tools/pcb_parts.py` in the board step of `tools/pcb_export.py`.
+- Hardware: flight PCB with soldered wires instead of plugs: the cell and
+  main switch (J1, the JST-XH 4-pin pad layout without the plug) and the arm
+  link (J3, two pads, one in each corner of the far end); the igniter keeps
+  its screw terminal (J4). The board is 6.6 mm shorter, 30 x 71.6 mm (78.6 mm
+  with the ears): J4 and the holes H3, H4 moved up into the room J3's
+  terminal left, R3 turned end for end so the ARM and IGN+ tracks reach
+  their new places, still 27 wire vias. DRC, parity and `pcb_check` clean;
+  laser and fab files regenerated. `tools/pcb_check.py`: a wire pad's joint
+  goes into the assembly order like a pin's; `tools/pcb_parts.py` can tag
+  each pad of a part on its own.
+- Hardware: dimensions sheet for both boards (`hardware/*-pcb/dims.png`, in
+  their READMEs): both faces with the outline and mounting hole dimensions,
+  the wire vias ringed by net and two 3D views; `dims-parts.png` adds the
+  parts list. Drawn by `tools/pcb_dims.py` in the board step of
+  `tools/pcb_export.py`; the face renders now have a transparent background
+  (the parts sheet is on white).
+- Hardware: flight PCB 3.6 mm shorter, 30 x 68 mm (75 mm with the ears):
+  J4 moved up next to the barometer (its pins just past the barometer's
+  joints, its wire entry overhanging the far end by 1.7 mm), H3 and H4
+  with it (67.75 mm from H1, H2), the arm link pads J3 beside the
+  barometer; the far end re-routed on both faces, the GND link now on the
+  top face, still 27 wire vias, tracks and clearances unchanged. TOP label
+  beside the buzzer. `tools/pcb_check.py`: a part may overhang the outline
+  by a set amount (`overhang`, J4's wire entry).
+- Hardware: the laser files (isolation G-code, copper images, jig, drill
+  file, placement map, and a zip of them) and the PCB maker zip of both
+  boards are kept in the repository (`hardware/*-pcb/laser/`, `fab/`),
+  linked from the READMEs; `tools/pcb_export.py` copies them there. The
+  dimensions sheet with the parts list is a JPEG (`dims-parts.jpg`), shown
+  in the READMEs.
+- Hardware: the laser files burn only a 0.4 mm band round the copper on
+  both boards: areas without copper (the USB notch, the keep-outs under Q1's
+  tab and the screw heads, the gaps round the labels) stay painted, as
+  unconnected copper islands, in the copper images as in the isolation
+  G-code (which no longer clears the keep-outs); the M3 and Q1 tab hole
+  centres are marked with a 0.6 mm burned disc. Flight board about 9 min a
+  face instead of 11-14, ground station 17 instead of 19.
 - UI: zoom on every plot (drag, Shift+drag to pan, Ctrl+wheel, double-click to
   reset; linked time axes), hover readout, CSV export of each plot (range
   shown), of the events and of the GPS frames, plots in their own window.

@@ -7,12 +7,15 @@ Usage:
     python tools/pcb_export.py docs       # docs/schematics/flight.svg, printable PDF in hardware/flight-pcb/out/
     python tools/pcb_export.py board      # 1:1 placement PDFs (top, bottom) and 3D renders in hardware/flight-pcb/out/
                                           # and the parts sheet (tagged renders, legend, resistor colour codes),
-                                          # copied to hardware/flight-pcb/parts.png for the README
+                                          # copied to hardware/flight-pcb/parts.png for the README, and the
+                                          # dimensions sheet (outline, holes, wire vias, 3D views), without and
+                                          # with the parts list: dims.png, dims-parts.jpg
     python tools/pcb_export.py laser      # laser copper images, isolation G-code, registration jig, drill file,
-                                          # placement map in hardware/flight-pcb/out/laser/
+                                          # placement map in hardware/flight-pcb/out/laser/, copied with a zip of
+                                          # them to hardware/flight-pcb/laser/ for the README
                                           # (PNG line spacing: LASER_LPMM lines/mm, default 12.5 = 0.08 mm)
     python tools/pcb_export.py fab        # Gerbers, drill files and a zip to order from a PCB maker in
-                                          # hardware/flight-pcb/out/fab/
+                                          # hardware/flight-pcb/out/fab/, the zip copied to hardware/flight-pcb/fab/
     python tools/pcb_export.py --board ground [steps]   # the same for hardware/ground-pcb (its schematic SVG is
                                                         # docs/schematics/ground-pcb.svg)
 
@@ -132,11 +135,15 @@ def board(cli):
     ok &= run(cli, 'pcb', 'export', 'pdf', '--layers', 'B.Fab,B.Cu,Edge.Cuts', '--mode-single', '--black-and-white',
               '--sketch-pads-on-fab-layers', '--mirror', '-o', os.path.join(OUT, NAME + '-placement-bottom.pdf'),
               PCB) == 0
-    for name, extra in (('top', ['--side', 'top']), ('bottom', ['--side', 'bottom']),
-                        ('3d', ['--rotate', '-60,0,30', '--perspective'])):
-        ok &= run(cli, 'pcb', 'render', *extra, '--quality', 'high', '--background', 'opaque', '-w', '1600',
-                  '-h', '1600' if name != '3d' else '1100', '-o', os.path.join(OUT, '%s-%s.png' % (NAME, name)),
-                  PCB, quiet=True) == 0
+    # top and bottom straight on and the two 3D views of the dimensions sheet on a transparent background
+    clear = ['--background', 'transparent', '-w', '1600', '-h', '1600']
+    for name, extra in (('top', ['--side', 'top'] + clear), ('bottom', ['--side', 'bottom'] + clear),
+                        ('3d', ['--rotate', '-60,0,30', '--perspective', '--background', 'opaque', '-w', '1600',
+                                '-h', '1100']),
+                        ('3d-top', ['--rotate', '-55,0,215', '--perspective', '--zoom', '0.75'] + clear),
+                        ('3d-bottom', ['--side', 'bottom', '--rotate', '-55,0,35', '--perspective', '--zoom', '0.75'] + clear)):
+        ok &= run(cli, 'pcb', 'render', *extra, '--quality', 'high',
+                  '-o', os.path.join(OUT, '%s-%s.png' % (NAME, name)), PCB, quiet=True) == 0
     # parts sheet: the renders with every part tagged and a legend (resistor colour codes), also next to the README
     sheet = ''
     try:
@@ -151,9 +158,22 @@ def board(cli):
                 pcb_parts.draw(parts, os.path.join(OUT, NAME + '-top.png'), os.path.join(OUT, NAME + '-bottom.png'),
                                png, NAME)
                 shutil.copyfile(png, os.path.join(os.path.dirname(PCB), 'parts.png'))
-                sheet = ', parts sheet (also %s)' % rel(os.path.join(os.path.dirname(PCB), 'parts.png'))
+                # dimensions sheet (outline, holes, wire vias, 3D views), also with the parts list
+                import pcb_dims
+                renders = [os.path.join(OUT, '%s-%s.png' % (NAME, v)) for v in ('top', 'bottom', '3d-top', '3d-bottom')]
+                for tag, with_parts in (('dims', False), ('dims-parts', True)):
+                    png = os.path.join(OUT, '%s-%s.png' % (NAME, tag))
+                    pcb_dims.draw(parts, *renders, png, NAME, with_parts)
+                    if with_parts:                       # the big sheet as JPEG next to the README (a third the size)
+                        from PIL import Image
+                        Image.open(png).convert('RGB').save(os.path.join(os.path.dirname(PCB), tag + '.jpg'),
+                                                            quality=90)
+                    else:
+                        shutil.copyfile(png, os.path.join(os.path.dirname(PCB), tag + '.png'))
+                sheet = ', parts and dimensions sheets (also parts.png, dims.png, dims-parts.jpg in %s)' % rel(
+                    os.path.dirname(PCB))
     except ImportError:
-        sheet = ' (pip install pillow for the parts sheet)'
+        sheet = ' (pip install pillow for the parts and dimensions sheets)'
     print('board: placement PDFs and renders%s in %s' % (sheet, rel(OUT)))
     return ok
 
@@ -184,9 +204,16 @@ def laser(cli):
             if any(os.path.basename(old).startswith('%s-%s' % (NAME, k)) for k in ('top', 'jig')):
                 os.remove(old)
     ok = True
+    # copper images from a copy of the board filled with copper (no net) wherever there is none further than the
+    # isolation band from it (keep-outs, the USB notch, outside the outline): only that band is burned
+    tmp = tempfile.mkdtemp()
+    filled = os.path.join(tmp, NAME + '.kicad_pcb')
+    ok &= subprocess.run([kicad_python(cli), os.path.join(ROOT, 'tools', 'pcb_isolation.py'), '--fill', PCB, filled],
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0
     for name, extra in files.items():
         out = os.path.join(dst, '%s-%s.svg' % (NAME, name))
-        ok &= run(cli, *svg, *extra, '-o', out, PCB, quiet=True) == 0
+        ok &= run(cli, *svg, *extra, '-o', out, PCB if name == 'jig' else filled, quiet=True) == 0
+    shutil.rmtree(tmp, ignore_errors=True)
     ok &= run(cli, 'pcb', 'export', 'drill', '--format', 'excellon', '--excellon-units', 'mm',
               '--generate-map', '--map-format', 'pdf', '--generate-report',
               '--report-path', os.path.join(dst, NAME + '-drill-report.txt'), '-o', dst + os.sep, PCB,
@@ -239,6 +266,17 @@ def laser(cli):
         pngs = ' (pip install pymupdf for the PNGs and the placement map)'
     what = 'top, bottom (mirrored) and jig SVGs' if len(faces) == 2 else 'bottom SVG (mirrored, single-sided)'
     print('laser: %s%s; isolation G-code, drill file and report in %s' % (what, pngs, rel(dst)))
+    # the same files and a zip of them next to the README, kept in the repository
+    keep = os.path.join(PROJECT, 'laser')
+    os.makedirs(keep, exist_ok=True)
+    for old in os.listdir(keep):                         # empty it (the folder itself may be open elsewhere)
+        os.remove(os.path.join(keep, old))
+    shutil.copytree(dst, keep, dirs_exist_ok=True)
+    import zipfile
+    with zipfile.ZipFile(os.path.join(keep, NAME + '-laser.zip'), 'w', zipfile.ZIP_DEFLATED) as z:
+        for n in sorted(os.listdir(dst)):
+            z.write(os.path.join(dst, n), n)
+    print('laser: copied with %s-laser.zip to %s' % (NAME, rel(keep)))
     return ok
 
 
@@ -287,6 +325,10 @@ def fab(cli):
         for n in names:
             z.write(os.path.join(files, n), n)
     print('fab: %s (%s)' % (os.path.relpath(archive, ROOT), ', '.join(names)))
+    keep = os.path.join(PROJECT, 'fab')                  # the zip next to the README, kept in the repository
+    os.makedirs(keep, exist_ok=True)
+    shutil.copyfile(archive, os.path.join(keep, os.path.basename(archive)))
+    print('fab: copied to %s' % rel(keep))
     return True
 
 

@@ -22,9 +22,11 @@ RGB = {'black': (20, 20, 20), 'brown': (120, 62, 20), 'red': (215, 30, 30), 'ora
        'yellow': (250, 220, 30), 'green': (30, 160, 60), 'blue': (30, 80, 220), 'violet': (140, 60, 200),
        'grey': (140, 140, 140), 'white': (245, 245, 245), 'gold': (205, 165, 50), 'silver': (190, 190, 200)}
 ORDER = ['U', 'Q', 'R', 'C', 'LED', 'BZ', 'J']           # legend order by reference prefix
-# what goes into each screw terminal: (tag on the render, sign per pin or None, legend line)
+# what goes into each screw terminal or wire pad: (tag on the render, sign per pin or None, legend line);
+# tag None: a tag over each pad, its text from the pin's net
 WIRES = {'rocket-fc-flight': {
-    'J3': ('ARM LINK', None, 'ARM link (key switch or jumper): one wire in each screw'),
+    'J1': ('CELL / SWITCH', None, 'Cell and main switch, soldered wires: pad 1 cell −, 2 cell +, 3–4 main switch'),
+    'J3': (None, {'/CELL+': 'ARM LINK +', '/ARM': 'ARM LINK'}, 'ARM link (key switch or jumper): one wire soldered to each corner pad'),
     'J4': ('IGNITER', None, 'Igniter: one lead in each screw, either way round'),
 }, 'rocket-fc-ground': {
     'J1': ('IGNITER', None, 'Igniter cable: one lead in each screw, either way round'),
@@ -92,6 +94,17 @@ def font(size, bold=False):
     return ImageFont.load_default(size)
 
 
+def load_render(png):
+    """A kicad-cli render with a transparent background on white; the shadow (part transparent) is dropped."""
+    from PIL import Image
+    im = Image.open(png)
+    if im.mode != 'RGBA':
+        return im.convert('RGB')
+    out = Image.new('RGB', im.size, (255, 255, 255))
+    out.paste(im, (0, 0), im.getchannel('A').point(lambda a: 255 if a > 250 else 0))
+    return out
+
+
 def find_board(im, bw, bh):
     """Pixel box of the board in a render: the rows and columns that are mostly solder-mask green."""
     w, h = im.size
@@ -112,16 +125,15 @@ def draw(parts_json, top_png, bottom_png, out_png, name='rocket-fc-flight'):
     from PIL import Image, ImageDraw
 
     d = json.load(open(parts_json))
-    names = NAMES.get(name, {})
     X0, Y0, X1, Y1 = d['bbox']
     BW, BH = X1 - X0, Y1 - Y0
     parts = [p for p in d['parts'] if not p['ref'].startswith('H')]
     sides = ['F'] + (['B'] if any(p['side'] == 'B' for p in parts) else [])
-    f_tag, f_row, f_small, f_title = font(30, True), font(28), font(24), font(40, True)
+    f_tag = font(30, True)
 
     panels = []
     for side in sides:
-        im = Image.open(top_png if side == 'F' else bottom_png).convert('RGB')
+        im = load_render(top_png if side == 'F' else bottom_png)
         ox, oy, k = find_board(im, BW, BH)
         pad = 140                                        # room round the render for tags outside the board
         big = Image.new('RGB', (im.width + 2 * pad, im.height + 2 * pad), im.getpixel((2, 2)))
@@ -177,6 +189,15 @@ def draw(parts_json, top_png, bottom_png, out_png, name='rocket-fc-flight'):
                 continue
             label, signs, _ = wires[p['ref']]
             pins = sorted((P(x, y) + (net,) for _, x, y, net in p['pads']), key=lambda q: q[0])
+            if label is None:                            # separate pads: one tag over each, from its net
+                for px, py, net in pins:
+                    t = signs[net]
+                    w, h = dr.textlength(t, font=f_tag) + 20, 42
+                    x, y = px - w / 2, py - 34 - h
+                    placed.append((x, y, x + w, y + h))
+                    dr.rounded_rectangle((x, y, x + w, y + h), 8, fill=(255, 225, 90), outline=(0, 0, 0), width=3)
+                    dr.text((x + 10, y + 4), t, font=f_tag, fill=(0, 0, 0))
+                continue
             if signs:
                 label = '%s  %s  %s' % (signs.get(pins[0][2], ''), label, signs.get(pins[-1][2], ''))
             w, h = dr.textlength(label, font=f_tag) + 20, 42
@@ -214,7 +235,29 @@ def draw(parts_json, top_png, bottom_png, out_png, name='rocket-fc-flight'):
         crop = im.crop((max(0, int(cx0)), max(0, int(cy0)), min(im.width, int(cx1)), min(im.height, int(cy1))))
         panels.append(('TOP face' if side == 'F' else 'BOTTOM face (seen from below)', crop))
 
-    # legend
+    leg = legend(parts, name, len(sides) == 2)
+    ph = max(c.height for _, c in panels) + 60
+    W = sum(c.width for _, c in panels) + 30 * (len(panels) - 1) + leg.width
+    H = max(ph, leg.height)
+    out = Image.new('RGB', (W, H), (255, 255, 255))
+    dr = ImageDraw.Draw(out)
+    x = 0
+    for title, c in panels:
+        dr.text((x + 20, 12), title, font=f_tag, fill=(0, 0, 0))
+        out.paste(c, (x, 60))
+        x += c.width + 30
+    out.paste(leg, (x, 0))
+    out.save(out_png)
+
+
+def legend(parts, name, two_sided, bg=(255, 255, 255), tags=True):
+    """The parts list as an image: reference, value, what it is, resistor colour codes, what goes into each
+    screw terminal or wire pad. tags: the renders beside it are tagged (yellow tags, colour bands)."""
+    from PIL import Image, ImageDraw
+    names = NAMES.get(name, {})
+    f_tag, f_row, f_small, f_title = font(30, True), font(28), font(24), font(40, True)
+    sides = ['F', 'B'] if two_sided else ['F']
+
     def key(p):
         pre = re.match(r'[A-Z]+', p['ref']).group(0)
         return (ORDER.index(pre) if pre in ORDER else len(ORDER), int(re.sub(r'\D', '', p['ref']) or 0))
@@ -222,17 +265,10 @@ def draw(parts_json, top_png, bottom_png, out_png, name='rocket-fc-flight'):
     any_r = any(p['ref'].startswith('R') for p in rows)
     LW = 1500 if any_r else 1100
     RH = 54
-    ph = max(c.height for _, c in panels) + 60
-    W = sum(c.width for _, c in panels) + 30 * (len(panels) - 1) + LW
-    H = max(ph, 400 + RH * len(rows) + 60 * 8)              # cropped to the content at the end
-    out = Image.new('RGB', (W, H), (250, 250, 250))
+    W, H = LW, 400 + RH * len(rows) + 60 * 8 + 40 * len(WIRES.get(name, {}))   # cropped to the content at the end
+    out = Image.new('RGB', (W, H), bg)
     dr = ImageDraw.Draw(out)
-    x = 0
-    for title, c in panels:
-        dr.text((x + 20, 12), title, font=f_tag, fill=(0, 0, 0))
-        out.paste(c, (x, 60))
-        x += c.width + 30
-    lx, y = x + 20, 30
+    lx, y = 20, 30
     dr.text((lx, y), {'rocket-fc-flight': 'Flight computer', 'rocket-fc-ground': 'Ground station'}.get(name, name)
             + ': parts', font=f_title, fill=(0, 0, 0))
     y += 70
@@ -270,7 +306,7 @@ def draw(parts_json, top_png, bottom_png, out_png, name='rocket-fc-flight'):
     wires = WIRES.get(name, {})
     if wires:
         y += 20
-        dr.text((lx, y), 'Screw terminals (yellow tags):', font=f_tag, fill=(0, 0, 0))
+        dr.text((lx, y), 'Connections (yellow tags):' if tags else 'Connections:', font=f_tag, fill=(0, 0, 0))
         y += 48
         for ref, (_, _, line) in sorted(wires.items()):
             dr.text((lx, y), '%s  %s' % (ref, line), font=f_small, fill=(0, 0, 0))
@@ -288,10 +324,9 @@ def draw(parts_json, top_png, bottom_png, out_png, name='rocket-fc-flight'):
             dr.text((lx, y), '%s:  %s   |   %s' % (nice('R', '%g' % r), '-'.join(bands(r, 4)), '-'.join(bands(r, 5))),
                     font=f_small, fill=(0, 0, 0))
             y += 36
-        dr.text((lx, y + 8), 'The render shows the 4-band code. Resistors go either way round.', font=f_small,
-                fill=(60, 60, 60))
-    out = out.crop((0, 0, W, max(ph, y + 70)))
-    out.save(out_png)
+        dr.text((lx, y + 8), ('The render shows the 4-band code. ' if tags else '') + 'Resistors go either way round.',
+                font=f_small, fill=(60, 60, 60))
+    return out.crop((0, 0, W, y + 70))
 
 
 if __name__ == '__main__':
