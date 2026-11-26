@@ -128,7 +128,7 @@ Every file uses the same frame, the board outline's bounding box (30.0 x
 - **LightBurn:** one project, one layer each, align their centres; set the
   jig's outline to a layer that does not output.
 
-### Method A: vector isolation (recommended, about 10 minutes a face)
+### Method A: vector isolation (recommended, about 30 minutes a face)
 
 `tools/pcb_isolation.py` turns KiCad's copper into outlines for the laser:
 rings around all copper, starting half a spot from its edge, 20 % overlap,
@@ -151,7 +151,7 @@ environment variables for `python tools/pcb_export.py laser`:
 |---|---|---|
 | `LASER_SPOT` | 0.1 | Burned line width (mm): measure a line on the test scrap |
 | `LASER_BAND` | 0.4 | Width cleared around the copper (mm) |
-| `LASER_FEED` | 1000 | Speed (mm/min) |
+| `LASER_FEED` | 300 | Speed (mm/min) |
 | `LASER_S` | 980 | Power, of GRBL's `$30` maximum (1000 by default) |
 
 ### Method B: raster image (about 70 minutes a face)

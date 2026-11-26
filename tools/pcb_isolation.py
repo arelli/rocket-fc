@@ -22,7 +22,7 @@ Then a check: the copper the passes leave must contain the design's copper, and 
 --fill writes a copy of the board with every such area added as copper (no net) on both faces: its negative SVG,
 the raster image, then burns only the same BAND round the copper.
 
-Settings (environment): LASER_SPOT (mm, default 0.1), LASER_BAND (mm, 0.4), LASER_FEED (mm/min, 1000),
+Settings (environment): LASER_SPOT (mm, default 0.1), LASER_BAND (mm, 0.4), LASER_FEED (mm/min, 300),
 LASER_S (power, 980 of GRBL's default $30=1000). Power M4 (dynamic: needs GRBL laser mode $32=1; it lowers the power
 in corners where the head slows down); travel moves at S0.
 """
@@ -35,7 +35,7 @@ import pcbnew
 MM = 1e6
 SPOT = float(os.environ.get('LASER_SPOT', '0.1'))
 BAND = float(os.environ.get('LASER_BAND', '0.4'))
-FEED = float(os.environ.get('LASER_FEED', '1000'))
+FEED = float(os.environ.get('LASER_FEED', '300'))
 POWER = int(os.environ.get('LASER_S', '980'))
 STEP = 0.8 * SPOT                       # 20 % overlap between neighbouring outlines
 ERR = int(0.005 * MM)

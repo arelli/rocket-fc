@@ -127,6 +127,8 @@ version number (`tlm::kVersion`, docs/TELEMETRY.md).
   G-code (which no longer clears the keep-outs); the M3 and Q1 tab hole
   centres are marked with a 0.6 mm burned disc. Flight board about 9 min a
   face instead of 11-14, ground station 17 instead of 19.
+- Hardware: isolation G-code at 300 mm/min by default (`LASER_FEED`, was
+  1000): flight board about 30 min a face, ground station about 56 min.
 - UI: zoom on every plot (drag, Shift+drag to pan, Ctrl+wheel, double-click to
   reset; linked time axes), hover readout, CSV export of each plot (range
   shown), of the events and of the GPS frames, plots in their own window.
